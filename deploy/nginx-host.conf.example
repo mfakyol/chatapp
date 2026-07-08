@@ -1,0 +1,51 @@
+# =========================================================================
+# HOST nginx (on the Linux server, NOT in a container).
+# Terminates TLS for chat.fatihakyol.com and reverse-proxies to the in-stack
+# proxy container published on 127.0.0.1:8082 by docker-compose.prod.yml.
+#
+# Install to e.g. /etc/nginx/sites-available/chat.fatihakyol.com and symlink into
+# sites-enabled, then get a certificate:
+#   sudo certbot --nginx -d chat.fatihakyol.com
+# certbot will fill in the ssl_certificate lines and the port-443 server block.
+# =========================================================================
+
+# WebSocket upgrade passthrough (Socket.io).
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# Redirect HTTP → HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name chat.fatihakyol.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name chat.fatihakyol.com;
+
+    # --- TLS (certbot manages these) ---
+    ssl_certificate     /etc/letsencrypt/live/chat.fatihakyol.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/chat.fatihakyol.com/privkey.pem;
+
+    client_max_body_size 25m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8082;
+        proxy_http_version 1.1;
+        # Pass WebSocket upgrade through to the in-stack proxy (Socket.io).
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+    }
+}

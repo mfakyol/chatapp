@@ -103,6 +103,8 @@ export const messages = {
     attachFile: 'Attach file',
     emoji: 'Emoji',
     react: 'Add reaction',
+    reply: 'Reply',
+    replyingTo: 'Replying to {name}',
     info: 'Info',
     edit: 'Edit',
     delete: 'Delete',

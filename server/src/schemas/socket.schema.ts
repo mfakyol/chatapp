@@ -5,6 +5,7 @@ import { objectId } from './common';
 export const socketMessageSend = z.object({
   conversationId: objectId,
   content: z.string().trim().min(1),
+  replyTo: objectId.optional(),
 });
 
 export const socketConversationId = z.object({

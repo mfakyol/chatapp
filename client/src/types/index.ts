@@ -35,6 +35,7 @@ export interface Message {
   createdAt: string;
   readBy: ReadReceipt[];
   reactions?: Reaction[];
+  replyTo?: Message | null;
   editedAt?: string;
   deletedAt?: string;
 }

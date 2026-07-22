@@ -56,7 +56,7 @@ export function registerSocketHandlers(io: Server): void {
         const message = await createMessage(
           user,
           parsed.data.conversationId,
-          { content: parsed.data.content },
+          { content: parsed.data.content, replyTo: parsed.data.replyTo },
           io
         );
         if (callback) callback({ message });

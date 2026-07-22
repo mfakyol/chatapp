@@ -5,12 +5,22 @@ import Message, { IAttachment, IMessage, IReaction, MessageDocument } from '../m
 import type { UserDocument } from '../models/User';
 import { badRequest, forbidden, notFound } from '../errors/AppError';
 
+const REPLY_POPULATE: PopulateOptions = {
+  path: 'replyTo',
+  select: 'content attachment sender deletedAt',
+  populate: { path: 'sender', select: 'username firstName lastName' },
+};
+
 const MESSAGE_POPULATE: PopulateOptions[] = [
   { path: 'sender', select: 'username firstName lastName avatarUrl' },
   { path: 'readBy.user', select: 'username firstName lastName' },
+  REPLY_POPULATE,
 ];
 
-const SENDER_POPULATE = 'username firstName lastName avatarUrl';
+const SENDER_POPULATE: PopulateOptions[] = [
+  { path: 'sender', select: 'username firstName lastName avatarUrl' },
+  REPLY_POPULATE,
+];
 
 /** Load the conversation and assert the user participates in it. */
 async function requireParticipation(user: UserDocument, conversationId: string) {
@@ -98,6 +108,7 @@ export async function searchMessages(
 export interface CreateMessageInput {
   content?: string;
   attachment?: IAttachment;
+  replyTo?: string;
 }
 
 /**
@@ -112,18 +123,26 @@ export async function createMessage(
 ): Promise<MessageDocument> {
   const conversation = await requireParticipation(user, conversationId);
 
+  // Only allow replying to a message that lives in the same conversation.
+  let replyTo: string | undefined;
+  if (input.replyTo) {
+    const target = await Message.exists({ _id: input.replyTo, conversation: conversationId });
+    if (target) replyTo = input.replyTo;
+  }
+
   const message = await Message.create({
     conversation: conversationId,
     sender: user._id,
     content: input.content?.trim() || '',
     attachment: input.attachment,
+    replyTo,
     readBy: [{ user: user._id, readAt: new Date() }],
   });
 
   conversation.lastMessage = message._id;
   await conversation.save();
 
-  const populated = await message.populate('sender', SENDER_POPULATE);
+  const populated = await message.populate(SENDER_POPULATE);
   io.to(conversationId).emit('message:new', { message: populated });
   return populated;
 }

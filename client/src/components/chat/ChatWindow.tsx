@@ -12,6 +12,7 @@ import {
   IconInfoCircle,
   IconMoodSmile,
   IconMoodPlus,
+  IconArrowBackUp,
   IconSearch,
   IconX,
   IconArrowLeft,
@@ -61,6 +62,7 @@ export function ChatWindow({
   const [openDetailId, setOpenDetailId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -341,12 +343,23 @@ export function ChatWindow({
     typingStopTimeoutRef.current = setTimeout(stopTyping, 2000);
   }
 
+  function messagePreview(m: Message): string {
+    if (m.deletedAt) return t('chat.messageDeleted');
+    if (m.attachment) return `📎 ${m.attachment.fileName}`;
+    return m.content;
+  }
+
   function handleSend() {
     if (!draft.trim()) return;
     stopTyping();
     const socket = getSocket();
-    socket?.emit('message:send', { conversationId: conversation._id, content: draft.trim() });
+    socket?.emit('message:send', {
+      conversationId: conversation._id,
+      content: draft.trim(),
+      ...(replyingTo ? { replyTo: replyingTo._id } : {}),
+    });
     setDraft('');
+    setReplyingTo(null);
   }
 
   function handleEmojiPick(emoji: string) {
@@ -523,7 +536,7 @@ export function ChatWindow({
 
                   {!deleted && (
                     <div
-                      className={`absolute -top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 ${mine ? 'left-1' : 'right-1'}`}
+                      className={`absolute -top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${mine ? 'left-1' : 'right-1'}`}
                     >
                       <button
                         onClick={() => setReactionPickerId((id) => (id === m._id ? null : m._id))}
@@ -531,6 +544,16 @@ export function ChatWindow({
                         className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
                       >
                         <IconMoodPlus size={14} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReplyingTo(m);
+                          inputRef.current?.focus();
+                        }}
+                        title={t('chat.reply')}
+                        className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
+                      >
+                        <IconArrowBackUp size={14} />
                       </button>
                       {reactionPickerId === m._id && (
                         <div
@@ -581,6 +604,19 @@ export function ChatWindow({
                       </div>
                     ) : (
                       <>
+                        {m.replyTo && (
+                          <button
+                            onClick={() => m.replyTo && jumpToMessage(m.replyTo._id)}
+                            className="mb-1 flex w-full flex-col items-start rounded border-l-2 border-[var(--brand)] bg-black/10 px-2 py-1 text-left"
+                          >
+                            <span className="text-xs font-semibold text-[var(--brand)]">
+                              {m.replyTo.sender?.firstName || m.replyTo.sender?.username}
+                            </span>
+                            <span className="max-w-full truncate text-xs opacity-80">
+                              {messagePreview(m.replyTo)}
+                            </span>
+                          </button>
+                        )}
                         {m.attachment && m.attachment.mimeType.startsWith('image/') && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -649,6 +685,27 @@ export function ChatWindow({
           })}
           <div ref={bottomRef} />
         </div>
+
+        {replyingTo && (
+          <div className="flex items-center gap-2 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 pt-2">
+            <IconArrowBackUp size={16} className="shrink-0 text-[var(--brand)]" />
+            <div className="min-w-0 flex-1 border-l-2 border-[var(--brand)] pl-2">
+              <p className="text-xs font-semibold text-[var(--brand)]">
+                {t('chat.replyingTo', {
+                  name: replyingTo.sender.firstName || replyingTo.sender.username,
+                })}
+              </p>
+              <p className="truncate text-xs text-[var(--text-muted)]">{messagePreview(replyingTo)}</p>
+            </div>
+            <button
+              onClick={() => setReplyingTo(null)}
+              title={t('common.cancel')}
+              className="rounded-full p-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
+            >
+              <IconX size={16} />
+            </button>
+          </div>
+        )}
 
         <div className="relative flex items-center gap-2 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
           {showEmoji && (

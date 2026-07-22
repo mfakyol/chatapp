@@ -22,6 +22,7 @@ export interface IMessage {
   sender: Types.ObjectId;
   content: string;
   attachment?: IAttachment;
+  replyTo?: Types.ObjectId;
   readBy: Types.DocumentArray<IReadReceipt>;
   reactions: Types.DocumentArray<IReaction>;
   editedAt?: Date;
@@ -38,6 +39,7 @@ const messageSchema = new Schema<IMessage, MessageModel>(
     conversation: { type: Schema.Types.ObjectId, ref: 'Conversation', required: true },
     sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     content: { type: String, trim: true, default: '' },
+    replyTo: { type: Schema.Types.ObjectId, ref: 'Message' },
     attachment: {
       url: { type: String },
       fileName: { type: String },

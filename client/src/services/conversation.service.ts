@@ -53,6 +53,9 @@ export const removeGroupMember = (conversationId: string, username: string) =>
 export const leaveGroup = (conversationId: string) =>
   request<{ message: string }>(`/conversations/${conversationId}/leave`, { method: 'POST' });
 
+export const deleteConversation = (conversationId: string) =>
+  request<{ message: string }>(`/conversations/${conversationId}`, { method: 'DELETE' });
+
 export const createDirectConversation = (username: string) =>
   request<{ conversation: Conversation }>('/conversations/direct', {
     method: 'POST',

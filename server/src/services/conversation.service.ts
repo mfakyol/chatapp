@@ -208,3 +208,30 @@ export async function leaveGroup(
   io.to(userRoom(user._id)).emit('group:removed', { conversationId });
   io.in(userRoom(user._id)).socketsLeave(conversationId);
 }
+
+/**
+ * Delete a conversation for everyone. Direct chats: any participant may delete;
+ * groups: admins only. The model's cascade hook removes the messages.
+ */
+export async function deleteConversation(
+  user: UserDocument,
+  conversationId: string,
+  io: Server
+): Promise<void> {
+  const conversation = await Conversation.findOne({
+    _id: conversationId,
+    participants: user._id,
+  });
+  if (!conversation) throw notFound('Conversation not found');
+  if (conversation.isGroup && !conversation.admins.some((id) => id.equals(user._id))) {
+    throw forbidden('Only admins can delete the group');
+  }
+
+  const participantIds = conversation.participants.map((id) => id.toString());
+  await conversation.deleteOne(); // cascade removes this conversation's messages
+
+  participantIds.forEach((pid) => {
+    io.to(userRoom(pid)).emit('conversation:deleted', { conversationId });
+  });
+  io.in(conversationId).socketsLeave(conversationId);
+}

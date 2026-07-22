@@ -126,6 +126,8 @@ export const messages = {
     removeFromGroup: 'Remove from group',
     leaveGroup: 'Leave group',
     confirmLeave: 'Leave this group?',
+    deleteChat: 'Delete chat',
+    confirmDelete: 'Delete this conversation for everyone? This removes all its messages.',
   },
 } as const;
 

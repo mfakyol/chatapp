@@ -96,18 +96,20 @@ export default function ChatPage() {
       setActive((prev) => (prev && prev._id === conversation._id ? { ...prev, ...conversation } : prev));
     }
 
-    function handleGroupRemoved({ conversationId }: { conversationId: string }) {
+    function handleConversationGone({ conversationId }: { conversationId: string }) {
       setConversations((prev) => prev.filter((c) => c._id !== conversationId));
       setActive((prev) => (prev && prev._id === conversationId ? null : prev));
     }
 
     socket.on('message:new', handleNewMessage);
     socket.on('group:updated', handleGroupUpdated);
-    socket.on('group:removed', handleGroupRemoved);
+    socket.on('group:removed', handleConversationGone);
+    socket.on('conversation:deleted', handleConversationGone);
     return () => {
       socket.off('message:new', handleNewMessage);
       socket.off('group:updated', handleGroupUpdated);
-      socket.off('group:removed', handleGroupRemoved);
+      socket.off('group:removed', handleConversationGone);
+      socket.off('conversation:deleted', handleConversationGone);
     };
   }, [user]);
 

@@ -171,3 +171,16 @@ export const leaveGroup: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+export const deleteConversation: RequestHandler = async (req, res, next) => {
+  try {
+    await conversationService.deleteConversation(
+      currentUser(req),
+      req.params.conversationId,
+      getIo(req)
+    );
+    res.json({ message: 'Conversation deleted' });
+  } catch (err) {
+    next(err);
+  }
+};

@@ -28,6 +28,7 @@ import {
   addMember,
   removeMember,
   leaveGroup,
+  deleteConversation,
 } from '../controllers/conversation.controller';
 
 const router = Router();
@@ -52,5 +53,6 @@ router.patch('/:conversationId', validate(renameSchema), renameConversation);
 router.post('/:conversationId/members', validate(addMemberSchema), addMember);
 router.delete('/:conversationId/members/:username', validate(removeMemberSchema), removeMember);
 router.post('/:conversationId/leave', validate(conversationIdParamSchema), leaveGroup);
+router.delete('/:conversationId', validate(conversationIdParamSchema), deleteConversation);
 
 export default router;

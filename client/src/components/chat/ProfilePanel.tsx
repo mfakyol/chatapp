@@ -1,7 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconX, IconPencil, IconUserPlus, IconUserMinus, IconLogout2, IconCheck } from '@tabler/icons-react';
+import {
+  IconX,
+  IconPencil,
+  IconUserPlus,
+  IconUserMinus,
+  IconLogout2,
+  IconCheck,
+  IconTrash,
+} from '@tabler/icons-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Conversation, PublicUser } from '@/types';
 import { fullName, otherParticipant, formatLastSeen } from '@/lib/utils';
@@ -14,6 +22,7 @@ import {
   addGroupMember,
   removeGroupMember,
   leaveGroup,
+  deleteConversation,
 } from '@/services/conversation.service';
 
 export function ProfilePanel({
@@ -84,6 +93,13 @@ export function ProfilePanel({
     if (!window.confirm(t('profile.confirmLeave'))) return;
     const res = await leaveGroup(conversation._id);
     if (!res.success) setError(res.error);
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(t('profile.confirmDelete'))) return;
+    const res = await deleteConversation(conversation._id);
+    if (!res.success) return setError(res.error);
+    onClose();
   }
 
   const availableFriends = friends.filter(
@@ -220,6 +236,15 @@ export function ProfilePanel({
           </div>
         </>
       )}
+
+      <div className="mt-auto border-t border-[var(--border)] p-4">
+        <button
+          onClick={handleDelete}
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-[var(--bg-elevated)] py-2 text-sm text-[var(--danger)] hover:bg-[var(--bg-hover)]"
+        >
+          <IconTrash size={18} /> {t('profile.deleteChat')}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
+import Conversation from '../src/models/Conversation';
+import Message from '../src/models/Message';
 import { buildTestApp, registerUser, makeFriends, auth } from './helpers';
 
 let app: Express;
@@ -121,5 +123,45 @@ describe('POST /api/conversations/group', () => {
     expect(res.status).toBe(201);
     expect(res.body.conversation.isGroup).toBe(true);
     expect(res.body.conversation.participants).toHaveLength(3);
+  });
+});
+
+describe('DELETE /api/conversations/:id', () => {
+  it('deletes the conversation and cascades its messages', async () => {
+    const { a } = await makeFriends(app);
+    const created = await request(app)
+      .post('/api/conversations/direct')
+      .set(auth(a.token))
+      .send({ username: 'bob' });
+    const convoId = created.body.conversation._id;
+
+    await Message.create({
+      conversation: convoId,
+      sender: a.user.id,
+      content: 'to be deleted',
+      readBy: [{ user: a.user.id, readAt: new Date() }],
+    });
+
+    const res = await request(app)
+      .delete(`/api/conversations/${convoId}`)
+      .set(auth(a.token));
+    expect(res.status).toBe(200);
+
+    expect(await Conversation.findById(convoId)).toBeNull();
+    expect(await Message.countDocuments({ conversation: convoId })).toBe(0);
+  });
+
+  it('returns 404 for a non-participant', async () => {
+    const { a } = await makeFriends(app);
+    const created = await request(app)
+      .post('/api/conversations/direct')
+      .set(auth(a.token))
+      .send({ username: 'bob' });
+
+    const outsider = await registerUser(app, { username: 'carol', email: 'carol@test.co' });
+    const res = await request(app)
+      .delete(`/api/conversations/${created.body.conversation._id}`)
+      .set(auth(outsider.token));
+    expect(res.status).toBe(404);
   });
 });

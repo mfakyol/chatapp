@@ -20,7 +20,7 @@ import {
 import { Avatar } from '@/components/ui/Avatar';
 import { ProfilePanel } from '@/components/chat/ProfilePanel';
 import { MessageTicks } from '@/components/chat/MessageTicks';
-import { Conversation, Message, MessageSearchResult, ReadReceipt } from '@/types';
+import { Conversation, Message, MessageSearchResult, PublicUser } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { usePresenceMap } from '@/hooks/usePresence';
 import { getSocket } from '@/lib/socket';
@@ -28,6 +28,9 @@ import {
   getMessages,
   getOlderMessages,
   sendAttachment,
+  sendMessage,
+  markRead,
+  reactToMessage as reactMessageRequest,
   searchMessages,
   editMessage,
   deleteMessage,
@@ -74,6 +77,9 @@ export function ChatWindow({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  // Per-member read pointers (userId → lastReadAt), seeded from the conversation
+  // and kept live by conversation:read events. Ticks derive from this.
+  const [memberReads, setMemberReads] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +110,16 @@ export function ChatWindow({
           })
         : t('chat.typing');
 
+  // Seed the read-pointer map whenever the conversation (or its members) change.
+  useEffect(() => {
+    const map: Record<string, string> = {};
+    for (const m of conversation.members ?? []) {
+      const id = m.user.id || m.user._id;
+      if (id) map[id] = m.lastReadAt;
+    }
+    setMemberReads(map);
+  }, [conversation._id, conversation.members]);
+
   useEffect(() => {
     let active = true;
     setShowProfile(false);
@@ -119,16 +135,15 @@ export function ChatWindow({
       setMessages(res.data.messages);
       if (res.data.messages.length < 50) setHasMore(false);
     });
+    markRead(conversation._id);
 
     const socket = getSocket();
-    socket?.emit('conversation:join', conversation._id);
-    socket?.emit('message:read', { conversationId: conversation._id });
 
     function handleNewMessage({ message }: { message: Message }) {
       if (message.conversation !== conversation._id) return;
-      setMessages((prev) => [...prev, message]);
+      upsertMessage(message);
       if (message.sender.username !== user?.username) {
-        socket?.emit('message:read', { conversationId: conversation._id });
+        markRead(conversation._id);
       }
     }
 
@@ -144,34 +159,17 @@ export function ChatWindow({
       );
     }
 
-    function handleRead({
+    function handleConversationRead({
       conversationId,
       userId,
-      readAt,
-      messageIds,
+      lastReadAt,
     }: {
       conversationId: string;
       userId: string;
-      readAt: string;
-      messageIds: string[];
+      lastReadAt: string;
     }) {
       if (conversationId !== conversation._id) return;
-      const idSet = new Set(messageIds);
-      const isReader = (u: { id?: string; _id?: string }) => (u.id || u._id) === userId;
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (!idSet.has(m._id)) return m;
-          if (m.readBy.some((r) => isReader(r.user))) return m;
-          const reader = isReader(m.sender)
-            ? m.sender
-            : conversation.participants.find((p) => isReader(p));
-          const receipt: ReadReceipt = {
-            user: reader || { username: 'unknown', firstName: 'Someone', lastName: '' },
-            readAt,
-          };
-          return { ...m, readBy: [...m.readBy, receipt] };
-        })
-      );
+      setMemberReads((prev) => ({ ...prev, [userId]: lastReadAt }));
     }
 
     function clearTypingTimeout(userId: string) {
@@ -220,18 +218,18 @@ export function ChatWindow({
     }
 
     socket?.on('message:new', handleNewMessage);
-    socket?.on('message:edited', handleEdited);
+    socket?.on('message:updated', handleEdited);
     socket?.on('message:deleted', handleDeleted);
-    socket?.on('message:read', handleRead);
+    socket?.on('conversation:read', handleConversationRead);
     socket?.on('message:reaction', handleReaction);
     socket?.on('typing:start', handleTypingStart);
     socket?.on('typing:stop', handleTypingStop);
     return () => {
       active = false;
       socket?.off('message:new', handleNewMessage);
-      socket?.off('message:edited', handleEdited);
+      socket?.off('message:updated', handleEdited);
       socket?.off('message:deleted', handleDeleted);
-      socket?.off('message:read', handleRead);
+      socket?.off('conversation:read', handleConversationRead);
       socket?.off('message:reaction', handleReaction);
       socket?.off('typing:start', handleTypingStart);
       socket?.off('typing:stop', handleTypingStop);
@@ -349,17 +347,68 @@ export function ChatWindow({
     return m.content;
   }
 
-  function handleSend() {
-    if (!draft.trim()) return;
-    stopTyping();
-    const socket = getSocket();
-    socket?.emit('message:send', {
-      conversationId: conversation._id,
-      content: draft.trim(),
-      ...(replyingTo ? { replyTo: replyingTo._id } : {}),
+  /** Insert or replace: reconciles optimistic bubbles via clientTempId. */
+  function upsertMessage(message: Message) {
+    setMessages((prev) => {
+      if (message.clientTempId) {
+        const idx = prev.findIndex(
+          (m) => m.clientTempId === message.clientTempId || m._id === message.clientTempId
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = message;
+          return next;
+        }
+      }
+      if (prev.some((m) => m._id === message._id)) {
+        return prev.map((m) => (m._id === message._id ? message : m));
+      }
+      return [...prev, message];
     });
+  }
+
+  async function handleSend() {
+    const content = draft.trim();
+    if (!content) return;
+    stopTyping();
+
+    // Optimistic: show the message instantly under a temp id; the server echo
+    // (REST response and/or message:new broadcast) replaces it by clientTempId.
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const temp: Message = {
+      _id: tempId,
+      clientTempId: tempId,
+      conversation: conversation._id,
+      sender: {
+        id: currentUserId,
+        _id: currentUserId,
+        username: user?.username || '',
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
+      },
+      content,
+      reactions: [],
+      replyTo: replyingTo ?? undefined,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+    const replyToId = replyingTo?._id;
+    setMessages((prev) => [...prev, temp]);
     setDraft('');
     setReplyingTo(null);
+
+    const res = await sendMessage(conversation._id, {
+      content,
+      replyTo: replyToId,
+      clientTempId: tempId,
+    });
+    if (!res.success) {
+      // Roll back the optimistic bubble and give the user their draft back.
+      setMessages((prev) => prev.filter((m) => m._id !== tempId));
+      setDraft(content);
+      return;
+    }
+    upsertMessage(res.data.message);
   }
 
   function handleEmojiPick(emoji: string) {
@@ -394,9 +443,13 @@ export function ChatWindow({
   }
 
   const currentUserId = user?.id || user?._id;
+  const otherReads = Object.entries(memberReads)
+    .filter(([id]) => id !== currentUserId)
+    .map(([, at]) => at);
 
   function reactToMessage(messageId: string, emoji: string) {
-    getSocket()?.emit('message:react', { conversationId: conversation._id, messageId, emoji });
+    // Fire-and-forget: the server broadcasts message:reaction back to us too.
+    reactMessageRequest(conversation._id, messageId, emoji);
     setReactionPickerId(null);
   }
 
@@ -649,7 +702,7 @@ export function ChatWindow({
                       <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-[var(--text-muted)]">
                         {m.editedAt && <span>{t('chat.edited')}</span>}
                         <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        {mine && <MessageTicks message={m} currentUsername={user?.username || ''} />}
+                        {mine && <MessageTicks message={m} otherReads={otherReads} />}
                       </div>
                     )}
                   </div>
@@ -677,7 +730,13 @@ export function ChatWindow({
                   )}
 
                   {mine && openDetailId === m._id && (
-                    <MessageDetail message={m} isGroup={conversation.isGroup} currentUsername={user?.username || ''} />
+                    <MessageDetail
+                      message={m}
+                      isGroup={conversation.isGroup}
+                      currentUserId={currentUserId || ''}
+                      memberReads={memberReads}
+                      participants={conversation.participants}
+                    />
                   )}
                 </div>
               </div>
@@ -768,14 +827,27 @@ export function ChatWindow({
 function MessageDetail({
   message,
   isGroup,
-  currentUsername,
+  currentUserId,
+  memberReads,
+  participants,
 }: {
   message: Message;
   isGroup: boolean;
-  currentUsername: string;
+  currentUserId: string;
+  memberReads: Record<string, string>;
+  participants: PublicUser[];
 }) {
   const sentAt = new Date(message.createdAt).toLocaleString();
-  const readers = message.readBy.filter((r) => r.user.username !== currentUsername);
+  const sentTime = new Date(message.createdAt).getTime();
+
+  // A member has seen this message iff their read pointer passed its createdAt.
+  const readers = participants
+    .map((p) => ({ user: p, id: p.id || p._id || '' }))
+    .filter(({ id }) => id && id !== currentUserId)
+    .map(({ user: u, id }) => ({ user: u, readAt: memberReads[id] }))
+    .filter((r): r is { user: PublicUser; readAt: string } =>
+      !!r.readAt && new Date(r.readAt).getTime() >= sentTime
+    );
 
   return (
     <div className="mt-1 rounded-md bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--text-normal)] shadow-lg">

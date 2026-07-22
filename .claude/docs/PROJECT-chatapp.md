@@ -15,29 +15,53 @@ Notes unique to **this** repo. General standards live in the sibling docs
   before relying on client IPs for rate limiting.
 
 ## Real-time architecture (the core of the app)
-- `server/src/sockets/index.ts` is the Socket.io gateway. Handshake auth verifies the
-  JWT from `socket.handshake.auth.token` (same secret as HTTP). `socket.user` is set.
-- **Listeners are registered synchronously** on `connection` before any `await`, so
-  events fired immediately after connect aren't dropped — preserve this when refactoring.
-- Events include: `conversation:join`, `message:send` (with ack callback), typing,
-  read receipts, presence (online/offline), and friend-request notifications.
-- Client: `client/src/lib/socket.ts` holds a **single** socket singleton
-  (`connectSocket`/`getSocket`/`disconnectSocket`); presence/auth consume it via context
-  today (→ zustand stores after refactor).
-- REST and socket paths **overlap** (e.g. attachments go via `POST .../attachments`
-  while text goes via `message:send`) — business rules must live in a shared service so
-  the two paths can't diverge.
+**Principle: sockets are a downstream (server→client) delivery channel only.** All
+mutations go through REST and share the same validate/auth/rate-limit chain. The only
+client→server socket events are `typing:start|stop` (ephemeral, never persisted).
+
+- On connect a socket joins exactly **one room**: `user:<id>`. There is NO
+  per-conversation room membership — that would be derived state needing hand-sync
+  with the DB on every membership change, and any missed sync silently drops events.
+- All fan-out goes through `services/fanout.ts` (`broadcastToConversation`): recipient
+  user-ids are resolved from `ConversationMember` **at send time**. DB is the single
+  source of truth for delivery.
+- Presence: in-memory ref-counted `utils/presence.ts` (multi-tab correct); only
+  `lastSeen` is persisted (on last-disconnect). `presence:update` goes to friends only.
+  REST payloads merge live `isOnline` via `withPresence`.
+- Server→client events: `message:new|updated|deleted|reaction`,
+  `conversation:new|updated|deleted|read`, `friend:request|accepted|declined|removed`,
+  `presence:update`, `typing:start|stop`.
+- Sending is **optimistic**: client renders a temp bubble under a generated
+  `clientTempId`, POSTs it, and reconciles when the echo (response or broadcast)
+  carries the same id. Retries are idempotent (partial unique index on
+  `{sender, clientTempId}`).
+- Reconnect resync: on socket `connect` the client refetches the sidebar (and the open
+  conversation's messages load on demand) — no server-side replay needed.
+- Client: `client/src/lib/socket.ts` holds a single socket singleton.
 
 ## Data / models
-- MongoDB (Mongoose). Models: `User`, `Conversation`, `Message`.
-  - `User`: username (unique, `^[a-z0-9_-]{3,20}$`), email (unique), bcrypt password
-    (cost 10, hashed in `pre('save')`), friends + friendRequests{Sent,Received},
-    isOnline/lastSeen. `toPublicJSON()` strips the hash.
-  - `Conversation`: `isGroup`, participants[], admins[], createdBy, lastMessage.
-  - `Message`: conversation, sender, content, attachment{url,fileName,mimeType,size},
-    readBy[], editedAt, deletedAt (soft delete). Requires content OR attachment.
-- **Cascade**: deleting a `Conversation` deletes its `Message`s (model pre-delete hooks).
-  Note there is currently no delete-conversation route, so the hook is future-proofing.
+- MongoDB (Mongoose). Models: `User`, `Friendship`, `Conversation`,
+  `ConversationMember`, `Message`.
+  - `User`: identity only — username (unique, `^[a-z0-9_-]{3,20}$`), email (unique),
+    bcrypt password (cost 10, `pre('save')`), avatarUrl, lastSeen. NO friendship
+    arrays, NO isOnline (presence is runtime state).
+  - `Friendship`: `{userA, userB}` **sorted pair** + unique compound index;
+    `requestedBy`, `status: pending|accepted`. All transitions are single-document
+    atomic ops; reversed/duplicate requests are structurally impossible.
+  - `Conversation`: `type: direct|group`, name, createdBy, lastMessage, and for
+    direct chats a unique sparse `directKey` (`"idLo:idHi"`) — direct creation is a
+    race-proof upsert.
+  - `ConversationMember`: one doc per (conversation, user), unique compound index.
+    Holds `role: admin|member` and the **`lastReadAt` read pointer** (WhatsApp/Discord
+    model): read = one field update; unread = range count; "seen" ⟺
+    `member.lastReadAt >= message.createdAt`. Ticks/receipts derive from this.
+  - `Message`: conversation, sender, content, attachment, replyTo, reactions,
+    `clientTempId` (partial unique with sender), editedAt, deletedAt (soft delete).
+    **No readBy** — messages never grow with reads.
+- **Cascade**: deleting a `Conversation` deletes its `Message`s AND
+  `ConversationMember`s (pre-delete hooks). `DELETE /api/conversations/:id` uses it.
+- API assembly: services return conversations with `participants`, `admins`, and
+  `members` (with lastReadAt) assembled from ConversationMember + live presence.
 
 ## Uploads
 - `middleware/upload.ts` (Multer): 10MB cap, MIME allowlist, random filenames, stored in

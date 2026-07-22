@@ -21,6 +21,27 @@ export const searchMessages = (q: string, conversationId?: string) =>
     }`
   );
 
+export interface SendMessageInput {
+  content: string;
+  replyTo?: string;
+  clientTempId?: string;
+}
+
+export const sendMessage = (conversationId: string, input: SendMessageInput) =>
+  request<{ message: Message }>(`/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+export const markRead = (conversationId: string) =>
+  request<{ lastReadAt: string }>(`/conversations/${conversationId}/read`, { method: 'POST' });
+
+export const reactToMessage = (conversationId: string, messageId: string, emoji: string) =>
+  request<{ reactions: unknown }>(
+    `/conversations/${conversationId}/messages/${messageId}/reactions`,
+    { method: 'POST', body: JSON.stringify({ emoji }) }
+  );
+
 export const editMessage = (conversationId: string, messageId: string, content: string) =>
   request<{ message: Message }>(`/conversations/${conversationId}/messages/${messageId}`, {
     method: 'PATCH',

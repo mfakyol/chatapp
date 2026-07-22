@@ -91,7 +91,7 @@ export default function ChatPage() {
       }
     }
 
-    function handleGroupUpdated({ conversation }: { conversation: Conversation }) {
+    function handleConversationUpdated({ conversation }: { conversation: Conversation }) {
       setConversations((prev) => prev.map((c) => (c._id === conversation._id ? { ...c, ...conversation } : c)));
       setActive((prev) => (prev && prev._id === conversation._id ? { ...prev, ...conversation } : prev));
     }
@@ -108,16 +108,23 @@ export default function ChatPage() {
       );
     }
 
+    // Reconnect resync: refetch so anything broadcast during the gap is recovered.
+    function handleReconnect() {
+      getConversations().then((res) => {
+        if (res.success) setConversations(res.data.conversations);
+      });
+    }
+
+    socket.on('connect', handleReconnect);
     socket.on('message:new', handleNewMessage);
     socket.on('conversation:new', handleConversationNew);
-    socket.on('group:updated', handleGroupUpdated);
-    socket.on('group:removed', handleConversationGone);
+    socket.on('conversation:updated', handleConversationUpdated);
     socket.on('conversation:deleted', handleConversationGone);
     return () => {
+      socket.off('connect', handleReconnect);
       socket.off('message:new', handleNewMessage);
       socket.off('conversation:new', handleConversationNew);
-      socket.off('group:updated', handleGroupUpdated);
-      socket.off('group:removed', handleConversationGone);
+      socket.off('conversation:updated', handleConversationUpdated);
       socket.off('conversation:deleted', handleConversationGone);
     };
   }, [user]);

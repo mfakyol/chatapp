@@ -179,9 +179,11 @@ export function Sidebar({
   }
 
   function searchResultConversationName(m: MessageSearchResult): string {
-    if (m.conversation.isGroup) return m.conversation.name || 'Unnamed group';
-    const other = m.conversation.participants.find((p) => p.username !== user?.username);
-    return other ? fullName(other) : 'Unknown';
+    // Resolve the display name from our own conversation list (the search
+    // payload carries only the conversation id/name/type, not its members).
+    const convo = conversations.find((c) => c._id === m.conversation._id);
+    if (convo) return conversationName(convo, user?.username || '');
+    return m.conversation.name || fullName(m.sender);
   }
 
   async function handleAddFriend(username: string) {

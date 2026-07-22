@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   IconSend,
   IconPaperclip,
@@ -16,6 +16,8 @@ import {
   IconSearch,
   IconX,
   IconArrowLeft,
+  IconCheck,
+  IconChecks,
 } from '@tabler/icons-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ProfilePanel } from '@/components/chat/ProfilePanel';
@@ -35,8 +37,25 @@ import {
   editMessage,
   deleteMessage,
 } from '@/services/conversation.service';
-import { conversationName, otherParticipant, fileUrl, formatFileSize, formatLastSeen } from '@/lib/utils';
+import { conversationName, otherParticipant, fullName, fileUrl, formatFileSize, formatLastSeen } from '@/lib/utils';
 import { t } from '@/i18n';
+
+/** Calendar-day bucket for date separators. */
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/** WhatsApp-style day label: Today / Yesterday / full date. */
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000);
+  if (diffDays === 0) return t('chat.today');
+  if (diffDays === 1) return t('chat.yesterday');
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 const EMOJIS = [
   '😀', '😂', '😍', '😊', '😉', '😎', '🤔', '😢', '😭', '😡',
@@ -545,11 +564,22 @@ export function ChatWindow({
           {!hasMore && messages.length > 0 && (
             <p className="mb-2 text-center text-xs text-[var(--text-muted)]">{t('chat.startOfConversation')}</p>
           )}
-          {messages.map((m) => {
+          {messages.map((m, i) => {
             const mine = m.sender.username === user?.username;
             const deleted = !!m.deletedAt;
+            const newDay = i === 0 || dayKey(messages[i - 1].createdAt) !== dayKey(m.createdAt);
             return (
-              <div key={m._id} className={`group mb-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
+              <Fragment key={m._id}>
+              {newDay && (
+                // sticky: the current day's chip stays pinned at the top of the
+                // scroll area until the next day's chip pushes it out (WhatsApp).
+                <div className="sticky top-0 z-10 my-2 flex justify-center">
+                  <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow">
+                    {dayLabel(m.createdAt)}
+                  </span>
+                </div>
+              )}
+              <div className={`group mb-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className="relative max-w-xs"
                   ref={(el) => {
@@ -748,6 +778,7 @@ export function ChatWindow({
                   )}
                 </div>
               </div>
+              </Fragment>
             );
           })}
           <div ref={bottomRef} />
@@ -861,34 +892,68 @@ function MessageDetail({
   const sentTime = new Date(message.createdAt).getTime();
 
   // A member has seen this message iff their read pointer passed its createdAt.
-  const readers = participants
+  const others = participants
     .map((p) => ({ user: p, id: p.id || p._id || '' }))
-    .filter(({ id }) => id && id !== currentUserId)
-    .map(({ user: u, id }) => ({ user: u, readAt: memberReads[id] }))
-    .filter((r): r is { user: PublicUser; readAt: string } =>
-      !!r.readAt && new Date(r.readAt).getTime() >= sentTime
-    );
+    .filter(({ id }) => id && id !== currentUserId);
+  const readers = others.filter(({ id }) => {
+    const at = memberReads[id];
+    return !!at && new Date(at).getTime() >= sentTime;
+  });
+  const deliveredOnly = others.filter((o) => !readers.includes(o));
 
   return (
-    <div className="mt-1 rounded-md bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--text-normal)] shadow-lg">
+    <div className="mt-1 w-56 rounded-md bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--text-normal)] shadow-lg">
       <p className="text-[var(--text-muted)]">{t('chat.detailSent', { time: sentAt })}</p>
+
       {isGroup ? (
-        readers.length > 0 ? (
-          readers.map((r) => (
-            <p key={r.user.username}>
-              {t('chat.detailSeenBy', {
-                name: r.user.firstName || r.user.username,
-                time: new Date(r.readAt).toLocaleString(),
-              })}
-            </p>
-          ))
-        ) : (
-          <p className="text-[var(--text-muted)]">{t('chat.detailNotSeen')}</p>
-        )
+        <>
+          {readers.length > 0 && (
+            <>
+              <p className="mt-2 flex items-center gap-1 font-semibold text-[var(--tick)]">
+                <IconChecks size={14} /> {t('chat.detailReadBy', { count: readers.length })}
+              </p>
+              {readers.map(({ user: u, id }) => (
+                <div key={u.username} className="flex items-center gap-2 py-1">
+                  <Avatar name={fullName(u)} size={20} />
+                  <span className="min-w-0 flex-1 truncate">{fullName(u)}</span>
+                  <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+                    {new Date(memberReads[id]).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+          {deliveredOnly.length > 0 && (
+            <>
+              <p className="mt-2 flex items-center gap-1 font-semibold text-[var(--text-muted)]">
+                <IconCheck size={14} /> {t('chat.detailDeliveredTo', { count: deliveredOnly.length })}
+              </p>
+              {deliveredOnly.map(({ user: u }) => (
+                <div key={u.username} className="flex items-center gap-2 py-1">
+                  <Avatar name={fullName(u)} size={20} />
+                  <span className="min-w-0 flex-1 truncate">{fullName(u)}</span>
+                </div>
+              ))}
+            </>
+          )}
+          {readers.length === 0 && deliveredOnly.length === 0 && (
+            <p className="mt-1 text-[var(--text-muted)]">{t('chat.detailNotSeen')}</p>
+          )}
+        </>
       ) : readers.length > 0 ? (
-        <p>{t('chat.detailSeen', { time: new Date(readers[0].readAt).toLocaleString() })}</p>
+        <p className="mt-1 flex items-center gap-1">
+          <IconChecks size={14} className="text-[var(--tick)]" />
+          {t('chat.detailSeen', {
+            time: new Date(memberReads[readers[0].id]).toLocaleString(),
+          })}
+        </p>
       ) : (
-        <p className="text-[var(--text-muted)]">{t('chat.detailDelivered')}</p>
+        <p className="mt-1 flex items-center gap-1 text-[var(--text-muted)]">
+          <IconCheck size={14} /> {t('chat.detailDelivered')}
+        </p>
       )}
     </div>
   );

@@ -13,6 +13,23 @@ function normalizeUsername(username: string | undefined): string {
   return username.toLowerCase();
 }
 
+/**
+ * Put every participant's live sockets into the new conversation's room and tell
+ * them about it. Without this a freshly created conversation has only the creator
+ * in its room, so the first `message:new` never reaches the other participants.
+ */
+function announceConversation(
+  participantIds: string[],
+  conversation: ConversationDocument,
+  io: Server
+): void {
+  const roomId = conversation._id.toString();
+  participantIds.forEach((pid) => {
+    io.in(userRoom(pid)).socketsJoin(roomId);
+    io.to(userRoom(pid)).emit('conversation:new', { conversation });
+  });
+}
+
 /** Load a group the caller belongs to and assert they are an admin. */
 async function requireGroupAdmin(
   user: UserDocument,
@@ -57,7 +74,8 @@ export async function listConversations(user: UserDocument) {
 
 export async function createDirectConversation(
   user: UserDocument,
-  username: string | undefined
+  username: string | undefined,
+  io: Server
 ): Promise<ConversationDocument> {
   const other = await User.findOne({ username: normalizeUsername(username) });
   if (!other) throw notFound('User not found');
@@ -79,13 +97,18 @@ export async function createDirectConversation(
     });
   }
 
-  return conversation.populate('participants', PARTICIPANT_SELECT);
+  // Capture ids before populate() replaces them with user documents.
+  const participantIds = conversation.participants.map((id) => id.toString());
+  const populated = await conversation.populate('participants', PARTICIPANT_SELECT);
+  announceConversation(participantIds, populated, io);
+  return populated;
 }
 
 export async function createGroupConversation(
   user: UserDocument,
   name: string,
-  usernames: string[]
+  usernames: string[],
+  io: Server
 ): Promise<ConversationDocument> {
   const members = await User.find({
     username: { $in: usernames.map((u) => u.toLowerCase()) },
@@ -103,7 +126,10 @@ export async function createGroupConversation(
     createdBy: user._id,
   });
 
-  return conversation.populate('participants', PARTICIPANT_SELECT);
+  const participantIds = conversation.participants.map((id) => id.toString());
+  const populated = await conversation.populate('participants', PARTICIPANT_SELECT);
+  announceConversation(participantIds, populated, io);
+  return populated;
 }
 
 export async function renameConversation(

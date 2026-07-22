@@ -21,7 +21,8 @@ export const createDirectConversation: RequestHandler = async (req, res, next) =
   try {
     const conversation = await conversationService.createDirectConversation(
       currentUser(req),
-      req.body.username
+      req.body.username,
+      getIo(req)
     );
     res.status(201).json({ conversation });
   } catch (err) {
@@ -34,7 +35,8 @@ export const createGroupConversation: RequestHandler = async (req, res, next) =>
     const conversation = await conversationService.createGroupConversation(
       currentUser(req),
       req.body.name,
-      req.body.usernames
+      req.body.usernames,
+      getIo(req)
     );
     res.status(201).json({ conversation });
   } catch (err) {

@@ -101,12 +101,21 @@ export default function ChatPage() {
       setActive((prev) => (prev && prev._id === conversationId ? null : prev));
     }
 
+    // A conversation we were just added to (or that a friend started with us).
+    function handleConversationNew({ conversation }: { conversation: Conversation }) {
+      setConversations((prev) =>
+        prev.some((c) => c._id === conversation._id) ? prev : [conversation, ...prev]
+      );
+    }
+
     socket.on('message:new', handleNewMessage);
+    socket.on('conversation:new', handleConversationNew);
     socket.on('group:updated', handleGroupUpdated);
     socket.on('group:removed', handleConversationGone);
     socket.on('conversation:deleted', handleConversationGone);
     return () => {
       socket.off('message:new', handleNewMessage);
+      socket.off('conversation:new', handleConversationNew);
       socket.off('group:updated', handleGroupUpdated);
       socket.off('group:removed', handleConversationGone);
       socket.off('conversation:deleted', handleConversationGone);

@@ -7,10 +7,30 @@ import createApp from '../src/app';
 const emitter = { emit: () => {}, socketsJoin: () => {}, socketsLeave: () => {} };
 export const ioStub = { to: () => emitter, in: () => emitter } as unknown as Server;
 
-export function buildTestApp(): Express {
+export function buildTestApp(io: Server = ioStub): Express {
   const app = createApp();
-  app.set('io', ioStub);
+  app.set('io', io);
   return app;
+}
+
+export interface RecordedIo {
+  joins: { room: string; joined: string }[];
+  emits: { room: string; event: string }[];
+  io: Server;
+}
+
+/** An io double that records socketsJoin/emit calls, for asserting fan-out. */
+export function recordingIo(): RecordedIo {
+  const joins: RecordedIo['joins'] = [];
+  const emits: RecordedIo['emits'] = [];
+  const io = {
+    in: (room: string) => ({
+      socketsJoin: (joined: string) => joins.push({ room, joined }),
+      socketsLeave: () => {},
+    }),
+    to: (room: string) => ({ emit: (event: string) => emits.push({ room, event }) }),
+  } as unknown as Server;
+  return { joins, emits, io };
 }
 
 export interface TestUser {

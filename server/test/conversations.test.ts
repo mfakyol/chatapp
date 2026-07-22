@@ -3,7 +3,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import Conversation from '../src/models/Conversation';
 import Message from '../src/models/Message';
-import { buildTestApp, registerUser, makeFriends, auth } from './helpers';
+import { buildTestApp, registerUser, makeFriends, auth, recordingIo } from './helpers';
 
 let app: Express;
 beforeEach(() => {
@@ -53,6 +53,28 @@ describe('POST /api/conversations/direct', () => {
       .set(auth(a.token))
       .send({ username: 'ghost' });
     expect(res.status).toBe(404);
+  });
+
+  // Regression: a new conversation's room only contained its creator, so the
+  // recipient never received the first message:new broadcast.
+  it('joins every participant to the conversation room and announces it', async () => {
+    const rec = recordingIo();
+    const recApp = buildTestApp(rec.io);
+    const { a, b } = await makeFriends(recApp);
+
+    const created = await request(recApp)
+      .post('/api/conversations/direct')
+      .set(auth(a.token))
+      .send({ username: 'bob' });
+    const convoId = created.body.conversation._id;
+
+    for (const u of [a, b]) {
+      expect(rec.joins).toContainEqual({ room: `user:${u.user.id}`, joined: convoId });
+      expect(rec.emits).toContainEqual({
+        room: `user:${u.user.id}`,
+        event: 'conversation:new',
+      });
+    }
   });
 });
 

@@ -7,6 +7,8 @@ export const messages = {
     cancel: 'Cancel',
     save: 'Save',
     you: '(you)',
+    themeLight: 'Switch to light theme',
+    themeDark: 'Switch to dark theme',
   },
   home: {
     navLogIn: 'Log in',

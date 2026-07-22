@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { t } from '@/i18n';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const USERNAME_REGEX = /^[a-z0-9_-]{3,20}$/;
 
@@ -44,20 +45,21 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-[#111b21] px-4 py-10">
-      <div className="w-full max-w-sm rounded-lg bg-[#202c33] p-8 shadow-xl">
-        <h1 className="mb-6 text-center text-2xl font-semibold text-[#e9edef]">{t('register.title')}</h1>
+    <div className="relative flex flex-1 items-center justify-center bg-[var(--bg-app)] px-4 py-10">
+      <ThemeToggle className="absolute right-4 top-4 rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]" />
+      <div className="w-full max-w-sm rounded-lg bg-[var(--bg-surface)] p-8 shadow-xl">
+        <h1 className="mb-6 text-center text-2xl font-semibold text-[var(--text-normal)]">{t('register.title')}</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex gap-3">
             <input
-              className="w-1/2 rounded-md bg-[#2a3942] px-4 py-2.5 text-[#e9edef] placeholder-[#8696a0] outline-none focus:ring-2 focus:ring-[#00a884]"
+              className="w-1/2 rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
               placeholder={t('register.firstName')}
               value={form.firstName}
               onChange={(e) => update('firstName', e.target.value)}
               required
             />
             <input
-              className="w-1/2 rounded-md bg-[#2a3942] px-4 py-2.5 text-[#e9edef] placeholder-[#8696a0] outline-none focus:ring-2 focus:ring-[#00a884]"
+              className="w-1/2 rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
               placeholder={t('register.lastName')}
               value={form.lastName}
               onChange={(e) => update('lastName', e.target.value)}
@@ -65,14 +67,14 @@ export default function RegisterPage() {
             />
           </div>
           <input
-            className="rounded-md bg-[#2a3942] px-4 py-2.5 text-[#e9edef] placeholder-[#8696a0] outline-none focus:ring-2 focus:ring-[#00a884]"
+            className="rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
             placeholder={t('register.username')}
             value={form.username}
             onChange={(e) => update('username', e.target.value)}
             required
           />
           <input
-            className="rounded-md bg-[#2a3942] px-4 py-2.5 text-[#e9edef] placeholder-[#8696a0] outline-none focus:ring-2 focus:ring-[#00a884]"
+            className="rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
             placeholder={t('register.email')}
             type="email"
             value={form.email}
@@ -80,25 +82,25 @@ export default function RegisterPage() {
             required
           />
           <input
-            className="rounded-md bg-[#2a3942] px-4 py-2.5 text-[#e9edef] placeholder-[#8696a0] outline-none focus:ring-2 focus:ring-[#00a884]"
+            className="rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
             placeholder={t('register.password')}
             type="password"
             value={form.password}
             onChange={(e) => update('password', e.target.value)}
             required
           />
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
           <button
             type="submit"
             disabled={submitting}
-            className="mt-2 rounded-md bg-[#00a884] py-2.5 font-medium text-[#111b21] transition hover:bg-[#06cf9c] disabled:opacity-60"
+            className="mt-2 rounded-md bg-[var(--brand)] py-2.5 font-medium text-[var(--brand-text)] transition hover:bg-[var(--brand-hover)] disabled:opacity-60"
           >
             {submitting ? t('register.submitting') : t('register.submit')}
           </button>
         </form>
-        <p className="mt-6 text-center text-sm text-[#8696a0]">
+        <p className="mt-6 text-center text-sm text-[var(--text-muted)]">
           {t('register.haveAccount')}{' '}
-          <Link href="/login" className="text-[#00a884] hover:underline">
+          <Link href="/login" className="text-[var(--brand)] hover:underline">
             {t('register.signInLink')}
           </Link>
         </p>

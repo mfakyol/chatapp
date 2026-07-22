@@ -31,6 +31,7 @@ import { conversationName, fullName, otherParticipant } from '@/lib/utils';
 import { getSocket } from '@/lib/socket';
 import { usePresenceMap } from '@/hooks/usePresence';
 import { t } from '@/i18n';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface Toast {
   id: number;
@@ -229,13 +230,13 @@ export function Sidebar({
 
   return (
     <div
-      className={`relative ${hidden ? 'hidden md:flex' : 'flex'} h-full min-h-0 w-full flex-col border-r border-[#2a3942] bg-[#111b21] md:max-w-sm`}
+      className={`relative ${hidden ? 'hidden md:flex' : 'flex'} h-full min-h-0 w-full flex-col border-r border-[var(--border)] bg-[var(--bg-app)] md:max-w-sm`}
     >
       <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col gap-2">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="pointer-events-auto rounded-md bg-[#2a3942] px-3 py-2 text-xs text-[#e9edef] shadow-lg"
+            className="pointer-events-auto rounded-md bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--text-normal)] shadow-lg"
           >
             {t.text}
           </div>
@@ -245,20 +246,23 @@ export function Sidebar({
         <div className="flex items-center gap-3">
           <Avatar name={user ? fullName(user) : '?'} size={40} />
           <div>
-            <p className="text-sm font-medium text-[#e9edef]">{user ? fullName(user) : ''}</p>
-            <p className="text-xs text-[#8696a0]">@{user?.username}</p>
+            <p className="text-sm font-medium text-[var(--text-normal)]">{user ? fullName(user) : ''}</p>
+            <p className="text-xs text-[var(--text-muted)]">@{user?.username}</p>
           </div>
         </div>
-        <button onClick={logout} title={t('sidebar.logOut')} className="rounded-full p-2 text-[#8696a0] hover:bg-[#2a3942]">
-          <IconLogout size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <button onClick={logout} title={t('sidebar.logOut')} className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">
+            <IconLogout size={20} />
+          </button>
+        </div>
       </div>
 
-      <div className="flex border-b border-[#2a3942]">
+      <div className="flex border-b border-[var(--border)]">
         <button
           onClick={() => setTab('chats')}
           className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium ${
-            tab === 'chats' ? 'border-b-2 border-[#00a884] text-[#00a884]' : 'text-[#8696a0]'
+            tab === 'chats' ? 'border-b-2 border-[var(--brand)] text-[var(--brand)]' : 'text-[var(--text-muted)]'
           }`}
         >
           <IconMessageCircle2 size={18} /> {t('sidebar.chats')}
@@ -266,12 +270,12 @@ export function Sidebar({
         <button
           onClick={() => setTab('people')}
           className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium ${
-            tab === 'people' ? 'border-b-2 border-[#00a884] text-[#00a884]' : 'text-[#8696a0]'
+            tab === 'people' ? 'border-b-2 border-[var(--brand)] text-[var(--brand)]' : 'text-[var(--text-muted)]'
           }`}
         >
           <IconUsers size={18} /> {t('sidebar.people')}
           {requests.received.length > 0 && (
-            <span className="ml-1 rounded-full bg-[#00a884] px-1.5 text-xs text-[#111b21]">
+            <span className="ml-1 rounded-full bg-[var(--brand)] px-1.5 text-xs text-[var(--brand-text)]">
               {requests.received.length}
             </span>
           )}
@@ -280,39 +284,39 @@ export function Sidebar({
 
       {tab === 'chats' && (
         <div className="flex-1 overflow-y-auto">
-          <div className="flex items-center gap-2 border-b border-[#2a3942] px-3 py-2">
-            <IconSearch size={16} className="text-[#8696a0]" />
+          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+            <IconSearch size={16} className="text-[var(--text-muted)]" />
             <input
               value={messageQuery}
               onChange={(e) => setMessageQuery(e.target.value)}
               placeholder={t('sidebar.searchMessages')}
-              className="w-full bg-transparent py-1 text-sm text-[#e9edef] placeholder-[#8696a0] outline-none"
+              className="w-full bg-transparent py-1 text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
             />
           </div>
 
           {messageQuery.trim() ? (
             <div>
-              {searchingMessages && <p className="p-4 text-sm text-[#8696a0]">{t('sidebar.searching')}</p>}
+              {searchingMessages && <p className="p-4 text-sm text-[var(--text-muted)]">{t('sidebar.searching')}</p>}
               {!searchingMessages && messageResults.length === 0 && (
-                <p className="p-4 text-sm text-[#8696a0]">{t('sidebar.noMessagesFound')}</p>
+                <p className="p-4 text-sm text-[var(--text-muted)]">{t('sidebar.noMessagesFound')}</p>
               )}
               {messageResults.map((m) => (
                 <button
                   key={m._id}
                   onClick={() => onOpenSearchResult(m.conversation._id, m._id)}
-                  className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-[#202c33]"
+                  className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-[var(--bg-hover)]"
                 >
                   <Avatar name={searchResultConversationName(m)} size={36} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="truncate text-sm font-medium text-[#e9edef]">
+                      <p className="truncate text-sm font-medium text-[var(--text-normal)]">
                         {searchResultConversationName(m)}
                       </p>
-                      <span className="shrink-0 text-[10px] text-[#8696a0]">
+                      <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
                         {new Date(m.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    <p className="truncate text-xs text-[#8696a0]">
+                    <p className="truncate text-xs text-[var(--text-muted)]">
                       {m.sender.username === user?.username ? t('sidebar.you') : `${m.sender.firstName}: `}
                       {messageSnippet(m)}
                     </p>
@@ -323,14 +327,14 @@ export function Sidebar({
           ) : (
             <>
               {conversations.length === 0 && (
-                <p className="p-4 text-sm text-[#8696a0]">{t('sidebar.noConversations')}</p>
+                <p className="p-4 text-sm text-[var(--text-muted)]">{t('sidebar.noConversations')}</p>
               )}
               {conversations.map((c) => (
             <button
               key={c._id}
               onClick={() => onSelectConversation(c)}
-              className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#202c33] ${
-                activeConversationId === c._id ? 'bg-[#2a3942]' : ''
+              className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[var(--bg-hover)] ${
+                activeConversationId === c._id ? 'bg-[var(--bg-elevated)]' : ''
               }`}
             >
               <Avatar
@@ -341,13 +345,13 @@ export function Sidebar({
                 })()}
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-[#e9edef]">
+                <p className="truncate text-sm font-medium text-[var(--text-normal)]">
                   {conversationName(c, user?.username || '')}
                 </p>
-                <p className="truncate text-xs text-[#8696a0]">{lastMessagePreview(c)}</p>
+                <p className="truncate text-xs text-[var(--text-muted)]">{lastMessagePreview(c)}</p>
               </div>
               {!!c.unreadCount && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#00a884] px-1.5 text-xs font-medium text-[#111b21]">
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand)] px-1.5 text-xs font-medium text-[var(--brand-text)]">
                   {c.unreadCount}
                 </span>
               )}
@@ -360,10 +364,10 @@ export function Sidebar({
 
       {tab === 'people' && (
         <div className="flex-1 overflow-y-auto p-4">
-          {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
+          {error && <p className="mb-3 text-sm text-[var(--danger)]">{error}</p>}
 
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[#e9edef]">
+            <h3 className="text-sm font-semibold text-[var(--text-normal)]">
               {groupMode ? t('sidebar.groupHeading') : t('sidebar.searchHeading')}
             </h3>
             <button
@@ -372,7 +376,7 @@ export function Sidebar({
                 setGroupSelection([]);
                 setError('');
               }}
-              className="flex items-center gap-1 text-xs text-[#00a884] hover:underline"
+              className="flex items-center gap-1 text-xs text-[var(--brand)] hover:underline"
             >
               <IconUsersGroup size={16} /> {groupMode ? t('sidebar.cancel') : t('sidebar.newGroup')}
             </button>
@@ -384,53 +388,53 @@ export function Sidebar({
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
                 placeholder={t('sidebar.groupNamePlaceholder')}
-                className="rounded-md bg-[#2a3942] px-3 py-2 text-sm text-[#e9edef] placeholder-[#8696a0] outline-none"
+                className="rounded-md bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
               />
-              <p className="text-xs text-[#8696a0]">{t('sidebar.groupHint')}</p>
+              <p className="text-xs text-[var(--text-muted)]">{t('sidebar.groupHint')}</p>
               {friends.map((f) => (
-                <label key={f.username} className="flex items-center gap-2 text-sm text-[#e9edef]">
+                <label key={f.username} className="flex items-center gap-2 text-sm text-[var(--text-normal)]">
                   <input
                     type="checkbox"
                     checked={groupSelection.includes(f.username)}
                     onChange={() => toggleGroupMember(f.username)}
                   />
-                  {fullName(f)} <span className="text-[#8696a0]">@{f.username}</span>
+                  {fullName(f)} <span className="text-[var(--text-muted)]">@{f.username}</span>
                 </label>
               ))}
               <button
                 onClick={handleCreateGroup}
-                className="mt-2 rounded-md bg-[#00a884] py-2 text-sm font-medium text-[#111b21]"
+                className="mt-2 rounded-md bg-[var(--brand)] py-2 text-sm font-medium text-[var(--brand-text)]"
               >
                 {t('sidebar.createGroup')}
               </button>
             </div>
           ) : (
             <>
-              <div className="mb-4 flex items-center gap-2 rounded-md bg-[#2a3942] px-3 py-2">
-                <IconSearch size={16} className="text-[#8696a0]" />
+              <div className="mb-4 flex items-center gap-2 rounded-md bg-[var(--bg-elevated)] px-3 py-2">
+                <IconSearch size={16} className="text-[var(--text-muted)]" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t('sidebar.searchUsername')}
-                  className="w-full bg-transparent text-sm text-[#e9edef] placeholder-[#8696a0] outline-none"
+                  className="w-full bg-transparent text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
                 />
               </div>
 
               {query.trim() && (
                 <div className="mb-6">
-                  {results.length === 0 && <p className="text-xs text-[#8696a0]">{t('sidebar.noUsersFound')}</p>}
+                  {results.length === 0 && <p className="text-xs text-[var(--text-muted)]">{t('sidebar.noUsersFound')}</p>}
                   {results.map((u) => (
                     <div key={u.username} className="flex items-center justify-between py-2">
                       <div className="flex items-center gap-2">
                         <Avatar name={fullName(u)} size={32} />
                         <div>
-                          <p className="text-sm text-[#e9edef]">{fullName(u)}</p>
-                          <p className="text-xs text-[#8696a0]">@{u.username}</p>
+                          <p className="text-sm text-[var(--text-normal)]">{fullName(u)}</p>
+                          <p className="text-xs text-[var(--text-muted)]">@{u.username}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleAddFriend(u.username)}
-                        className="rounded-full p-2 text-[#00a884] hover:bg-[#2a3942]"
+                        className="rounded-full p-2 text-[var(--brand)] hover:bg-[var(--bg-hover)]"
                         title={t('sidebar.addFriend')}
                       >
                         <IconUserPlus size={18} />
@@ -442,26 +446,26 @@ export function Sidebar({
 
               {requests.received.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="mb-2 text-xs font-semibold uppercase text-[#8696a0]">{t('sidebar.friendRequests')}</h4>
+                  <h4 className="mb-2 text-xs font-semibold uppercase text-[var(--text-muted)]">{t('sidebar.friendRequests')}</h4>
                   {requests.received.map((u) => (
                     <div key={u.username} className="flex items-center justify-between py-2">
                       <div className="flex items-center gap-2">
                         <Avatar name={fullName(u)} size={32} />
                         <div>
-                          <p className="text-sm text-[#e9edef]">{fullName(u)}</p>
-                          <p className="text-xs text-[#8696a0]">@{u.username}</p>
+                          <p className="text-sm text-[var(--text-normal)]">{fullName(u)}</p>
+                          <p className="text-xs text-[var(--text-muted)]">@{u.username}</p>
                         </div>
                       </div>
                       <div className="flex gap-1">
                         <button
                           onClick={() => handleAccept(u.username)}
-                          className="rounded-full p-2 text-[#00a884] hover:bg-[#2a3942]"
+                          className="rounded-full p-2 text-[var(--brand)] hover:bg-[var(--bg-hover)]"
                         >
                           <IconCheck size={18} />
                         </button>
                         <button
                           onClick={() => handleDecline(u.username)}
-                          className="rounded-full p-2 text-red-400 hover:bg-[#2a3942]"
+                          className="rounded-full p-2 text-[var(--danger)] hover:bg-[var(--bg-hover)]"
                         >
                           <IconX size={18} />
                         </button>
@@ -472,20 +476,20 @@ export function Sidebar({
               )}
 
               <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase text-[#8696a0]">{t('sidebar.friends')}</h4>
-                {friends.length === 0 && <p className="text-xs text-[#8696a0]">{t('sidebar.noFriends')}</p>}
+                <h4 className="mb-2 text-xs font-semibold uppercase text-[var(--text-muted)]">{t('sidebar.friends')}</h4>
+                {friends.length === 0 && <p className="text-xs text-[var(--text-muted)]">{t('sidebar.noFriends')}</p>}
                 {friends.map((f) => (
                   <div key={f.username} className="flex items-center justify-between py-2">
                     <div className="flex items-center gap-2">
                       <Avatar name={fullName(f)} isOnline={isUserOnline(f)} size={32} />
                       <div>
-                        <p className="text-sm text-[#e9edef]">{fullName(f)}</p>
-                        <p className="text-xs text-[#8696a0]">@{f.username}</p>
+                        <p className="text-sm text-[var(--text-normal)]">{fullName(f)}</p>
+                        <p className="text-xs text-[var(--text-muted)]">@{f.username}</p>
                       </div>
                     </div>
                     <button
                       onClick={() => handleStartChat(f.username)}
-                      className="text-xs text-[#00a884] hover:underline"
+                      className="text-xs text-[var(--brand)] hover:underline"
                     >
                       {t('sidebar.message')}
                     </button>

@@ -134,7 +134,7 @@ export default function ChatPage() {
   if (loading || !user) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-[#8696a0]">{t('common.loading')}</p>
+        <p className="text-[var(--text-muted)]">{t('common.loading')}</p>
       </div>
     );
   }
@@ -160,8 +160,8 @@ export default function ChatPage() {
               onBack={() => setActive(null)}
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center bg-[#0b141a]">
-              <p className="text-[#8696a0]">{t('chat.selectConversation')}</p>
+            <div className="flex flex-1 items-center justify-center bg-[var(--bg-chat)]">
+              <p className="text-[var(--text-muted)]">{t('chat.selectConversation')}</p>
             </div>
           )}
         </div>

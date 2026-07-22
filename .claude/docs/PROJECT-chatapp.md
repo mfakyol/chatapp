@@ -59,6 +59,16 @@ Notes unique to **this** repo. General standards live in the sibling docs
   `t()` i18n helper, the `request()` Result wrapper (mocked fetch), the presence store,
   and the Avatar component. 10 tests today.
 
+## Theming
+- Dark (default) + light themes via CSS variables in `client/src/app/globals.css`
+  (`:root` / `:root[data-theme="light"]`), using a **Discord-inspired** palette (blurple
+  `#5865f2`, dark surfaces `#1e1f22`/`#2b2d31`/`#313338`). Components use semantic
+  utilities only (`bg-[var(--bg-surface)]`, `text-[var(--text-normal)]`, `--brand`,
+  `--bubble-own`, `--online`, `--danger`, …) — no raw hex.
+- `stores/theme.store.ts` toggles + persists to `localStorage`; `components/ThemeToggle`
+  is in the sidebar header, home nav, and auth pages. A tiny no-FOUC script in
+  `layout.tsx` sets `data-theme` before paint (html has `suppressHydrationWarning`).
+
 ## Conventions for this repo/owner
 - **Do not add a `Co-Authored-By` trailer** to commits (owner preference).
 - Prefer small, single-concern commits.

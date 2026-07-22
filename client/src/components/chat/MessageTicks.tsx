@@ -5,7 +5,7 @@ export function MessageTicks({ message, currentUsername }: { message: Message; c
   const seenByOthers = message.readBy.some((r) => r.user.username !== currentUsername);
 
   if (seenByOthers) {
-    return <IconChecks size={16} className="text-[#53bdeb]" />;
+    return <IconChecks size={16} className="text-[var(--tick)]" />;
   }
-  return <IconCheck size={16} className="text-[#8696a0]" />;
+  return <IconCheck size={16} className="text-[var(--text-muted)]" />;
 }

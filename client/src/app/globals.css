@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Discord-inspired dark theme (default). */
+:root,
+:root[data-theme="dark"] {
+  --bg-app: #1e1f22;
+  --bg-chat: #313338;
+  --bg-surface: #2b2d31;
+  --bg-elevated: #383a40;
+  --bg-hover: #35373c;
+  --bubble-own: #4752c4;
+  --bubble-own-text: #ffffff;
+  --border: #26282c;
+  --text-normal: #dbdee1;
+  --text-muted: #949ba4;
+  --brand: #5865f2;
+  --brand-hover: #4752c4;
+  --brand-text: #ffffff;
+  --online: #23a55a;
+  --danger: #f23f42;
+  --tick: #53bdeb;
+}
+
+/* Discord-inspired light theme. */
+:root[data-theme="light"] {
+  --bg-app: #e3e5e8;
+  --bg-chat: #ffffff;
+  --bg-surface: #f2f3f5;
+  --bg-elevated: #e3e5e8;
+  --bg-hover: #ebedef;
+  --bubble-own: #5865f2;
+  --bubble-own-text: #ffffff;
+  --border: #d7d9dc;
+  --text-normal: #313338;
+  --text-muted: #5c5e66;
+  --brand: #5865f2;
+  --brand-hover: #4752c4;
+  --brand-text: #ffffff;
+  --online: #1a9c4c;
+  --danger: #d83c3e;
+  --tick: #1d9bd1;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-app);
+  color: var(--text-normal);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }

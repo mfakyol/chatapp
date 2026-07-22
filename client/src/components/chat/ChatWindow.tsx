@@ -373,10 +373,10 @@ export function ChatWindow({
 
   return (
     <div className="flex h-full min-h-0 flex-1">
-      <div className="flex h-full min-h-0 flex-1 flex-col bg-[#0b141a]">
-        <div className="flex items-center gap-3 border-b border-[#2a3942] bg-[#202c33] px-4 py-3">
+      <div className="flex h-full min-h-0 flex-1 flex-col bg-[var(--bg-chat)]">
+        <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
           {onBack && (
-            <button onClick={onBack} className="rounded-full p-2 text-[#8696a0] hover:bg-[#2a3942] md:hidden">
+            <button onClick={onBack} className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] md:hidden">
               <IconArrowLeft size={20} />
             </button>
           )}
@@ -386,17 +386,17 @@ export function ChatWindow({
           >
             <Avatar name={conversationName(conversation, user?.username || '')} isOnline={!conversation.isGroup && otherIsOnline} size={40} />
             <div className="min-w-0">
-              <p className="truncate font-medium text-[#e9edef]">
+              <p className="truncate font-medium text-[var(--text-normal)]">
                 {conversationName(conversation, user?.username || '')}
               </p>
-              <p className="truncate text-xs text-[#8696a0]">
+              <p className="truncate text-xs text-[var(--text-muted)]">
                 {typingLabel || (conversation.isGroup ? '' : otherIsOnline ? t('chat.online') : formatLastSeen(otherLastSeen))}
               </p>
             </div>
           </button>
           <button
             onClick={() => setShowSearch((v) => !v)}
-            className="rounded-full p-2 text-[#8696a0] hover:bg-[#2a3942]"
+            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
             title={t('chat.searchInConversation')}
           >
             <IconSearch size={20} />
@@ -404,31 +404,31 @@ export function ChatWindow({
         </div>
 
         {showSearch && (
-          <div className="border-b border-[#2a3942] bg-[#111b21] p-3">
-            <div className="flex items-center gap-2 rounded-md bg-[#2a3942] px-3 py-2">
-              <IconSearch size={16} className="text-[#8696a0]" />
+          <div className="border-b border-[var(--border)] bg-[var(--bg-app)] p-3">
+            <div className="flex items-center gap-2 rounded-md bg-[var(--bg-elevated)] px-3 py-2">
+              <IconSearch size={16} className="text-[var(--text-muted)]" />
               <input
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('chat.searchPlaceholder')}
-                className="w-full bg-transparent text-sm text-[#e9edef] placeholder-[#8696a0] outline-none"
+                className="w-full bg-transparent text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
               />
-              <button onClick={() => setShowSearch(false)} className="text-[#8696a0]">
+              <button onClick={() => setShowSearch(false)} className="text-[var(--text-muted)]">
                 <IconX size={16} />
               </button>
             </div>
             {searchQuery.trim() && (
               <div className="mt-2 max-h-48 overflow-y-auto">
-                {searchResults.length === 0 && <p className="p-2 text-xs text-[#8696a0]">{t('chat.noMessagesFound')}</p>}
+                {searchResults.length === 0 && <p className="p-2 text-xs text-[var(--text-muted)]">{t('chat.noMessagesFound')}</p>}
                 {searchResults.map((m) => (
                   <button
                     key={m._id}
                     onClick={() => jumpToMessage(m._id)}
-                    className="flex w-full flex-col items-start rounded px-2 py-2 text-left hover:bg-[#202c33]"
+                    className="flex w-full flex-col items-start rounded px-2 py-2 text-left hover:bg-[var(--bg-hover)]"
                   >
-                    <span className="text-xs font-medium text-[#00a884]">{m.sender.firstName}</span>
-                    <span className="truncate text-sm text-[#e9edef]">
+                    <span className="text-xs font-medium text-[var(--brand)]">{m.sender.firstName}</span>
+                    <span className="truncate text-sm text-[var(--text-normal)]">
                       {m.attachment ? `📎 ${m.attachment.fileName}` : m.content}
                     </span>
                   </button>
@@ -440,10 +440,10 @@ export function ChatWindow({
 
         <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4">
           {loadingMore && (
-            <p className="mb-2 text-center text-xs text-[#8696a0]">{t('chat.loadingOlder')}</p>
+            <p className="mb-2 text-center text-xs text-[var(--text-muted)]">{t('chat.loadingOlder')}</p>
           )}
           {!hasMore && messages.length > 0 && (
-            <p className="mb-2 text-center text-xs text-[#8696a0]">{t('chat.startOfConversation')}</p>
+            <p className="mb-2 text-center text-xs text-[var(--text-muted)]">{t('chat.startOfConversation')}</p>
           )}
           {messages.map((m) => {
             const mine = m.sender.username === user?.username;
@@ -461,32 +461,32 @@ export function ChatWindow({
                     <div className="absolute -top-2 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => setMenuOpenId((id) => (id === m._id ? null : m._id))}
-                        className="rounded-full bg-[#2a3942] p-1 text-[#e9edef] shadow"
+                        className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
                       >
                         <IconDotsVertical size={14} />
                       </button>
                       {menuOpenId === m._id && (
-                        <div className="absolute right-0 top-6 z-20 w-40 rounded-md bg-[#202c33] py-1 text-sm shadow-lg">
+                        <div className="absolute right-0 top-6 z-20 w-40 rounded-md bg-[var(--bg-surface)] py-1 text-sm shadow-lg">
                           <button
                             onClick={() => {
                               setOpenDetailId((id) => (id === m._id ? null : m._id));
                               setMenuOpenId(null);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[#e9edef] hover:bg-[#2a3942]"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--text-normal)] hover:bg-[var(--bg-hover)]"
                           >
                             <IconInfoCircle size={16} /> {t('chat.info')}
                           </button>
                           {!m.attachment && (
                             <button
                               onClick={() => startEdit(m)}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[#e9edef] hover:bg-[#2a3942]"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--text-normal)] hover:bg-[var(--bg-hover)]"
                             >
                               <IconPencil size={16} /> {t('chat.edit')}
                             </button>
                           )}
                           <button
                             onClick={() => handleDelete(m._id)}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-400 hover:bg-[#2a3942]"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--danger)] hover:bg-[var(--bg-hover)]"
                           >
                             <IconTrash size={16} /> {t('chat.delete')}
                           </button>
@@ -497,15 +497,15 @@ export function ChatWindow({
 
                   <div
                     className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                      mine ? 'bg-[#005c4b] text-[#e9edef]' : 'bg-[#202c33] text-[#e9edef]'
-                    } ${highlightedId === m._id ? 'ring-2 ring-[#00a884]' : ''}`}
+                      mine ? 'bg-[var(--bubble-own)] text-[var(--bubble-own-text)]' : 'bg-[var(--bg-surface)] text-[var(--text-normal)]'
+                    } ${highlightedId === m._id ? 'ring-2 ring-[var(--brand)]' : ''}`}
                   >
                     {conversation.isGroup && !mine && !deleted && (
-                      <p className="mb-0.5 text-xs font-semibold text-[#00a884]">{m.sender.firstName}</p>
+                      <p className="mb-0.5 text-xs font-semibold text-[var(--brand)]">{m.sender.firstName}</p>
                     )}
 
                     {deleted ? (
-                      <p className="italic text-[#8696a0]">{t('chat.messageDeleted')}</p>
+                      <p className="italic text-[var(--text-muted)]">{t('chat.messageDeleted')}</p>
                     ) : editingId === m._id ? (
                       <div className="flex flex-col gap-2">
                         <input
@@ -513,13 +513,13 @@ export function ChatWindow({
                           value={editDraft}
                           onChange={(e) => setEditDraft(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && saveEdit(m._id)}
-                          className="rounded bg-black/20 px-2 py-1 text-sm text-[#e9edef] outline-none"
+                          className="rounded bg-black/20 px-2 py-1 text-sm text-[var(--text-normal)] outline-none"
                         />
                         <div className="flex justify-end gap-2 text-xs">
-                          <button onClick={() => setEditingId(null)} className="text-[#8696a0]">
+                          <button onClick={() => setEditingId(null)} className="text-[var(--text-muted)]">
                             {t('common.cancel')}
                           </button>
-                          <button onClick={() => saveEdit(m._id)} className="text-[#00a884]">
+                          <button onClick={() => saveEdit(m._id)} className="text-[var(--brand)]">
                             {t('common.save')}
                           </button>
                         </div>
@@ -544,7 +544,7 @@ export function ChatWindow({
                             <IconFile size={22} />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-xs">{m.attachment.fileName}</p>
-                              <p className="text-[10px] text-[#8696a0]">{formatFileSize(m.attachment.size)}</p>
+                              <p className="text-[10px] text-[var(--text-muted)]">{formatFileSize(m.attachment.size)}</p>
                             </div>
                             <IconDownload size={16} />
                           </a>
@@ -555,7 +555,7 @@ export function ChatWindow({
                     )}
 
                     {!deleted && (
-                      <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-[#8696a0]">
+                      <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-[var(--text-muted)]">
                         {m.editedAt && <span>{t('chat.edited')}</span>}
                         <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         {mine && <MessageTicks message={m} currentUsername={user?.username || ''} />}
@@ -573,14 +573,14 @@ export function ChatWindow({
           <div ref={bottomRef} />
         </div>
 
-        <div className="relative flex items-center gap-2 border-t border-[#2a3942] bg-[#202c33] px-4 py-3">
+        <div className="relative flex items-center gap-2 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
           {showEmoji && (
-            <div className="absolute bottom-full left-4 mb-2 grid grid-cols-6 gap-1 rounded-md bg-[#202c33] p-2 shadow-lg">
+            <div className="absolute bottom-full left-4 mb-2 grid grid-cols-6 gap-1 rounded-md bg-[var(--bg-surface)] p-2 shadow-lg">
               {EMOJIS.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => handleEmojiPick(emoji)}
-                  className="rounded p-1 text-xl hover:bg-[#2a3942]"
+                  className="rounded p-1 text-xl hover:bg-[var(--bg-hover)]"
                 >
                   {emoji}
                 </button>
@@ -592,14 +592,14 @@ export function ChatWindow({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             title={t('chat.attachFile')}
-            className="rounded-full p-2 text-[#8696a0] hover:bg-[#2a3942] disabled:opacity-50"
+            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] disabled:opacity-50"
           >
             <IconPaperclip size={20} />
           </button>
           <button
             onClick={() => setShowEmoji((v) => !v)}
             title={t('chat.emoji')}
-            className="rounded-full p-2 text-[#8696a0] hover:bg-[#2a3942]"
+            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
           >
             <IconMoodSmile size={20} />
           </button>
@@ -609,11 +609,11 @@ export function ChatWindow({
             onChange={(e) => handleDraftChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder={uploading ? t('chat.uploading') : t('chat.typeMessage')}
-            className="flex-1 rounded-full bg-[#2a3942] px-4 py-2 text-sm text-[#e9edef] placeholder-[#8696a0] outline-none"
+            className="flex-1 rounded-full bg-[var(--bg-elevated)] px-4 py-2 text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
           />
           <button
             onClick={handleSend}
-            className="rounded-full bg-[#00a884] p-2.5 text-[#111b21] hover:bg-[#06cf9c]"
+            className="rounded-full bg-[var(--brand)] p-2.5 text-[var(--brand-text)] hover:bg-[var(--brand-hover)]"
           >
             <IconSend size={18} />
           </button>
@@ -644,8 +644,8 @@ function MessageDetail({
   const readers = message.readBy.filter((r) => r.user.username !== currentUsername);
 
   return (
-    <div className="mt-1 rounded-md bg-[#202c33] px-3 py-2 text-xs text-[#e9edef] shadow-lg">
-      <p className="text-[#8696a0]">{t('chat.detailSent', { time: sentAt })}</p>
+    <div className="mt-1 rounded-md bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--text-normal)] shadow-lg">
+      <p className="text-[var(--text-muted)]">{t('chat.detailSent', { time: sentAt })}</p>
       {isGroup ? (
         readers.length > 0 ? (
           readers.map((r) => (
@@ -657,12 +657,12 @@ function MessageDetail({
             </p>
           ))
         ) : (
-          <p className="text-[#8696a0]">{t('chat.detailNotSeen')}</p>
+          <p className="text-[var(--text-muted)]">{t('chat.detailNotSeen')}</p>
         )
       ) : readers.length > 0 ? (
         <p>{t('chat.detailSeen', { time: new Date(readers[0].readAt).toLocaleString() })}</p>
       ) : (
-        <p className="text-[#8696a0]">{t('chat.detailDelivered')}</p>
+        <p className="text-[var(--text-muted)]">{t('chat.detailDelivered')}</p>
       )}
     </div>
   );

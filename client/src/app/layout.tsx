@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   description: "Realtime chat application",
 };
 
+// Applied before paint so the theme is correct on first render (no flash).
+const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark')t='dark';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,9 +29,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="dark"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="h-dvh flex flex-col overflow-hidden bg-[#111b21] text-[#e9edef]">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="h-dvh flex flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-normal)]">
         <AuthBootstrap />
         {children}
       </body>

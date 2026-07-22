@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -22,6 +24,16 @@
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.1.1",
+    "@types/passport": "^1.0.17",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/passport-local": "^1.0.38",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
   }
 }

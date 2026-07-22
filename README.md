@@ -4,7 +4,7 @@ WhatsApp-benzeri gerçek zamanlı sohbet uygulaması. Tekil ve grup sohbetleri, 
 
 ## Stack
 
-- **Server**: Express, MongoDB (Mongoose), Passport (local + JWT), Socket.io, Multer
+- **Server**: TypeScript, Express, MongoDB (Mongoose), Passport (local + JWT), Socket.io, Multer
 - **Client**: Next.js (App Router), Tailwind CSS, Tabler Icons, socket.io-client
 
 ## Kurulum

@@ -1,7 +1,7 @@
-const { Router } = require('express');
-const { requireAuth } = require('../middleware/auth');
-const { upload } = require('../middleware/upload');
-const {
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth';
+import { upload } from '../middleware/upload';
+import {
   listConversations,
   createDirectConversation,
   createGroupConversation,
@@ -14,7 +14,7 @@ const {
   addMember,
   removeMember,
   leaveGroup,
-} = require('../controllers/conversationController');
+} from '../controllers/conversation.controller';
 
 const router = Router();
 
@@ -33,4 +33,4 @@ router.post('/:conversationId/members', addMember);
 router.delete('/:conversationId/members/:username', removeMember);
 router.post('/:conversationId/leave', leaveGroup);
 
-module.exports = router;
+export default router;

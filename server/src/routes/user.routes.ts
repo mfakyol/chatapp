@@ -1,6 +1,6 @@
-const { Router } = require('express');
-const { requireAuth } = require('../middleware/auth');
-const {
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth';
+import {
   searchUsers,
   sendFriendRequest,
   acceptFriendRequest,
@@ -8,7 +8,7 @@ const {
   removeFriend,
   getFriends,
   getFriendRequests,
-} = require('../controllers/userController');
+} from '../controllers/user.controller';
 
 const router = Router();
 
@@ -22,4 +22,4 @@ router.post('/friend-requests/:username/accept', acceptFriendRequest);
 router.post('/friend-requests/:username/decline', declineFriendRequest);
 router.delete('/friends/:username', removeFriend);
 
-module.exports = router;
+export default router;

@@ -1,7 +1,9 @@
-const passport = require('passport');
-const { Strategy: LocalStrategy } = require('passport-local');
-const { Strategy: JwtStrategy, ExtractJwt } = require('passport-jwt');
-const User = require('../models/User');
+import passport from 'passport';
+import { Strategy as LocalStrategy } from 'passport-local';
+import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
+import User from '../models/User';
+import { env } from './env';
+import type { JwtPayload } from '../utils/jwt';
 
 passport.use(
   'local',
@@ -30,9 +32,9 @@ passport.use(
   new JwtStrategy(
     {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: process.env.JWT_SECRET,
+      secretOrKey: env.jwtSecret,
     },
-    async (payload, done) => {
+    async (payload: JwtPayload, done) => {
       try {
         const user = await User.findById(payload.sub);
         if (!user) return done(null, false);
@@ -44,4 +46,4 @@ passport.use(
   )
 );
 
-module.exports = passport;
+export default passport;

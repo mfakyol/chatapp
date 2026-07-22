@@ -1,6 +1,6 @@
-const path = require('path');
-const crypto = require('crypto');
-const multer = require('multer');
+import path from 'path';
+import crypto from 'crypto';
+import multer from 'multer';
 
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
@@ -16,21 +16,21 @@ const ALLOWED_MIME_TYPES = new Set([
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '..', '..', 'uploads'),
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${path.extname(file.originalname)}`;
+  filename: (_req, file, cb) => {
+    const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${path.extname(
+      file.originalname
+    )}`;
     cb(null, uniqueName);
   },
 });
 
-const upload = multer({
+export const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
       return cb(new Error('Unsupported file type'));
     }
     cb(null, true);
   },
 });
-
-module.exports = { upload };

@@ -189,8 +189,10 @@ export async function markConversationRead(
   const readAt = new Date();
   const messageIds = unread.map((m) => m._id);
 
+  // The `readBy.user` guard makes this idempotent: a concurrent read call that
+  // already recorded this user is a no-op instead of pushing a duplicate receipt.
   await Message.updateMany(
-    { _id: { $in: messageIds } },
+    { _id: { $in: messageIds }, 'readBy.user': { $ne: user._id } },
     { $push: { readBy: { user: user._id, readAt } } }
   );
 

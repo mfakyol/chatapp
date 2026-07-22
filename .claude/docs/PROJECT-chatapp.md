@@ -36,7 +36,8 @@ Notes unique to **this** repo. General standards live in the sibling docs
   - `Conversation`: `isGroup`, participants[], admins[], createdBy, lastMessage.
   - `Message`: conversation, sender, content, attachment{url,fileName,mimeType,size},
     readBy[], editedAt, deletedAt (soft delete). Requires content OR attachment.
-- **No cascade yet**: deleting a conversation does not delete its messages (follow-up).
+- **Cascade**: deleting a `Conversation` deletes its `Message`s (model pre-delete hooks).
+  Note there is currently no delete-conversation route, so the hook is future-proofing.
 
 ## Uploads
 - `middleware/upload.ts` (Multer): 10MB cap, MIME allowlist, random filenames, stored in
@@ -85,8 +86,9 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
    _Remaining_: socket `message:send` spam throttle (per-connection) — deferred.
 4. ✅ **Shared token verifier** — `utils/jwt.verifyToken` used by both the passport-jwt
    strategy and the socket handshake.
-5. **Data integrity**: cascade delete messages with a conversation; atomic read-receipt
-   and friend-request updates.
+5. ✅ **Data integrity** — `Conversation` cascade-deletes its `Message`s (pre
+   `deleteOne`/`findOneAndDelete` hooks); read receipts use an idempotent guarded
+   `updateMany`; friend-request arrays use `addToSet` to avoid duplicates under races.
 6. **Lifecycle**: `/health` should reflect DB status; graceful shutdown closes io + Mongo.
 7. **Structured logging (pino)** instead of `console.*`.
 8. **Client**: Context → zustand; `lib/api.ts` throw → discriminated result; group

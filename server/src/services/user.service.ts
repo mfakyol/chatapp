@@ -61,8 +61,8 @@ export async function sendFriendRequest(
     return { auto: true };
   }
 
-  target.friendRequestsReceived.push(currentUser._id);
-  currentUser.friendRequestsSent.push(target._id);
+  target.friendRequestsReceived.addToSet(currentUser._id);
+  currentUser.friendRequestsSent.addToSet(target._id);
   await target.save();
   await currentUser.save();
 

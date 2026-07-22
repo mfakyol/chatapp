@@ -7,6 +7,11 @@ import { AppError } from '../errors/AppError';
 import { createMessage, markConversationRead } from '../services/message.service';
 import { objectId } from '../schemas/common';
 import { socketMessageSend, socketConversationId } from '../schemas/socket.schema';
+import { createSlidingWindow } from '../utils/slidingWindow';
+
+// Anti-spam: cap how many messages a single connection may send per window.
+const MESSAGE_RATE_LIMIT = 10;
+const MESSAGE_RATE_WINDOW_MS = 5000;
 
 export function registerSocketHandlers(io: Server): void {
   io.use(async (socket, next) => {
@@ -27,6 +32,7 @@ export function registerSocketHandlers(io: Server): void {
 
   io.on('connection', (socket) => {
     const user = socket.user;
+    const allowMessage = createSlidingWindow(MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS);
 
     // Register all listeners synchronously before any `await` below, so events
     // emitted by the client immediately after connecting are never dropped
@@ -40,6 +46,10 @@ export function registerSocketHandlers(io: Server): void {
       const parsed = socketMessageSend.safeParse(payload);
       if (!parsed.success) {
         if (callback) callback({ error: 'Invalid message' });
+        return;
+      }
+      if (!allowMessage()) {
+        if (callback) callback({ error: 'You are sending messages too fast' });
         return;
       }
       try {

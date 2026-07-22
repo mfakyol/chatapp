@@ -5,8 +5,8 @@ import { IconX, IconPencil, IconUserPlus, IconUserMinus, IconLogout2, IconCheck 
 import { Avatar } from '@/components/Avatar';
 import { Conversation, PublicUser } from '@/types';
 import { fullName, otherParticipant, formatLastSeen } from '@/lib/utils';
-import { usePresenceMap } from '@/context/PresenceContext';
-import { useAuth } from '@/context/AuthContext';
+import { usePresenceMap } from '@/hooks/usePresence';
+import { useAuth } from '@/hooks/useAuth';
 import { getFriends, renameGroup, addGroupMember, removeGroupMember, leaveGroup } from '@/lib/resources';
 
 export function ProfilePanel({

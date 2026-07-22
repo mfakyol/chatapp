@@ -98,7 +98,13 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
 7. ✅ **Structured logging** — `config/logger` (pino; pretty in dev, JSON in prod,
    `LOG_LEVEL`-configurable) + `pino-http` per-request logging with request ids; all
    `console.*` removed.
-8. **Client**: Context → zustand; `lib/api.ts` throw → discriminated result; group
-   components by feature (`components/chat`, `components/friends`); extract hooks; i18n.
+8. **Client** (in progress):
+   - ✅ Context → **zustand** — `stores/auth.store` + `stores/presence.store`; hooks
+     `useAuth`/`usePresence(Map)` keep the old APIs; `AuthBootstrap`/`PresenceListener`
+     replace the providers. Runtime-verified (register → redirect → chat).
+   - ☐ `lib/api.ts` throw → discriminated result; ☐ group components by feature
+     (`components/chat`, `components/friends`); ☐ extract hooks; ☐ i18n.
+   - _Pre-existing_: `set-state-in-effect` lint errors in `ChatWindow`/`Sidebar`/
+     `ProfilePanel` (unrelated to this work; build still passes).
 9. ✅ **Backend tests** — Vitest + supertest + mongodb-memory-server (`server/test/`,
    28 tests: auth, friends, conversations, message-service). Client testing still TBD.

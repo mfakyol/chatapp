@@ -11,7 +11,7 @@ import {
   IconX,
   IconUsersGroup,
 } from '@tabler/icons-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/Avatar';
 import { Conversation, FriendRequests, MessageSearchResult, PublicUser } from '@/types';
 import {
@@ -27,7 +27,7 @@ import {
 } from '@/lib/resources';
 import { conversationName, fullName, otherParticipant } from '@/lib/utils';
 import { getSocket } from '@/lib/socket';
-import { usePresenceMap } from '@/context/PresenceContext';
+import { usePresenceMap } from '@/hooks/usePresence';
 
 interface Toast {
   id: number;

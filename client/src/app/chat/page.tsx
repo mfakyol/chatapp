@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import { PresenceProvider } from '@/context/PresenceContext';
+import { useAuth } from '@/hooks/useAuth';
+import PresenceListener from '@/components/PresenceListener';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatWindow } from '@/components/ChatWindow';
 import { Conversation, Message } from '@/types';
@@ -133,7 +133,8 @@ export default function ChatPage() {
   }
 
   return (
-    <PresenceProvider>
+    <>
+      <PresenceListener />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
           conversations={conversations}
@@ -158,6 +159,6 @@ export default function ChatPage() {
           )}
         </div>
       </div>
-    </PresenceProvider>
+    </>
   );
 }

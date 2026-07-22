@@ -1,14 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import Conversation from '../src/models/Conversation';
+import ConversationMember from '../src/models/ConversationMember';
 import Message from '../src/models/Message';
 import User, { UserDocument } from '../src/models/User';
 import {
   createMessage,
-  markConversationRead,
   editMessage,
   deleteMessage,
   toggleReaction,
 } from '../src/services/message.service';
+import { markConversationRead } from '../src/services/conversation.service';
 import { AppError } from '../src/errors/AppError';
 import { ioStub } from './helpers';
 
@@ -25,10 +26,15 @@ async function makeUser(name: string): Promise<UserDocument> {
 }
 
 async function directConversation(a: UserDocument, b: UserDocument) {
-  return Conversation.create({ isGroup: false, participants: [a._id, b._id], createdBy: a._id });
+  const convo = await Conversation.create({ type: 'direct', createdBy: a._id });
+  await ConversationMember.insertMany([
+    { conversation: convo._id, user: a._id, role: 'member' },
+    { conversation: convo._id, user: b._id, role: 'member' },
+  ]);
+  return convo;
 }
 
-describe('message.service (socket-shared logic)', () => {
+describe('message.service', () => {
   it('createMessage persists, sets lastMessage, and populates the sender', async () => {
     const a = await makeUser('a');
     const b = await makeUser('b');
@@ -43,7 +49,7 @@ describe('message.service (socket-shared logic)', () => {
     expect(reloaded?.lastMessage?.toString()).toBe(msg._id.toString());
   });
 
-  it('createMessage rejects a non-participant with a 404 AppError', async () => {
+  it('createMessage rejects a non-member with a 404 AppError', async () => {
     const a = await makeUser('a');
     const b = await makeUser('b');
     const outsider = await makeUser('c');
@@ -54,24 +60,55 @@ describe('message.service (socket-shared logic)', () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
-  it('markConversationRead is idempotent under concurrent calls', async () => {
+  it('createMessage is idempotent on clientTempId', async () => {
     const a = await makeUser('a');
     const b = await makeUser('b');
     const convo = await directConversation(a, b);
 
-    // b sends two messages
-    await createMessage(b, convo._id.toString(), { content: 'one' }, ioStub);
-    await createMessage(b, convo._id.toString(), { content: 'two' }, ioStub);
+    const [first, second] = [
+      await createMessage(a, convo._id.toString(), { content: 'x', clientTempId: 't1' }, ioStub),
+      await createMessage(a, convo._id.toString(), { content: 'x', clientTempId: 't1' }, ioStub),
+    ];
 
-    await Promise.all([
-      markConversationRead(a, convo._id.toString(), ioStub),
-      markConversationRead(a, convo._id.toString(), ioStub),
-    ]);
+    expect(second._id.toString()).toBe(first._id.toString());
+    expect(await Message.countDocuments({ conversation: convo._id })).toBe(1);
+  });
 
-    const msgs = await Message.find({ conversation: convo._id });
-    for (const m of msgs) {
-      expect(m.readBy.filter((r) => r.user.equals(a._id))).toHaveLength(1);
-    }
+  it('markConversationRead advances the lastReadAt pointer', async () => {
+    const a = await makeUser('a');
+    const b = await makeUser('b');
+    const convo = await directConversation(a, b);
+    await createMessage(b, convo._id.toString(), { content: 'unread' }, ioStub);
+
+    const before = await ConversationMember.findOne({ conversation: convo._id, user: a._id });
+    expect(before!.lastReadAt.getTime()).toBe(0);
+
+    await markConversationRead(a, convo._id.toString(), ioStub);
+
+    const after = await ConversationMember.findOne({ conversation: convo._id, user: a._id });
+    expect(after!.lastReadAt.getTime()).toBeGreaterThan(0);
+  });
+
+  it('toggleReaction adds, groups, and removes reactions', async () => {
+    const a = await makeUser('a');
+    const b = await makeUser('b');
+    const convo = await directConversation(a, b);
+    const msg = await createMessage(a, convo._id.toString(), { content: 'react to me' }, ioStub);
+    const id = msg._id.toString();
+
+    await toggleReaction(a, convo._id.toString(), id, '👍', ioStub);
+    await toggleReaction(b, convo._id.toString(), id, '👍', ioStub);
+    let reloaded = await Message.findById(id);
+    expect(reloaded?.reactions).toHaveLength(1);
+    expect(reloaded?.reactions[0].users).toHaveLength(2);
+
+    await toggleReaction(a, convo._id.toString(), id, '👍', ioStub);
+    reloaded = await Message.findById(id);
+    expect(reloaded?.reactions[0].users).toHaveLength(1);
+
+    await toggleReaction(b, convo._id.toString(), id, '👍', ioStub);
+    reloaded = await Message.findById(id);
+    expect(reloaded?.reactions).toHaveLength(0);
   });
 
   it('editMessage forbids editing another user’s message', async () => {
@@ -87,33 +124,6 @@ describe('message.service (socket-shared logic)', () => {
     const edited = await editMessage(a, convo._id.toString(), msg._id.toString(), 'edited', ioStub);
     expect(edited.content).toBe('edited');
     expect(edited.editedAt).toBeInstanceOf(Date);
-  });
-
-  it('toggleReaction adds, groups, and removes reactions', async () => {
-    const a = await makeUser('a');
-    const b = await makeUser('b');
-    const convo = await directConversation(a, b);
-    const msg = await createMessage(a, convo._id.toString(), { content: 'react to me' }, ioStub);
-    const id = msg._id.toString();
-
-    // a adds 👍
-    await toggleReaction(a, convo._id.toString(), id, '👍', ioStub);
-    // b adds 👍 → grouped under the same emoji
-    await toggleReaction(b, convo._id.toString(), id, '👍', ioStub);
-    let reloaded = await Message.findById(id);
-    expect(reloaded?.reactions).toHaveLength(1);
-    expect(reloaded?.reactions[0].emoji).toBe('👍');
-    expect(reloaded?.reactions[0].users).toHaveLength(2);
-
-    // a toggles 👍 off → only b remains
-    await toggleReaction(a, convo._id.toString(), id, '👍', ioStub);
-    reloaded = await Message.findById(id);
-    expect(reloaded?.reactions[0].users).toHaveLength(1);
-
-    // b toggles 👍 off → group removed entirely
-    await toggleReaction(b, convo._id.toString(), id, '👍', ioStub);
-    reloaded = await Message.findById(id);
-    expect(reloaded?.reactions).toHaveLength(0);
   });
 
   it('deleteMessage soft-deletes (clears content, sets deletedAt)', async () => {

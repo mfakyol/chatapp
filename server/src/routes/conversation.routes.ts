@@ -2,13 +2,15 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { validate } from '../middleware/validate';
-import { uploadLimiter } from '../middleware/rateLimit';
+import { uploadLimiter, messageLimiter } from '../middleware/rateLimit';
 import {
   createDirectSchema,
   createGroupSchema,
   conversationIdParamSchema,
+  sendMessageSchema,
   messageParamsSchema,
   editMessageSchema,
+  reactSchema,
   renameSchema,
   addMemberSchema,
   removeMemberSchema,
@@ -21,6 +23,9 @@ import {
   createGroupConversation,
   getMessages,
   searchMessages,
+  sendMessage,
+  markRead,
+  reactToMessage,
   editMessage,
   deleteMessage,
   sendAttachment,
@@ -39,7 +44,15 @@ router.get('/', listConversations);
 router.get('/search', validate(searchMessagesSchema), searchMessages);
 router.post('/direct', validate(createDirectSchema), createDirectConversation);
 router.post('/group', validate(createGroupSchema), createGroupConversation);
+
 router.get('/:conversationId/messages', validate(getMessagesSchema), getMessages);
+router.post('/:conversationId/messages', messageLimiter, validate(sendMessageSchema), sendMessage);
+router.post('/:conversationId/read', validate(conversationIdParamSchema), markRead);
+router.post(
+  '/:conversationId/messages/:messageId/reactions',
+  validate(reactSchema),
+  reactToMessage
+);
 router.patch('/:conversationId/messages/:messageId', validate(editMessageSchema), editMessage);
 router.delete('/:conversationId/messages/:messageId', validate(messageParamsSchema), deleteMessage);
 router.post(
@@ -49,6 +62,7 @@ router.post(
   validate(conversationIdParamSchema),
   sendAttachment
 );
+
 router.patch('/:conversationId', validate(renameSchema), renameConversation);
 router.post('/:conversationId/members', validate(addMemberSchema), addMember);
 router.delete('/:conversationId/members/:username', validate(removeMemberSchema), removeMember);

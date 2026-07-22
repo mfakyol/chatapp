@@ -21,3 +21,12 @@ export const uploadLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: 'Too many uploads, please slow down' },
 });
+
+/** Anti-spam throttle for message sending (all sends are REST now). */
+export const messageLimiter = rateLimit({
+  windowMs: 5 * 1000,
+  limit: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'You are sending messages too fast' },
+});

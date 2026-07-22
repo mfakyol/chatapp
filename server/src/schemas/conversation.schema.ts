@@ -18,13 +18,27 @@ export const conversationIdParamSchema = z.object({
   params: z.object({ conversationId: objectId }),
 });
 
+export const sendMessageSchema = z.object({
+  params: z.object({ conversationId: objectId }),
+  body: z.object({
+    content: z.string().trim().min(1, 'Content is required').max(4000),
+    replyTo: objectId.optional(),
+    clientTempId: z.string().trim().min(1).max(64).optional(),
+  }),
+});
+
 export const messageParamsSchema = z.object({
   params: z.object({ conversationId: objectId, messageId: objectId }),
 });
 
 export const editMessageSchema = z.object({
   params: z.object({ conversationId: objectId, messageId: objectId }),
-  body: z.object({ content: z.string().trim().min(1, 'Content is required') }),
+  body: z.object({ content: z.string().trim().min(1, 'Content is required').max(4000) }),
+});
+
+export const reactSchema = z.object({
+  params: z.object({ conversationId: objectId, messageId: objectId }),
+  body: z.object({ emoji: z.string().trim().min(1).max(16) }),
 });
 
 export const renameSchema = z.object({

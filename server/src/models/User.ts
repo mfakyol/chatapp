@@ -10,10 +10,11 @@ export interface PublicUser {
   firstName: string;
   lastName: string;
   avatarUrl: string;
-  isOnline: boolean;
   lastSeen: Date;
 }
 
+// Friendships live in the Friendship collection; live presence lives in the
+// in-memory PresenceTracker. The user document holds only identity + lastSeen.
 export interface IUser {
   username: string;
   email: string;
@@ -21,10 +22,6 @@ export interface IUser {
   firstName: string;
   lastName: string;
   avatarUrl: string;
-  friends: Types.Array<Types.ObjectId>;
-  friendRequestsSent: Types.Array<Types.ObjectId>;
-  friendRequestsReceived: Types.Array<Types.ObjectId>;
-  isOnline: boolean;
   lastSeen: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -73,13 +70,6 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
       type: String,
       default: '',
     },
-    friends: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-    friendRequestsSent: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-    friendRequestsReceived: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-    isOnline: {
-      type: Boolean,
-      default: false,
-    },
     lastSeen: {
       type: Date,
       default: Date.now,
@@ -110,7 +100,6 @@ userSchema.methods.toPublicJSON = function toPublicJSON(this: UserDocument): Pub
     firstName: this.firstName,
     lastName: this.lastName,
     avatarUrl: this.avatarUrl,
-    isOnline: this.isOnline,
     lastSeen: this.lastSeen,
   };
 };

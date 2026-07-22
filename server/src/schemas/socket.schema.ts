@@ -1,19 +1,10 @@
 import { z } from 'zod';
 import { objectId } from './common';
 
-/** Payload schemas for inbound Socket.io events. */
-export const socketMessageSend = z.object({
-  conversationId: objectId,
-  content: z.string().trim().min(1),
-  replyTo: objectId.optional(),
-});
-
+/**
+ * Payload schema for the only inbound socket events (typing relay). Everything
+ * else is REST — sockets are a downstream delivery channel.
+ */
 export const socketConversationId = z.object({
   conversationId: objectId,
-});
-
-export const socketReact = z.object({
-  conversationId: objectId,
-  messageId: objectId,
-  emoji: z.string().trim().min(1).max(16),
 });

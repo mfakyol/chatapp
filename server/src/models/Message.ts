@@ -7,24 +7,25 @@ export interface IAttachment {
   size?: number;
 }
 
-export interface IReadReceipt {
-  user: Types.ObjectId;
-  readAt: Date;
-}
-
 export interface IReaction {
   emoji: string;
   users: Types.Array<Types.ObjectId>;
 }
 
+// Read state is NOT stored here — it's the per-member `lastReadAt` pointer on
+// ConversationMember, so message documents never grow with reads.
+//
+// `clientTempId` is the sender-generated id for optimistic UI. The partial
+// unique index makes retried sends idempotent: the same (sender, clientTempId)
+// can never insert twice.
 export interface IMessage {
   conversation: Types.ObjectId;
   sender: Types.ObjectId;
   content: string;
   attachment?: IAttachment;
   replyTo?: Types.ObjectId;
-  readBy: Types.DocumentArray<IReadReceipt>;
   reactions: Types.DocumentArray<IReaction>;
+  clientTempId?: string;
   editedAt?: Date;
   deletedAt?: Date;
   createdAt: Date;
@@ -39,20 +40,13 @@ const messageSchema = new Schema<IMessage, MessageModel>(
     conversation: { type: Schema.Types.ObjectId, ref: 'Conversation', required: true },
     sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     content: { type: String, trim: true, default: '' },
-    replyTo: { type: Schema.Types.ObjectId, ref: 'Message' },
     attachment: {
       url: { type: String },
       fileName: { type: String },
       mimeType: { type: String },
       size: { type: Number },
     },
-    readBy: [
-      {
-        user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-        readAt: { type: Date, default: Date.now },
-        _id: false,
-      },
-    ],
+    replyTo: { type: Schema.Types.ObjectId, ref: 'Message' },
     reactions: [
       {
         emoji: { type: String, required: true },
@@ -60,6 +54,7 @@ const messageSchema = new Schema<IMessage, MessageModel>(
         _id: false,
       },
     ],
+    clientTempId: { type: String },
     editedAt: { type: Date },
     deletedAt: { type: Date },
   },
@@ -74,6 +69,10 @@ messageSchema.pre('validate', function requireContentOrAttachment(this: MessageD
 });
 
 messageSchema.index({ conversation: 1, createdAt: -1 });
+messageSchema.index(
+  { sender: 1, clientTempId: 1 },
+  { unique: true, partialFilterExpression: { clientTempId: { $exists: true } } }
+);
 
 const Message = mongoose.model<IMessage, MessageModel>('Message', messageSchema);
 

@@ -71,6 +71,52 @@ export const searchMessages: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const sendMessage: RequestHandler = async (req, res, next) => {
+  try {
+    const message = await messageService.createMessage(
+      currentUser(req),
+      req.params.conversationId,
+      {
+        content: req.body.content,
+        replyTo: req.body.replyTo,
+        clientTempId: req.body.clientTempId,
+      },
+      getIo(req)
+    );
+    res.status(201).json({ message });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markRead: RequestHandler = async (req, res, next) => {
+  try {
+    const lastReadAt = await conversationService.markConversationRead(
+      currentUser(req),
+      req.params.conversationId,
+      getIo(req)
+    );
+    res.json({ lastReadAt });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const reactToMessage: RequestHandler = async (req, res, next) => {
+  try {
+    const reactions = await messageService.toggleReaction(
+      currentUser(req),
+      req.params.conversationId,
+      req.params.messageId,
+      req.body.emoji,
+      getIo(req)
+    );
+    res.json({ reactions });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const editMessage: RequestHandler = async (req, res, next) => {
   try {
     const message = await messageService.editMessage(
@@ -108,6 +154,7 @@ export const sendAttachment: RequestHandler = async (req, res, next) => {
       req.params.conversationId,
       {
         content: asString(req.body.caption),
+        clientTempId: asString(req.body.clientTempId),
         attachment: {
           url: `/uploads/${req.file.filename}`,
           fileName: req.file.originalname,

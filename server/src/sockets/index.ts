@@ -1,18 +1,20 @@
 import type { Server } from 'socket.io';
 import User from '../models/User';
-import Conversation from '../models/Conversation';
+import ConversationMember from '../models/ConversationMember';
 import { verifyToken } from '../utils/jwt';
-import { userRoom } from '../utils/rooms';
-import { AppError } from '../errors/AppError';
-import { createMessage, markConversationRead, toggleReaction } from '../services/message.service';
-import { objectId } from '../schemas/common';
-import { socketMessageSend, socketConversationId, socketReact } from '../schemas/socket.schema';
-import { createSlidingWindow } from '../utils/slidingWindow';
+import { userRoom, userRooms } from '../utils/rooms';
+import { presence } from '../utils/presence';
+import { friendIds } from '../services/friendship.service';
+import { socketConversationId } from '../schemas/socket.schema';
+import { broadcastToConversation } from '../services/fanout';
+import { logger } from '../config/logger';
 
-// Anti-spam: cap how many messages a single connection may send per window.
-const MESSAGE_RATE_LIMIT = 10;
-const MESSAGE_RATE_WINDOW_MS = 5000;
-
+/**
+ * The socket layer is a downstream delivery channel only. Every mutation goes
+ * through REST; the single client→server signal is `typing` (ephemeral, never
+ * persisted). On connect a socket joins exactly ONE room — `user:<id>` — and
+ * all fan-out resolves recipients from the database at send time.
+ */
 export function registerSocketHandlers(io: Server): void {
   io.use(async (socket, next) => {
     try {
@@ -32,106 +34,61 @@ export function registerSocketHandlers(io: Server): void {
 
   io.on('connection', (socket) => {
     const user = socket.user;
-    const allowMessage = createSlidingWindow(MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS);
+    const userId = user._id.toString();
 
-    // Register all listeners synchronously before any `await` below, so events
-    // emitted by the client immediately after connecting are never dropped
-    // while this handler is still awaiting the setup work.
-    socket.on('conversation:join', (conversationId: unknown) => {
-      const parsed = objectId.safeParse(conversationId);
-      if (parsed.success) socket.join(parsed.data);
-    });
+    socket.join(userRoom(userId));
 
-    socket.on('message:send', async (payload: unknown, callback?: (res: unknown) => void) => {
-      const parsed = socketMessageSend.safeParse(payload);
-      if (!parsed.success) {
-        if (callback) callback({ error: 'Invalid message' });
-        return;
-      }
-      if (!allowMessage()) {
-        if (callback) callback({ error: 'You are sending messages too fast' });
-        return;
-      }
-      try {
-        const message = await createMessage(
-          user,
-          parsed.data.conversationId,
-          { content: parsed.data.content, replyTo: parsed.data.replyTo },
-          io
-        );
-        if (callback) callback({ message });
-      } catch (err) {
-        if (callback) {
-          callback({ error: err instanceof AppError ? err.message : 'Failed to send message' });
-        }
-      }
-    });
-
-    socket.on('message:read', async (payload: unknown) => {
-      const parsed = socketConversationId.safeParse(payload);
-      if (!parsed.success) return;
-      try {
-        await markConversationRead(user, parsed.data.conversationId, io);
-      } catch {
-        // ignore read-receipt failures silently
-      }
-    });
-
-    socket.on('message:react', async (payload: unknown, callback?: (res: unknown) => void) => {
-      const parsed = socketReact.safeParse(payload);
-      if (!parsed.success) {
-        if (callback) callback({ error: 'Invalid reaction' });
-        return;
-      }
-      try {
-        await toggleReaction(
-          user,
-          parsed.data.conversationId,
-          parsed.data.messageId,
-          parsed.data.emoji,
-          io
-        );
-      } catch (err) {
-        if (callback) {
-          callback({ error: err instanceof AppError ? err.message : 'Failed to react' });
-        }
-      }
-    });
-
-    socket.on('typing:start', (payload: unknown) => {
+    const relayTyping = (event: 'typing:start' | 'typing:stop') => async (payload: unknown) => {
       const parsed = socketConversationId.safeParse(payload);
       if (!parsed.success) return;
       const { conversationId } = parsed.data;
-      socket.to(conversationId).emit('typing:start', { conversationId, userId: user._id });
-    });
+      // Membership check is implicit: non-members resolve to an empty member set
+      // minus themselves, but verify explicitly so outsiders can't probe.
+      const isMember = await ConversationMember.exists({
+        conversation: conversationId,
+        user: user._id,
+      });
+      if (!isMember) return;
+      await broadcastToConversation(
+        io,
+        conversationId,
+        event,
+        { conversationId, userId: user._id },
+        { except: user._id }
+      );
+    };
 
-    socket.on('typing:stop', (payload: unknown) => {
-      const parsed = socketConversationId.safeParse(payload);
-      if (!parsed.success) return;
-      const { conversationId } = parsed.data;
-      socket.to(conversationId).emit('typing:stop', { conversationId, userId: user._id });
-    });
+    socket.on('typing:start', relayTyping('typing:start'));
+    socket.on('typing:stop', relayTyping('typing:stop'));
 
     socket.on('disconnect', async () => {
-      user.isOnline = false;
-      user.lastSeen = new Date();
-      await user.save();
-      socket.broadcast.emit('presence:update', {
-        userId: user._id,
-        isOnline: false,
-        lastSeen: user.lastSeen,
-      });
+      try {
+        if (!presence.down(userId)) return; // other tabs still connected
+        const lastSeen = new Date();
+        await User.updateOne({ _id: user._id }, { lastSeen });
+        const friends = await friendIds(user._id);
+        if (friends.length > 0) {
+          io.to(userRooms(friends)).emit('presence:update', {
+            userId: user._id,
+            isOnline: false,
+            lastSeen,
+          });
+        }
+      } catch (err) {
+        logger.error({ err }, 'presence disconnect handling failed');
+      }
     });
 
     void (async () => {
-      user.isOnline = true;
-      await user.save();
-      socket.broadcast.emit('presence:update', { userId: user._id, isOnline: true });
-
-      socket.join(userRoom(user._id));
-
-      const conversations = await Conversation.find({ participants: user._id }).select('_id');
-      conversations.forEach((c) => socket.join(c._id.toString()));
+      try {
+        if (!presence.up(userId)) return; // was already online in another tab
+        const friends = await friendIds(user._id);
+        if (friends.length > 0) {
+          io.to(userRooms(friends)).emit('presence:update', { userId: user._id, isOnline: true });
+        }
+      } catch (err) {
+        logger.error({ err }, 'presence connect handling failed');
+      }
     })();
   });
 }

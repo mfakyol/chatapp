@@ -14,23 +14,21 @@ export function buildTestApp(io: Server = ioStub): Express {
 }
 
 export interface RecordedIo {
-  joins: { room: string; joined: string }[];
-  emits: { room: string; event: string }[];
+  emits: { rooms: string[]; event: string; payload: unknown }[];
   io: Server;
 }
 
-/** An io double that records socketsJoin/emit calls, for asserting fan-out. */
+/** An io double that records emits (io.to can take a room or a room array). */
 export function recordingIo(): RecordedIo {
-  const joins: RecordedIo['joins'] = [];
   const emits: RecordedIo['emits'] = [];
   const io = {
-    in: (room: string) => ({
-      socketsJoin: (joined: string) => joins.push({ room, joined }),
-      socketsLeave: () => {},
+    to: (rooms: string | string[]) => ({
+      emit: (event: string, payload: unknown) =>
+        emits.push({ rooms: Array.isArray(rooms) ? rooms : [rooms], event, payload }),
     }),
-    to: (room: string) => ({ emit: (event: string) => emits.push({ room, event }) }),
+    in: () => ({ socketsJoin: () => {}, socketsLeave: () => {} }),
   } as unknown as Server;
-  return { joins, emits, io };
+  return { emits, io };
 }
 
 export interface TestUser {

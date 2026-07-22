@@ -1,9 +1,12 @@
 import type { Server } from 'socket.io';
 import type { FilterQuery, PopulateOptions } from 'mongoose';
 import Conversation from '../models/Conversation';
+import ConversationMember from '../models/ConversationMember';
 import Message, { IAttachment, IMessage, IReaction, MessageDocument } from '../models/Message';
 import type { UserDocument } from '../models/User';
 import { badRequest, forbidden, notFound } from '../errors/AppError';
+import { requireMembership } from './conversation.service';
+import { broadcastToConversation } from './fanout';
 
 const REPLY_POPULATE: PopulateOptions = {
   path: 'replyTo',
@@ -13,23 +16,11 @@ const REPLY_POPULATE: PopulateOptions = {
 
 const MESSAGE_POPULATE: PopulateOptions[] = [
   { path: 'sender', select: 'username firstName lastName avatarUrl' },
-  { path: 'readBy.user', select: 'username firstName lastName' },
   REPLY_POPULATE,
 ];
 
-const SENDER_POPULATE: PopulateOptions[] = [
-  { path: 'sender', select: 'username firstName lastName avatarUrl' },
-  REPLY_POPULATE,
-];
-
-/** Load the conversation and assert the user participates in it. */
-async function requireParticipation(user: UserDocument, conversationId: string) {
-  const conversation = await Conversation.findOne({
-    _id: conversationId,
-    participants: user._id,
-  });
-  if (!conversation) throw notFound('Conversation not found');
-  return conversation;
+function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 11000;
 }
 
 export interface GetMessagesOptions {
@@ -43,7 +34,7 @@ export async function getMessages(
   conversationId: string,
   opts: GetMessagesOptions
 ): Promise<MessageDocument[]> {
-  await requireParticipation(user, conversationId);
+  await requireMembership(user, conversationId);
 
   const limit = Math.min(opts.limit ?? 50, 100);
 
@@ -87,11 +78,11 @@ export async function searchMessages(
 
   let conversationIds;
   if (conversationId) {
-    const conversation = await requireParticipation(user, conversationId);
-    conversationIds = [conversation._id];
+    const membership = await requireMembership(user, conversationId);
+    conversationIds = [membership.conversation];
   } else {
-    const conversations = await Conversation.find({ participants: user._id }).select('_id');
-    conversationIds = conversations.map((c) => c._id);
+    const memberships = await ConversationMember.find({ user: user._id }).select('conversation');
+    conversationIds = memberships.map((m) => m.conversation);
   }
 
   return Message.find({
@@ -102,18 +93,20 @@ export async function searchMessages(
     .sort({ createdAt: -1 })
     .limit(50)
     .populate('sender', 'username firstName lastName avatarUrl')
-    .populate('conversation', 'name isGroup participants');
+    .populate('conversation', 'name type');
 }
 
 export interface CreateMessageInput {
   content?: string;
   attachment?: IAttachment;
   replyTo?: string;
+  clientTempId?: string;
 }
 
 /**
- * Persist a message, bump the conversation's `lastMessage`, and broadcast
- * `message:new`. Shared by the REST attachment upload and the socket text path.
+ * Persist a message, bump the conversation's `lastMessage`, and fan out
+ * `message:new` to the members resolved at send time. Idempotent on
+ * (sender, clientTempId): a retried send returns the already-persisted message.
  */
 export async function createMessage(
   user: UserDocument,
@@ -121,29 +114,40 @@ export async function createMessage(
   input: CreateMessageInput,
   io: Server
 ): Promise<MessageDocument> {
-  const conversation = await requireParticipation(user, conversationId);
+  await requireMembership(user, conversationId);
 
-  // Only allow replying to a message that lives in the same conversation.
+  // Only allow replying to a message in the same conversation.
   let replyTo: string | undefined;
   if (input.replyTo) {
     const target = await Message.exists({ _id: input.replyTo, conversation: conversationId });
     if (target) replyTo = input.replyTo;
   }
 
-  const message = await Message.create({
-    conversation: conversationId,
-    sender: user._id,
-    content: input.content?.trim() || '',
-    attachment: input.attachment,
-    replyTo,
-    readBy: [{ user: user._id, readAt: new Date() }],
-  });
+  let message: MessageDocument;
+  try {
+    message = await Message.create({
+      conversation: conversationId,
+      sender: user._id,
+      content: input.content?.trim() || '',
+      attachment: input.attachment,
+      replyTo,
+      clientTempId: input.clientTempId,
+    });
+  } catch (err) {
+    if (isDuplicateKeyError(err) && input.clientTempId) {
+      const existing = await Message.findOne({
+        sender: user._id,
+        clientTempId: input.clientTempId,
+      }).populate(MESSAGE_POPULATE);
+      if (existing) return existing; // duplicate retry — already persisted & broadcast
+    }
+    throw err;
+  }
 
-  conversation.lastMessage = message._id;
-  await conversation.save();
+  await Conversation.updateOne({ _id: conversationId }, { lastMessage: message._id });
 
-  const populated = await message.populate(SENDER_POPULATE);
-  io.to(conversationId).emit('message:new', { message: populated });
+  const populated = await message.populate(MESSAGE_POPULATE);
+  await broadcastToConversation(io, conversationId, 'message:new', { message: populated });
   return populated;
 }
 
@@ -154,6 +158,8 @@ export async function editMessage(
   content: string,
   io: Server
 ): Promise<MessageDocument> {
+  await requireMembership(user, conversationId);
+
   const message = await Message.findOne({ _id: messageId, conversation: conversationId });
   if (!message) throw notFound('Message not found');
   if (!message.sender.equals(user._id)) throw forbidden('You can only edit your own messages');
@@ -164,7 +170,7 @@ export async function editMessage(
   await message.save();
 
   const populated = await message.populate(MESSAGE_POPULATE);
-  io.to(conversationId).emit('message:edited', { message: populated });
+  await broadcastToConversation(io, conversationId, 'message:updated', { message: populated });
   return populated;
 }
 
@@ -174,6 +180,8 @@ export async function deleteMessage(
   messageId: string,
   io: Server
 ): Promise<void> {
+  await requireMembership(user, conversationId);
+
   const message = await Message.findOne({ _id: messageId, conversation: conversationId });
   if (!message) throw notFound('Message not found');
   if (!message.sender.equals(user._id)) throw forbidden('You can only delete your own messages');
@@ -183,43 +191,9 @@ export async function deleteMessage(
   message.deletedAt = new Date();
   await message.save();
 
-  io.to(conversationId).emit('message:deleted', { conversationId, messageId });
-}
-
-/** Mark all of the caller's unread messages in a conversation as read. */
-export async function markConversationRead(
-  user: UserDocument,
-  conversationId: string,
-  io: Server
-): Promise<void> {
-  const conversation = await Conversation.findOne({
-    _id: conversationId,
-    participants: user._id,
-  });
-  if (!conversation) return;
-
-  const unread = await Message.find({
-    conversation: conversationId,
-    sender: { $ne: user._id },
-    'readBy.user': { $ne: user._id },
-  }).select('_id');
-  if (unread.length === 0) return;
-
-  const readAt = new Date();
-  const messageIds = unread.map((m) => m._id);
-
-  // The `readBy.user` guard makes this idempotent: a concurrent read call that
-  // already recorded this user is a no-op instead of pushing a duplicate receipt.
-  await Message.updateMany(
-    { _id: { $in: messageIds }, 'readBy.user': { $ne: user._id } },
-    { $push: { readBy: { user: user._id, readAt } } }
-  );
-
-  io.to(conversationId).emit('message:read', {
+  await broadcastToConversation(io, conversationId, 'message:deleted', {
     conversationId,
-    userId: user._id,
-    readAt,
-    messageIds,
+    messageId,
   });
 }
 
@@ -231,7 +205,7 @@ export async function toggleReaction(
   emoji: string,
   io: Server
 ): Promise<IReaction[]> {
-  await requireParticipation(user, conversationId);
+  await requireMembership(user, conversationId);
 
   const message = await Message.findOne({ _id: messageId, conversation: conversationId });
   if (!message) throw notFound('Message not found');
@@ -252,7 +226,7 @@ export async function toggleReaction(
 
   await message.save();
 
-  io.to(conversationId).emit('message:reaction', {
+  await broadcastToConversation(io, conversationId, 'message:reaction', {
     conversationId,
     messageId,
     reactions: message.reactions,

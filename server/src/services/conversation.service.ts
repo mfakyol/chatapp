@@ -1,74 +1,150 @@
 import type { Server } from 'socket.io';
-import Conversation, { ConversationDocument } from '../models/Conversation';
+import { Types } from 'mongoose';
+import Conversation, { ConversationDocument, directKeyFor } from '../models/Conversation';
+import ConversationMember from '../models/ConversationMember';
 import Message from '../models/Message';
-import User from '../models/User';
-import type { UserDocument } from '../models/User';
+import User, { UserDocument } from '../models/User';
 import { badRequest, conflict, forbidden, notFound } from '../errors/AppError';
-import { userRoom } from '../utils/rooms';
+import { userRoom, userRooms } from '../utils/rooms';
+import { presence } from '../utils/presence';
+import { areFriends } from './friendship.service';
+import { broadcastToConversation } from './fanout';
 
-const PARTICIPANT_SELECT = 'username firstName lastName avatarUrl isOnline lastSeen';
-
-function normalizeUsername(username: string | undefined): string {
-  if (!username || !username.trim()) throw notFound('User not found');
-  return username.toLowerCase();
-}
+const LAST_MESSAGE_POPULATE = {
+  path: 'lastMessage',
+  populate: { path: 'sender', select: 'username firstName lastName' },
+};
 
 /**
- * Put every participant's live sockets into the new conversation's room and tell
- * them about it. Without this a freshly created conversation has only the creator
- * in its room, so the first `message:new` never reaches the other participants.
+ * API shape of a conversation: the conversation document plus everything the
+ * client needs, assembled from ConversationMember (participants, admins,
+ * per-member read pointers) with live presence merged into participants.
  */
-function announceConversation(
-  participantIds: string[],
-  conversation: ConversationDocument,
-  io: Server
-): void {
-  const roomId = conversation._id.toString();
-  participantIds.forEach((pid) => {
-    io.in(userRoom(pid)).socketsJoin(roomId);
-    io.to(userRoom(pid)).emit('conversation:new', { conversation });
-  });
+export interface AssembledConversation {
+  [key: string]: unknown;
+  _id: Types.ObjectId;
+  isGroup: boolean;
+  participants: unknown[];
+  admins: string[];
+  members: { user: unknown; role: string; lastReadAt: Date }[];
+  unreadCount?: number;
 }
 
-/** Load a group the caller belongs to and assert they are an admin. */
-async function requireGroupAdmin(
-  user: UserDocument,
-  conversationId: string,
-  adminError: string
-): Promise<ConversationDocument> {
-  const conversation = await Conversation.findOne({
-    _id: conversationId,
-    participants: user._id,
+const MEMBER_USER_SELECT = 'username firstName lastName avatarUrl lastSeen';
+
+interface PopulatedMember {
+  user: {
+    _id: Types.ObjectId;
+    username: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string;
+    lastSeen: Date;
+  };
+  role: string;
+  lastReadAt: Date;
+}
+
+function publicMemberUser(m: PopulatedMember) {
+  return {
+    id: m.user._id,
+    _id: m.user._id,
+    username: m.user.username,
+    firstName: m.user.firstName,
+    lastName: m.user.lastName,
+    avatarUrl: m.user.avatarUrl,
+    lastSeen: m.user.lastSeen,
+    isOnline: presence.isOnline(m.user._id.toString()),
+  };
+}
+
+function assemble(
+  conversation: ConversationDocument,
+  members: PopulatedMember[]
+): AssembledConversation {
+  return {
+    ...conversation.toObject(),
+    isGroup: conversation.type === 'group',
+    participants: members.map(publicMemberUser),
+    admins: members.filter((m) => m.role === 'admin').map((m) => m.user._id.toString()),
+    members: members.map((m) => ({
+      user: publicMemberUser(m),
+      role: m.role,
+      lastReadAt: m.lastReadAt,
+    })),
+  };
+}
+
+async function membersOf(conversationId: Types.ObjectId | string): Promise<PopulatedMember[]> {
+  return ConversationMember.find({ conversation: conversationId }).populate<PopulatedMember>(
+    'user',
+    MEMBER_USER_SELECT
+  ) as unknown as Promise<PopulatedMember[]>;
+}
+
+export async function assembleConversation(
+  conversation: ConversationDocument
+): Promise<AssembledConversation> {
+  await conversation.populate(LAST_MESSAGE_POPULATE);
+  return assemble(conversation, await membersOf(conversation._id));
+}
+
+/** Assert the caller is a member; returns their membership document. */
+export async function requireMembership(user: UserDocument, conversationId: string) {
+  const membership = await ConversationMember.findOne({
+    conversation: conversationId,
+    user: user._id,
   });
-  if (!conversation || !conversation.isGroup) throw notFound('Group not found');
-  if (!conversation.admins.some((id) => id.equals(user._id))) throw forbidden(adminError);
+  if (!membership) throw notFound('Conversation not found');
+  return membership;
+}
+
+async function requireGroupAdmin(user: UserDocument, conversationId: string, error: string) {
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation || conversation.type !== 'group') throw notFound('Group not found');
+  const membership = await requireMembership(user, conversationId);
+  if (membership.role !== 'admin') throw forbidden(error);
   return conversation;
 }
 
 export async function listConversations(user: UserDocument) {
-  const conversations = await Conversation.find({ participants: user._id })
-    .populate('participants', PARTICIPANT_SELECT)
-    .populate({
-      path: 'lastMessage',
-      populate: { path: 'sender', select: 'username firstName lastName' },
-    })
-    .sort({ updatedAt: -1 });
+  const memberships = await ConversationMember.find({ user: user._id });
+  const convIds = memberships.map((m) => m.conversation);
+  const lastReadByConv = new Map(memberships.map((m) => [m.conversation.toString(), m.lastReadAt]));
 
-  const unreadCounts = await Message.aggregate<{ _id: unknown; count: number }>([
-    {
-      $match: {
-        conversation: { $in: conversations.map((c) => c._id) },
-        sender: { $ne: user._id },
-        'readBy.user': { $ne: user._id },
-      },
-    },
-    { $group: { _id: '$conversation', count: { $sum: 1 } } },
+  const [conversations, allMembers] = await Promise.all([
+    Conversation.find({ _id: { $in: convIds } })
+      .populate(LAST_MESSAGE_POPULATE)
+      .sort({ updatedAt: -1 }),
+    ConversationMember.find({ conversation: { $in: convIds } }).populate<PopulatedMember>(
+      'user',
+      MEMBER_USER_SELECT
+    ),
   ]);
-  const unreadMap = new Map(unreadCounts.map((u) => [String(u._id), u.count]));
 
-  return conversations.map((c) => ({
-    ...c.toObject(),
-    unreadCount: unreadMap.get(c._id.toString()) ?? 0,
+  const membersByConv = new Map<string, PopulatedMember[]>();
+  for (const m of allMembers as unknown as (PopulatedMember & {
+    conversation: Types.ObjectId;
+  })[]) {
+    const key = m.conversation.toString();
+    if (!membersByConv.has(key)) membersByConv.set(key, []);
+    membersByConv.get(key)!.push(m);
+  }
+
+  const unreadCounts = await Promise.all(
+    conversations.map((c) =>
+      Message.countDocuments({
+        conversation: c._id,
+        sender: { $ne: user._id },
+        createdAt: { $gt: lastReadByConv.get(c._id.toString()) ?? new Date(0) },
+        deletedAt: null,
+      })
+    )
+  );
+
+  return conversations.map((c, i) => ({
+    ...assemble(c, membersByConv.get(c._id.toString()) ?? []),
+    unreadCount: unreadCounts[i],
   }));
 }
 
@@ -76,32 +152,33 @@ export async function createDirectConversation(
   user: UserDocument,
   username: string | undefined,
   io: Server
-): Promise<ConversationDocument> {
-  const other = await User.findOne({ username: normalizeUsername(username) });
+): Promise<AssembledConversation> {
+  const other = await User.findOne({ username: username?.toLowerCase() });
   if (!other) throw notFound('User not found');
   if (other._id.equals(user._id)) throw badRequest('Cannot start a conversation with yourself');
-  if (!user.friends.some((id) => id.equals(other._id))) {
-    throw forbidden('You can only message friends');
-  }
+  if (!(await areFriends(user._id, other._id))) throw forbidden('You can only message friends');
 
-  let conversation = await Conversation.findOne({
-    isGroup: false,
-    participants: { $all: [user._id, other._id], $size: 2 },
-  });
+  // Race-proof: the unique sparse index on directKey makes this upsert the only
+  // way a direct conversation for this pair can ever exist.
+  const conversation = await Conversation.findOneAndUpdate(
+    { directKey: directKeyFor(user._id, other._id) },
+    { $setOnInsert: { type: 'direct', createdBy: user._id } },
+    { upsert: true, new: true }
+  );
 
-  if (!conversation) {
-    conversation = await Conversation.create({
-      isGroup: false,
-      participants: [user._id, other._id],
-      createdBy: user._id,
-    });
-  }
+  await ConversationMember.bulkWrite(
+    [user._id, other._id].map((uid) => ({
+      updateOne: {
+        filter: { conversation: conversation._id, user: uid },
+        update: { $setOnInsert: { conversation: conversation._id, user: uid, role: 'member' } },
+        upsert: true,
+      },
+    }))
+  );
 
-  // Capture ids before populate() replaces them with user documents.
-  const participantIds = conversation.participants.map((id) => id.toString());
-  const populated = await conversation.populate('participants', PARTICIPANT_SELECT);
-  announceConversation(participantIds, populated, io);
-  return populated;
+  const assembled = await assembleConversation(conversation);
+  io.to(userRooms([user._id, other._id])).emit('conversation:new', { conversation: assembled });
+  return assembled;
 }
 
 export async function createGroupConversation(
@@ -109,27 +186,24 @@ export async function createGroupConversation(
   name: string,
   usernames: string[],
   io: Server
-): Promise<ConversationDocument> {
-  const members = await User.find({
-    username: { $in: usernames.map((u) => u.toLowerCase()) },
-  });
-  const memberIds = members.map((m) => m._id);
-  const friendIds = new Set(user.friends.map((id) => id.toString()));
-  const allFriends = memberIds.every((id) => friendIds.has(id.toString()));
-  if (!allFriends) throw forbidden('You can only add friends to a group');
+): Promise<AssembledConversation> {
+  const members = await User.find({ username: { $in: usernames.map((u) => u.toLowerCase()) } });
+  const friendChecks = await Promise.all(members.map((m) => areFriends(user._id, m._id)));
+  if (members.length === 0 || friendChecks.some((ok) => !ok)) {
+    throw forbidden('You can only add friends to a group');
+  }
 
-  const conversation = await Conversation.create({
-    isGroup: true,
-    name,
-    participants: [user._id, ...memberIds],
-    admins: [user._id],
-    createdBy: user._id,
-  });
+  const conversation = await Conversation.create({ type: 'group', name, createdBy: user._id });
+  await ConversationMember.insertMany([
+    { conversation: conversation._id, user: user._id, role: 'admin' },
+    ...members.map((m) => ({ conversation: conversation._id, user: m._id, role: 'member' })),
+  ]);
 
-  const participantIds = conversation.participants.map((id) => id.toString());
-  const populated = await conversation.populate('participants', PARTICIPANT_SELECT);
-  announceConversation(participantIds, populated, io);
-  return populated;
+  const assembled = await assembleConversation(conversation);
+  io.to(userRooms([user._id, ...members.map((m) => m._id)])).emit('conversation:new', {
+    conversation: assembled,
+  });
+  return assembled;
 }
 
 export async function renameConversation(
@@ -137,19 +211,20 @@ export async function renameConversation(
   conversationId: string,
   name: string,
   io: Server
-): Promise<ConversationDocument> {
+): Promise<AssembledConversation> {
   const conversation = await requireGroupAdmin(
     user,
     conversationId,
     'Only admins can rename the group'
   );
-
   conversation.name = name.trim();
   await conversation.save();
-  await conversation.populate('participants', PARTICIPANT_SELECT);
 
-  io.to(conversationId).emit('group:updated', { conversation });
-  return conversation;
+  const assembled = await assembleConversation(conversation);
+  await broadcastToConversation(io, conversationId, 'conversation:updated', {
+    conversation: assembled,
+  });
+  return assembled;
 }
 
 export async function addMember(
@@ -157,29 +232,36 @@ export async function addMember(
   conversationId: string,
   username: string | undefined,
   io: Server
-): Promise<ConversationDocument> {
+): Promise<AssembledConversation> {
   const conversation = await requireGroupAdmin(
     user,
     conversationId,
     'Only admins can add members'
   );
 
-  const target = await User.findOne({ username: normalizeUsername(username) });
+  const target = await User.findOne({ username: username?.toLowerCase() });
   if (!target) throw notFound('User not found');
-  if (!user.friends.some((id) => id.equals(target._id))) {
-    throw forbidden('You can only add your friends');
-  }
-  if (conversation.participants.some((id) => id.equals(target._id))) {
+  if (!(await areFriends(user._id, target._id))) throw forbidden('You can only add your friends');
+  if (await ConversationMember.exists({ conversation: conversation._id, user: target._id })) {
     throw conflict('User is already a member');
   }
 
-  conversation.participants.push(target._id);
-  await conversation.save();
-  await conversation.populate('participants', PARTICIPANT_SELECT);
+  await ConversationMember.create({
+    conversation: conversation._id,
+    user: target._id,
+    role: 'member',
+  });
 
-  io.in(userRoom(target._id)).socketsJoin(conversationId);
-  io.to(conversationId).emit('group:updated', { conversation });
-  return conversation;
+  const assembled = await assembleConversation(conversation);
+  io.to(userRoom(target._id)).emit('conversation:new', { conversation: assembled });
+  await broadcastToConversation(
+    io,
+    conversationId,
+    'conversation:updated',
+    { conversation: assembled },
+    { except: target._id }
+  );
+  return assembled;
 }
 
 export async function removeMember(
@@ -187,26 +269,25 @@ export async function removeMember(
   conversationId: string,
   username: string,
   io: Server
-): Promise<ConversationDocument> {
+): Promise<AssembledConversation> {
   const conversation = await requireGroupAdmin(
     user,
     conversationId,
     'Only admins can remove members'
   );
 
-  const target = await User.findOne({ username: normalizeUsername(username) });
+  const target = await User.findOne({ username: username.toLowerCase() });
   if (!target) throw notFound('User not found');
   if (target._id.equals(user._id)) throw badRequest('Use leave group instead');
 
-  conversation.participants.pull(target._id);
-  conversation.admins.pull(target._id);
-  await conversation.save();
-  await conversation.populate('participants', PARTICIPANT_SELECT);
+  await ConversationMember.deleteOne({ conversation: conversation._id, user: target._id });
 
-  io.to(userRoom(target._id)).emit('group:removed', { conversationId });
-  io.in(userRoom(target._id)).socketsLeave(conversationId);
-  io.to(conversationId).emit('group:updated', { conversation });
-  return conversation;
+  const assembled = await assembleConversation(conversation);
+  io.to(userRoom(target._id)).emit('conversation:deleted', { conversationId });
+  await broadcastToConversation(io, conversationId, 'conversation:updated', {
+    conversation: assembled,
+  });
+  return assembled;
 }
 
 export async function leaveGroup(
@@ -214,50 +295,66 @@ export async function leaveGroup(
   conversationId: string,
   io: Server
 ): Promise<void> {
-  const conversation = await Conversation.findOne({
-    _id: conversationId,
-    participants: user._id,
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation || conversation.type !== 'group') throw notFound('Group not found');
+  await requireMembership(user, conversationId);
+
+  await ConversationMember.deleteOne({ conversation: conversation._id, user: user._id });
+
+  // Keep the group governable: promote the oldest member if no admin remains.
+  const remaining = await ConversationMember.find({ conversation: conversation._id }).sort({
+    joinedAt: 1,
   });
-  if (!conversation || !conversation.isGroup) throw notFound('Group not found');
-
-  conversation.participants.pull(user._id);
-  conversation.admins.pull(user._id);
-
-  if (conversation.admins.length === 0 && conversation.participants.length > 0) {
-    conversation.admins.push(conversation.participants[0]);
+  if (remaining.length > 0 && !remaining.some((m) => m.role === 'admin')) {
+    remaining[0].role = 'admin';
+    await remaining[0].save();
   }
 
-  await conversation.save();
-  await conversation.populate('participants', PARTICIPANT_SELECT);
-
-  io.to(conversationId).emit('group:updated', { conversation });
-  io.to(userRoom(user._id)).emit('group:removed', { conversationId });
-  io.in(userRoom(user._id)).socketsLeave(conversationId);
+  const assembled = await assembleConversation(conversation);
+  io.to(userRoom(user._id)).emit('conversation:deleted', { conversationId });
+  await broadcastToConversation(io, conversationId, 'conversation:updated', {
+    conversation: assembled,
+  });
 }
 
-/**
- * Delete a conversation for everyone. Direct chats: any participant may delete;
- * groups: admins only. The model's cascade hook removes the messages.
- */
 export async function deleteConversation(
   user: UserDocument,
   conversationId: string,
   io: Server
 ): Promise<void> {
-  const conversation = await Conversation.findOne({
-    _id: conversationId,
-    participants: user._id,
-  });
+  const membership = await requireMembership(user, conversationId);
+  const conversation = await Conversation.findById(conversationId);
   if (!conversation) throw notFound('Conversation not found');
-  if (conversation.isGroup && !conversation.admins.some((id) => id.equals(user._id))) {
+  if (conversation.type === 'group' && membership.role !== 'admin') {
     throw forbidden('Only admins can delete the group');
   }
 
-  const participantIds = conversation.participants.map((id) => id.toString());
-  await conversation.deleteOne(); // cascade removes this conversation's messages
+  // Snapshot recipients before the cascade removes the membership docs.
+  const memberIds = await ConversationMember.find({ conversation: conversation._id }).select(
+    'user'
+  );
+  await conversation.deleteOne(); // cascade: messages + members
 
-  participantIds.forEach((pid) => {
-    io.to(userRoom(pid)).emit('conversation:deleted', { conversationId });
+  io.to(userRooms(memberIds.map((m) => m.user))).emit('conversation:deleted', { conversationId });
+}
+
+/** Advance the caller's read pointer and tell members (for ticks/unread). */
+export async function markConversationRead(
+  user: UserDocument,
+  conversationId: string,
+  io: Server
+): Promise<Date> {
+  const lastReadAt = new Date();
+  const updated = await ConversationMember.findOneAndUpdate(
+    { conversation: conversationId, user: user._id },
+    { lastReadAt }
+  );
+  if (!updated) throw notFound('Conversation not found');
+
+  await broadcastToConversation(io, conversationId, 'conversation:read', {
+    conversationId,
+    userId: user._id,
+    lastReadAt,
   });
-  io.in(conversationId).socketsLeave(conversationId);
+  return lastReadAt;
 }

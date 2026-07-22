@@ -51,9 +51,11 @@ Notes unique to **this** repo. General standards live in the sibling docs
   out of the box, **fail-fast in production** on a missing `MONGO_URI`/`JWT_SECRET`.
 
 ## Testing
-- **No test suite exists** on either side yet (no `test` script in `server` or `client`).
-  Don't claim tests in docs/README. Backend target: Vitest + `supertest` +
-  `mongodb-memory-server` in `server/test/`.
+- **Backend:** Vitest + `supertest` + `mongodb-memory-server` in `server/test/`
+  (`npm test`). Integration tests hit the built `app` (with a no-op Socket.io stub set
+  via `app.set('io', …)`); socket-shared logic is covered at the service level. Per-test
+  collection cleanup; `test/setup.ts` owns the in-memory Mongo lifecycle. 28 tests today.
+- **Client:** still no test suite — don't claim client tests in docs/README.
 
 ## Conventions for this repo/owner
 - **Do not add a `Co-Authored-By` trailer** to commits (owner preference).
@@ -98,4 +100,5 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
    `console.*` removed.
 8. **Client**: Context → zustand; `lib/api.ts` throw → discriminated result; group
    components by feature (`components/chat`, `components/friends`); extract hooks; i18n.
-9. **Tests**: stand up backend Vitest suite; decide on client testing.
+9. ✅ **Backend tests** — Vitest + supertest + mongodb-memory-server (`server/test/`,
+   28 tests: auth, friends, conversations, message-service). Client testing still TBD.

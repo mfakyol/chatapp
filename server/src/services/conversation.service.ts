@@ -84,15 +84,11 @@ export async function createDirectConversation(
 
 export async function createGroupConversation(
   user: UserDocument,
-  name: string | undefined,
-  usernames: unknown
+  name: string,
+  usernames: string[]
 ): Promise<ConversationDocument> {
-  if (!name || !Array.isArray(usernames) || usernames.length < 2) {
-    throw badRequest('Group name and at least 2 other members are required');
-  }
-
   const members = await User.find({
-    username: { $in: usernames.map((u: string) => u.toLowerCase()) },
+    username: { $in: usernames.map((u) => u.toLowerCase()) },
   });
   const memberIds = members.map((m) => m._id);
   const friendIds = new Set(user.friends.map((id) => id.toString()));
@@ -113,11 +109,9 @@ export async function createGroupConversation(
 export async function renameConversation(
   user: UserDocument,
   conversationId: string,
-  name: string | undefined,
+  name: string,
   io: Server
 ): Promise<ConversationDocument> {
-  if (!name || !name.trim()) throw badRequest('Name is required');
-
   const conversation = await requireGroupAdmin(
     user,
     conversationId,

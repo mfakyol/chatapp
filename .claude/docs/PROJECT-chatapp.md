@@ -62,20 +62,22 @@ Notes unique to **this** repo. General standards live in the sibling docs
 - **Server → TypeScript** with the layered structure in `backend-file-structure.md`.
 - **Client → zustand** stores, replacing `context/` (`AuthContext`, `PresenceContext`).
 
-## Backend layout (post #1)
-`config/` (env, db, passport) · `errors/` (`AppError` + helpers) · `middleware/`
-(`requireAuth`, `upload`, `errorHandler`) · `models/` · `services/`
-(auth/user/conversation/message — framework-agnostic, **shared by REST + sockets**) ·
-`controllers/` (thin) · `routes/` (wiring only) · `sockets/` · `utils/` (jwt, rooms, io) ·
+## Backend layout (post #1–#2)
+`config/` (env, db, passport) · `errors/` (`AppError` + helpers) · `schemas/` (Zod
+request + socket DTOs) · `middleware/` (`requireAuth`, `validate`, `upload`,
+`errorHandler`) · `models/` · `services/` (auth/user/conversation/message —
+framework-agnostic, **shared by REST + sockets**) · `controllers/` (thin) · `routes/`
+(wiring only: `validate(schema)` + handler) · `sockets/` · `utils/` (jwt, rooms, io) ·
 `app.ts` + `index.ts`. Controllers `next(err)`; the central `errorHandler` is the only
-place that formats error responses and it hides internals in prod.
+place that formats error responses and it hides internals in prod. Every HTTP input and
+socket payload is Zod-validated at the boundary; `ObjectId` params reject with 400.
 
 ## Gap list / open follow-ups (drive the refactor, roughly in order)
 1. ✅ **Backend TS migration** — layered structure, `services/`, `errors/` (`AppError`),
-   typed `config/env` with fail-fast, central `errorHandler`. (`schemas/` Zod still pending → #2.)
-2. **Validation everywhere**: Zod `schemas/` + a `validate()` middleware on all HTTP
-   inputs **and** socket payloads; validate `ObjectId`s; move the manual guards currently
-   in `auth.service`/services into schemas.
+   typed `config/env` with fail-fast, central `errorHandler`.
+2. ✅ **Validation everywhere** — Zod `schemas/` + `validate()` middleware on all HTTP
+   inputs **and** socket payloads; `ObjectId` params rejected with 400; manual format
+   guards removed from services (business/ownership checks stay).
 3. **Security hardening**: `helmet`, locked CORS (HTTP + socket), body-size limit,
    rate limiting (auth + message/upload). (Central error handler already hides internals in prod.)
 4. ✅ **Shared token verifier** — `utils/jwt.verifyToken` used by both the passport-jwt

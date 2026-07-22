@@ -1,6 +1,19 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
+import { validate } from '../middleware/validate';
+import {
+  createDirectSchema,
+  createGroupSchema,
+  conversationIdParamSchema,
+  messageParamsSchema,
+  editMessageSchema,
+  renameSchema,
+  addMemberSchema,
+  removeMemberSchema,
+  getMessagesSchema,
+  searchMessagesSchema,
+} from '../schemas/conversation.schema';
 import {
   listConversations,
   createDirectConversation,
@@ -21,16 +34,21 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', listConversations);
-router.get('/search', searchMessages);
-router.post('/direct', createDirectConversation);
-router.post('/group', createGroupConversation);
-router.get('/:conversationId/messages', getMessages);
-router.patch('/:conversationId/messages/:messageId', editMessage);
-router.delete('/:conversationId/messages/:messageId', deleteMessage);
-router.post('/:conversationId/attachments', upload.single('file'), sendAttachment);
-router.patch('/:conversationId', renameConversation);
-router.post('/:conversationId/members', addMember);
-router.delete('/:conversationId/members/:username', removeMember);
-router.post('/:conversationId/leave', leaveGroup);
+router.get('/search', validate(searchMessagesSchema), searchMessages);
+router.post('/direct', validate(createDirectSchema), createDirectConversation);
+router.post('/group', validate(createGroupSchema), createGroupConversation);
+router.get('/:conversationId/messages', validate(getMessagesSchema), getMessages);
+router.patch('/:conversationId/messages/:messageId', validate(editMessageSchema), editMessage);
+router.delete('/:conversationId/messages/:messageId', validate(messageParamsSchema), deleteMessage);
+router.post(
+  '/:conversationId/attachments',
+  upload.single('file'),
+  validate(conversationIdParamSchema),
+  sendAttachment
+);
+router.patch('/:conversationId', validate(renameSchema), renameConversation);
+router.post('/:conversationId/members', validate(addMemberSchema), addMember);
+router.delete('/:conversationId/members/:username', validate(removeMemberSchema), removeMember);
+router.post('/:conversationId/leave', validate(conversationIdParamSchema), leaveGroup);
 
 export default router;

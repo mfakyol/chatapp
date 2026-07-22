@@ -5,6 +5,8 @@ import { verifyToken } from '../utils/jwt';
 import { userRoom } from '../utils/rooms';
 import { AppError } from '../errors/AppError';
 import { createMessage, markConversationRead } from '../services/message.service';
+import { objectId } from '../schemas/common';
+import { socketMessageSend, socketConversationId } from '../schemas/socket.schema';
 
 export function registerSocketHandlers(io: Server): void {
   io.use(async (socket, next) => {
@@ -29,14 +31,24 @@ export function registerSocketHandlers(io: Server): void {
     // Register all listeners synchronously before any `await` below, so events
     // emitted by the client immediately after connecting are never dropped
     // while this handler is still awaiting the setup work.
-    socket.on('conversation:join', (conversationId: string) => {
-      socket.join(conversationId);
+    socket.on('conversation:join', (conversationId: unknown) => {
+      const parsed = objectId.safeParse(conversationId);
+      if (parsed.success) socket.join(parsed.data);
     });
 
-    socket.on('message:send', async ({ conversationId, content }, callback) => {
+    socket.on('message:send', async (payload: unknown, callback?: (res: unknown) => void) => {
+      const parsed = socketMessageSend.safeParse(payload);
+      if (!parsed.success) {
+        if (callback) callback({ error: 'Invalid message' });
+        return;
+      }
       try {
-        if (!content || !content.trim()) return;
-        const message = await createMessage(user, conversationId, { content }, io);
+        const message = await createMessage(
+          user,
+          parsed.data.conversationId,
+          { content: parsed.data.content },
+          io
+        );
         if (callback) callback({ message });
       } catch (err) {
         if (callback) {
@@ -45,19 +57,27 @@ export function registerSocketHandlers(io: Server): void {
       }
     });
 
-    socket.on('message:read', async ({ conversationId }) => {
+    socket.on('message:read', async (payload: unknown) => {
+      const parsed = socketConversationId.safeParse(payload);
+      if (!parsed.success) return;
       try {
-        await markConversationRead(user, conversationId, io);
+        await markConversationRead(user, parsed.data.conversationId, io);
       } catch {
         // ignore read-receipt failures silently
       }
     });
 
-    socket.on('typing:start', ({ conversationId }) => {
+    socket.on('typing:start', (payload: unknown) => {
+      const parsed = socketConversationId.safeParse(payload);
+      if (!parsed.success) return;
+      const { conversationId } = parsed.data;
       socket.to(conversationId).emit('typing:start', { conversationId, userId: user._id });
     });
 
-    socket.on('typing:stop', ({ conversationId }) => {
+    socket.on('typing:stop', (payload: unknown) => {
+      const parsed = socketConversationId.safeParse(payload);
+      if (!parsed.success) return;
+      const { conversationId } = parsed.data;
       socket.to(conversationId).emit('typing:stop', { conversationId, userId: user._id });
     });
 

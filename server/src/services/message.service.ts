@@ -135,8 +135,6 @@ export async function editMessage(
   content: string,
   io: Server
 ): Promise<MessageDocument> {
-  if (!content || !content.trim()) throw badRequest('Content is required');
-
   const message = await Message.findOne({ _id: messageId, conversation: conversationId });
   if (!message) throw notFound('Message not found');
   if (!message.sender.equals(user._id)) throw forbidden('You can only edit your own messages');

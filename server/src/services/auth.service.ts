@@ -1,28 +1,10 @@
-import User, { USERNAME_REGEX, UserDocument } from '../models/User';
-import { badRequest, conflict } from '../errors/AppError';
+import User, { UserDocument } from '../models/User';
+import { conflict } from '../errors/AppError';
+import type { RegisterBody } from '../schemas/auth.schema';
 
-export interface RegisterInput {
-  username?: string;
-  email?: string;
-  password?: string;
-  firstName?: string;
-  lastName?: string;
-}
-
-export async function registerUser(input: RegisterInput): Promise<UserDocument> {
+/** Create a user from a request body already validated by `registerSchema`. */
+export async function registerUser(input: RegisterBody): Promise<UserDocument> {
   const { username, email, password, firstName, lastName } = input;
-
-  if (!username || !email || !password || !firstName || !lastName) {
-    throw badRequest('All fields are required');
-  }
-  if (!USERNAME_REGEX.test(username.toLowerCase())) {
-    throw badRequest(
-      'Username must be 3-20 characters, lowercase letters, numbers, - and _ only'
-    );
-  }
-  if (password.length < 6) {
-    throw badRequest('Password must be at least 6 characters');
-  }
 
   const existing = await User.findOne({
     $or: [{ email: email.toLowerCase() }, { username: username.toLowerCase() }],

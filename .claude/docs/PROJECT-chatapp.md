@@ -55,7 +55,9 @@ Notes unique to **this** repo. General standards live in the sibling docs
   (`npm test`). Integration tests hit the built `app` (with a no-op Socket.io stub set
   via `app.set('io', …)`); socket-shared logic is covered at the service level. Per-test
   collection cleanup; `test/setup.ts` owns the in-memory Mongo lifecycle. 28 tests today.
-- **Client:** still no test suite — don't claim client tests in docs/README.
+- **Client:** Vitest + Testing Library (jsdom) in `client/test/` (`npm test`). Covers the
+  `t()` i18n helper, the `request()` Result wrapper (mocked fetch), the presence store,
+  and the Avatar component. 10 tests today.
 
 ## Conventions for this repo/owner
 - **Do not add a `Co-Authored-By` trailer** to commits (owner preference).

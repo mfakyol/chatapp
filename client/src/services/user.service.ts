@@ -16,3 +16,6 @@ export const acceptFriendRequest = (username: string) =>
 
 export const declineFriendRequest = (username: string) =>
   request<{ message: string }>(`/users/friend-requests/${username}/decline`, { method: 'POST' });
+
+export const removeFriend = (username: string) =>
+  request<{ message: string }>(`/users/friends/${username}`, { method: 'DELETE' });

@@ -10,6 +10,7 @@ import {
   IconCheck,
   IconX,
   IconUsersGroup,
+  IconUserMinus,
 } from '@tabler/icons-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/ui/Avatar';
@@ -19,6 +20,7 @@ import {
   declineFriendRequest,
   getFriendRequests,
   getFriends,
+  removeFriend,
   searchUsers,
   sendFriendRequest,
 } from '@/services/user.service';
@@ -205,6 +207,14 @@ export function Sidebar({
     if (!res.success) return setError(res.error);
     onConversationCreated(res.data.conversation);
     setTab('chats');
+  }
+
+  async function handleUnfriend(username: string) {
+    if (!window.confirm(t('sidebar.confirmUnfriend', { name: username }))) return;
+    setError('');
+    const res = await removeFriend(username);
+    if (!res.success) return setError(res.error);
+    setFriends((prev) => prev.filter((f) => f.username !== username));
   }
 
   function toggleGroupMember(username: string) {
@@ -487,12 +497,21 @@ export function Sidebar({
                         <p className="text-xs text-[var(--text-muted)]">@{f.username}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleStartChat(f.username)}
-                      className="text-xs text-[var(--brand)] hover:underline"
-                    >
-                      {t('sidebar.message')}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleStartChat(f.username)}
+                        className="text-xs text-[var(--brand)] hover:underline"
+                      >
+                        {t('sidebar.message')}
+                      </button>
+                      <button
+                        onClick={() => handleUnfriend(f.username)}
+                        title={t('sidebar.unfriend')}
+                        className="rounded-full p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--danger)]"
+                      >
+                        <IconUserMinus size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

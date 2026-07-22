@@ -78,6 +78,8 @@ export const messages = {
     friends: 'Friends',
     noFriends: 'No friends yet',
     message: 'Message',
+    unfriend: 'Remove friend',
+    confirmUnfriend: 'Remove @{name} from your friends?',
     logOut: 'Log out',
     addFriend: 'Add friend',
     errGroupRequirements: 'Pick a name and at least 2 friends for a group',

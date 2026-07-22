@@ -1,23 +1,18 @@
 import { create } from 'zustand';
-import { apiFetch, setToken } from '@/lib/api';
+import { setToken, Result } from '@/lib/api';
+import * as authService from '@/services/auth.service';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
-import { PublicUser } from '@/types';
+import { PublicUser, RegisterPayload } from '@/types';
 
-export interface RegisterPayload {
-  username: string;
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-}
+export type { RegisterPayload };
 
 interface AuthState {
   user: PublicUser | null;
   loading: boolean;
   /** Restore a session from a stored token on app start. */
   bootstrap: () => Promise<void>;
-  login: (identifier: string, password: string) => Promise<void>;
-  register: (payload: RegisterPayload) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<Result<void>>;
+  register: (payload: RegisterPayload) => Promise<Result<void>>;
   logout: () => void;
 }
 
@@ -33,35 +28,32 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: false });
       return;
     }
-    try {
-      const data = await apiFetch<{ user: PublicUser }>('/auth/me');
-      set({ user: data.user });
+    const res = await authService.me();
+    if (res.success) {
+      set({ user: res.data.user });
       connectSocket(token);
-    } catch {
+    } else {
       setToken(null);
-    } finally {
-      set({ loading: false });
     }
+    set({ loading: false });
   },
 
   login: async (identifier, password) => {
-    const data = await apiFetch<{ token: string; user: PublicUser }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ identifier, password }),
-    });
-    setToken(data.token);
-    set({ user: data.user });
-    connectSocket(data.token);
+    const res = await authService.login(identifier, password);
+    if (!res.success) return res;
+    setToken(res.data.token);
+    set({ user: res.data.user });
+    connectSocket(res.data.token);
+    return { success: true, data: undefined };
   },
 
   register: async (payload) => {
-    const data = await apiFetch<{ token: string; user: PublicUser }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    setToken(data.token);
-    set({ user: data.user });
-    connectSocket(data.token);
+    const res = await authService.register(payload);
+    if (!res.success) return res;
+    setToken(res.data.token);
+    set({ user: res.data.user });
+    connectSocket(res.data.token);
+    return { success: true, data: undefined };
   },
 
   logout: () => {

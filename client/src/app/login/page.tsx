@@ -15,13 +15,9 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setSubmitting(true);
-    try {
-      await login(identifier, password);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
-      setSubmitting(false);
-    }
+    const res = await login(identifier, password);
+    if (!res.success) setError(res.error);
+    setSubmitting(false);
   }
 
   return (

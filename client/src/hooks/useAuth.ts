@@ -19,12 +19,14 @@ export function useAuth() {
     user,
     loading,
     login: async (identifier: string, password: string) => {
-      await login(identifier, password);
-      router.push('/chat');
+      const res = await login(identifier, password);
+      if (res.success) router.push('/chat');
+      return res;
     },
     register: async (payload: RegisterPayload) => {
-      await register(payload);
-      router.push('/chat');
+      const res = await register(payload);
+      if (res.success) router.push('/chat');
+      return res;
     },
     logout: () => {
       logout();

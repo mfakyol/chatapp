@@ -7,7 +7,13 @@ import { Conversation, PublicUser } from '@/types';
 import { fullName, otherParticipant, formatLastSeen } from '@/lib/utils';
 import { usePresenceMap } from '@/hooks/usePresence';
 import { useAuth } from '@/hooks/useAuth';
-import { getFriends, renameGroup, addGroupMember, removeGroupMember, leaveGroup } from '@/lib/resources';
+import { getFriends } from '@/services/user.service';
+import {
+  renameGroup,
+  addGroupMember,
+  removeGroupMember,
+  leaveGroup,
+} from '@/services/conversation.service';
 
 export function ProfilePanel({
   conversation,
@@ -34,7 +40,11 @@ export function ProfilePanel({
   }, [conversation.name]);
 
   useEffect(() => {
-    if (addingMember) getFriends().then((res) => setFriends(res.friends));
+    if (addingMember) {
+      getFriends().then((res) => {
+        if (res.success) setFriends(res.data.friends);
+      });
+    }
   }, [addingMember]);
 
   function liveStatus(userId?: string, fallbackOnline?: boolean, fallbackLastSeen?: string) {
@@ -51,40 +61,28 @@ export function ProfilePanel({
   async function handleRename() {
     setError('');
     if (!nameDraft.trim()) return;
-    try {
-      await renameGroup(conversation._id, nameDraft.trim());
-      setRenaming(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to rename group');
-    }
+    const res = await renameGroup(conversation._id, nameDraft.trim());
+    if (!res.success) return setError(res.error);
+    setRenaming(false);
   }
 
   async function handleAddMember(username: string) {
     setError('');
-    try {
-      await addGroupMember(conversation._id, username);
-      setFriends((prev) => prev.filter((f) => f.username !== username));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add member');
-    }
+    const res = await addGroupMember(conversation._id, username);
+    if (!res.success) return setError(res.error);
+    setFriends((prev) => prev.filter((f) => f.username !== username));
   }
 
   async function handleRemoveMember(username: string) {
     setError('');
-    try {
-      await removeGroupMember(conversation._id, username);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove member');
-    }
+    const res = await removeGroupMember(conversation._id, username);
+    if (!res.success) setError(res.error);
   }
 
   async function handleLeave() {
     if (!window.confirm('Leave this group?')) return;
-    try {
-      await leaveGroup(conversation._id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to leave group');
-    }
+    const res = await leaveGroup(conversation._id);
+    if (!res.success) setError(res.error);
   }
 
   const availableFriends = friends.filter(

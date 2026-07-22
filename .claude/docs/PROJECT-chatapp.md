@@ -104,7 +104,11 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
      replace the providers. Runtime-verified (register → redirect → chat).
    - ✅ Components grouped by concern — `components/ui/` (Avatar) + `components/chat/`
      (ChatWindow, Sidebar, ProfilePanel, MessageTicks); app-infra listeners stay at root.
-   - ☐ `lib/api.ts` throw → discriminated result; ☐ i18n.
+   - ✅ API → **discriminated result** — `lib/api.request<T>()` returns
+     `{ success, data } | { success, error }`; `services/{auth,user,conversation}.service`
+     wrap it; `lib/resources.ts` removed; every caller handles the Result explicitly.
+     Runtime-verified (login error shows message; register + data fetch succeed).
+   - ☐ i18n.
    - _Pre-existing_: `set-state-in-effect` lint errors in `ChatWindow`/`Sidebar`/
      `ProfilePanel` (unrelated to this work; build still passes).
 9. ✅ **Backend tests** — Vitest + supertest + mongodb-memory-server (`server/test/`,

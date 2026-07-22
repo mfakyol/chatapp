@@ -37,13 +37,9 @@ export default function RegisterPage() {
     }
 
     setSubmitting(true);
-    try {
-      await register({ ...form, username });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
-    } finally {
-      setSubmitting(false);
-    }
+    const res = await register({ ...form, username });
+    if (!res.success) setError(res.error);
+    setSubmitting(false);
   }
 
   return (

@@ -7,7 +7,7 @@ import PresenceListener from '@/components/PresenceListener';
 import { Sidebar } from '@/components/chat/Sidebar';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { Conversation, Message } from '@/types';
-import { getConversations } from '@/lib/resources';
+import { getConversations } from '@/services/conversation.service';
 import { getSocket } from '@/lib/socket';
 import { fullName, playNotificationSound } from '@/lib/utils';
 
@@ -28,7 +28,11 @@ export default function ChatPage() {
   }, [loading, user, router]);
 
   useEffect(() => {
-    if (user) getConversations().then((res) => setConversations(res.conversations));
+    if (user) {
+      getConversations().then((res) => {
+        if (res.success) setConversations(res.data.conversations);
+      });
+    }
   }, [user]);
 
   useEffect(() => {
@@ -47,7 +51,9 @@ export default function ChatPage() {
       setConversations((prev) => {
         const exists = prev.some((c) => c._id === message.conversation);
         if (!exists) {
-          getConversations().then((res) => setConversations(res.conversations));
+          getConversations().then((res) => {
+            if (res.success) setConversations(res.data.conversations);
+          });
           return prev;
         }
 

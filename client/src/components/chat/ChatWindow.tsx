@@ -22,7 +22,14 @@ import { Conversation, Message, MessageSearchResult, ReadReceipt } from '@/types
 import { useAuth } from '@/hooks/useAuth';
 import { usePresenceMap } from '@/hooks/usePresence';
 import { getSocket } from '@/lib/socket';
-import { getMessages, getOlderMessages, sendAttachment, searchMessages, editMessage, deleteMessage } from '@/lib/resources';
+import {
+  getMessages,
+  getOlderMessages,
+  sendAttachment,
+  searchMessages,
+  editMessage,
+  deleteMessage,
+} from '@/services/conversation.service';
 import { conversationName, otherParticipant, fileUrl, formatFileSize, formatLastSeen } from '@/lib/utils';
 
 const EMOJIS = [
@@ -98,8 +105,9 @@ export function ChatWindow({
     setLoadingMore(false);
 
     getMessages(conversation._id).then((res) => {
-      if (active) setMessages(res.messages);
-      if (active && res.messages.length < 50) setHasMore(false);
+      if (!active || !res.success) return;
+      setMessages(res.data.messages);
+      if (res.data.messages.length < 50) setHasMore(false);
     });
 
     const socket = getSocket();
@@ -227,12 +235,13 @@ export function ChatWindow({
     setLoadingMore(true);
     try {
       const res = await getOlderMessages(conversation._id, messages[0].createdAt);
-      if (res.messages.length === 0) {
+      if (!res.success) return;
+      if (res.data.messages.length === 0) {
         setHasMore(false);
         return;
       }
       skipAutoScrollRef.current = true;
-      setMessages((prev) => [...res.messages, ...prev]);
+      setMessages((prev) => [...res.data.messages, ...prev]);
       requestAnimationFrame(() => {
         if (container) {
           container.scrollTop = container.scrollHeight - prevScrollHeight;
@@ -256,9 +265,10 @@ export function ChatWindow({
       existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else {
       const res = await getMessages(conversation._id, messageId);
+      if (!res.success) return;
       setHasMore(true);
       skipAutoScrollRef.current = true;
-      setMessages(res.messages);
+      setMessages(res.data.messages);
       requestAnimationFrame(() => {
         messageRefs.current.get(messageId)?.scrollIntoView({ block: 'center' });
       });
@@ -281,7 +291,7 @@ export function ChatWindow({
     }
     const timeout = setTimeout(async () => {
       const res = await searchMessages(searchQuery.trim(), conversation._id);
-      setSearchResults(res.messages);
+      if (res.success) setSearchResults(res.data.messages);
     }, 300);
     return () => clearTimeout(timeout);
   }, [searchQuery, showSearch, conversation._id]);
@@ -326,14 +336,10 @@ export function ChatWindow({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    try {
-      await sendAttachment(conversation._id, file);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    const res = await sendAttachment(conversation._id, file);
+    if (!res.success) console.error(res.error);
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function startEdit(m: Message) {
@@ -344,18 +350,18 @@ export function ChatWindow({
 
   async function saveEdit(messageId: string) {
     if (!editDraft.trim()) return;
-    try {
-      const res = await editMessage(conversation._id, messageId, editDraft.trim());
-      setMessages((prev) => prev.map((m) => (m._id === messageId ? res.message : m)));
-    } finally {
-      setEditingId(null);
+    const res = await editMessage(conversation._id, messageId, editDraft.trim());
+    if (res.success) {
+      setMessages((prev) => prev.map((m) => (m._id === messageId ? res.data.message : m)));
     }
+    setEditingId(null);
   }
 
   async function handleDelete(messageId: string) {
     setMenuOpenId(null);
     if (!window.confirm('Delete this message?')) return;
-    await deleteMessage(conversation._id, messageId);
+    const res = await deleteMessage(conversation._id, messageId);
+    if (!res.success) return;
     setMessages((prev) =>
       prev.map((m) => (m._id === messageId ? { ...m, content: '', attachment: undefined, deletedAt: new Date().toISOString() } : m))
     );

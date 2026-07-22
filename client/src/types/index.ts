@@ -53,3 +53,11 @@ export interface FriendRequests {
   received: PublicUser[];
   sent: PublicUser[];
 }
+
+export interface RegisterPayload {
+  username: string;
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}

@@ -39,8 +39,8 @@ src/
   Socket-driven updates dispatch into the relevant store; components subscribe to slices.
 - **services** own all HTTP IO. Wrap the client to return a **discriminated result**
   (`{ success: true, data } | { success: false, error }`) instead of throwing, so
-  callers handle errors explicitly and type-safely. (`lib/api.ts` currently throws —
-  target is the result type.)
+  callers handle errors explicitly and type-safely. (`lib/api.request<T>()` returns the
+  Result; `services/*.service.ts` wrap it. `apiFetch` remains as the low-level thrower.)
 - **lib/socket.ts** owns the single Socket.io connection; stores/hooks consume it, and
   components never create their own socket.
 - **hooks** extract reusable stateful logic; **utils** stay pure (no React, easily unit-tested).

@@ -16,15 +16,17 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Conversation, FriendRequests, MessageSearchResult, PublicUser } from '@/types';
 import {
   acceptFriendRequest,
-  createDirectConversation,
-  createGroupConversation,
   declineFriendRequest,
   getFriendRequests,
   getFriends,
-  searchMessages,
   searchUsers,
   sendFriendRequest,
-} from '@/lib/resources';
+} from '@/services/user.service';
+import {
+  createDirectConversation,
+  createGroupConversation,
+  searchMessages,
+} from '@/services/conversation.service';
 import { conversationName, fullName, otherParticipant } from '@/lib/utils';
 import { getSocket } from '@/lib/socket';
 import { usePresenceMap } from '@/hooks/usePresence';
@@ -90,8 +92,8 @@ export function Sidebar({
 
   async function refreshPeople() {
     const [friendsRes, requestsRes] = await Promise.all([getFriends(), getFriendRequests()]);
-    setFriends(friendsRes.friends);
-    setRequests(requestsRes);
+    if (friendsRes.success) setFriends(friendsRes.data.friends);
+    if (requestsRes.success) setRequests(requestsRes.data);
   }
 
   useEffect(() => {
@@ -148,7 +150,7 @@ export function Sidebar({
     }
     const timeout = setTimeout(async () => {
       const res = await searchUsers(query.trim());
-      setResults(res.users);
+      if (res.success) setResults(res.data.users);
     }, 250);
     return () => clearTimeout(timeout);
   }, [query, tab]);
@@ -160,12 +162,9 @@ export function Sidebar({
     }
     setSearchingMessages(true);
     const timeout = setTimeout(async () => {
-      try {
-        const res = await searchMessages(messageQuery.trim());
-        setMessageResults(res.messages);
-      } finally {
-        setSearchingMessages(false);
-      }
+      const res = await searchMessages(messageQuery.trim());
+      if (res.success) setMessageResults(res.data.messages);
+      setSearchingMessages(false);
     }, 300);
     return () => clearTimeout(timeout);
   }, [messageQuery]);
@@ -183,12 +182,9 @@ export function Sidebar({
 
   async function handleAddFriend(username: string) {
     setError('');
-    try {
-      await sendFriendRequest(username);
-      setResults((prev) => prev.filter((u) => u.username !== username));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send request');
-    }
+    const res = await sendFriendRequest(username);
+    if (!res.success) return setError(res.error);
+    setResults((prev) => prev.filter((u) => u.username !== username));
   }
 
   async function handleAccept(username: string) {
@@ -203,13 +199,10 @@ export function Sidebar({
 
   async function handleStartChat(username: string) {
     setError('');
-    try {
-      const { conversation } = await createDirectConversation(username);
-      onConversationCreated(conversation);
-      setTab('chats');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start chat');
-    }
+    const res = await createDirectConversation(username);
+    if (!res.success) return setError(res.error);
+    onConversationCreated(res.data.conversation);
+    setTab('chats');
   }
 
   function toggleGroupMember(username: string) {
@@ -224,16 +217,13 @@ export function Sidebar({
       setError('Pick a name and at least 2 friends for a group');
       return;
     }
-    try {
-      const { conversation } = await createGroupConversation(groupName.trim(), groupSelection);
-      onConversationCreated(conversation);
-      setGroupMode(false);
-      setGroupSelection([]);
-      setGroupName('');
-      setTab('chats');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create group');
-    }
+    const res = await createGroupConversation(groupName.trim(), groupSelection);
+    if (!res.success) return setError(res.error);
+    onConversationCreated(res.data.conversation);
+    setGroupMode(false);
+    setGroupSelection([]);
+    setGroupName('');
+    setTab('chats');
   }
 
   return (

@@ -12,12 +12,18 @@ export interface IReadReceipt {
   readAt: Date;
 }
 
+export interface IReaction {
+  emoji: string;
+  users: Types.Array<Types.ObjectId>;
+}
+
 export interface IMessage {
   conversation: Types.ObjectId;
   sender: Types.ObjectId;
   content: string;
   attachment?: IAttachment;
   readBy: Types.DocumentArray<IReadReceipt>;
+  reactions: Types.DocumentArray<IReaction>;
   editedAt?: Date;
   deletedAt?: Date;
   createdAt: Date;
@@ -42,6 +48,13 @@ const messageSchema = new Schema<IMessage, MessageModel>(
       {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         readAt: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
+    reactions: [
+      {
+        emoji: { type: String, required: true },
+        users: [{ type: Schema.Types.ObjectId, ref: 'User' }],
         _id: false,
       },
     ],

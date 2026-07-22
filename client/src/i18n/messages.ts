@@ -102,6 +102,7 @@ export const messages = {
     typingGroup: '{names} {verb} typing...',
     attachFile: 'Attach file',
     emoji: 'Emoji',
+    react: 'Add reaction',
     info: 'Info',
     edit: 'Edit',
     delete: 'Delete',

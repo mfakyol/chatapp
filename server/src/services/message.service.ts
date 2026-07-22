@@ -1,7 +1,7 @@
 import type { Server } from 'socket.io';
 import type { FilterQuery, PopulateOptions } from 'mongoose';
 import Conversation from '../models/Conversation';
-import Message, { IAttachment, IMessage, MessageDocument } from '../models/Message';
+import Message, { IAttachment, IMessage, IReaction, MessageDocument } from '../models/Message';
 import type { UserDocument } from '../models/User';
 import { badRequest, forbidden, notFound } from '../errors/AppError';
 
@@ -202,4 +202,41 @@ export async function markConversationRead(
     readAt,
     messageIds,
   });
+}
+
+/** Toggle the caller's reaction with `emoji` on a message and broadcast the result. */
+export async function toggleReaction(
+  user: UserDocument,
+  conversationId: string,
+  messageId: string,
+  emoji: string,
+  io: Server
+): Promise<IReaction[]> {
+  await requireParticipation(user, conversationId);
+
+  const message = await Message.findOne({ _id: messageId, conversation: conversationId });
+  if (!message) throw notFound('Message not found');
+
+  const groupIdx = message.reactions.findIndex((r) => r.emoji === emoji);
+  if (groupIdx >= 0) {
+    const group = message.reactions[groupIdx];
+    const userIdx = group.users.findIndex((u) => u.equals(user._id));
+    if (userIdx >= 0) {
+      group.users.splice(userIdx, 1);
+      if (group.users.length === 0) message.reactions.splice(groupIdx, 1);
+    } else {
+      group.users.push(user._id);
+    }
+  } else {
+    message.reactions.push({ emoji, users: [user._id] });
+  }
+
+  await message.save();
+
+  io.to(conversationId).emit('message:reaction', {
+    conversationId,
+    messageId,
+    reactions: message.reactions,
+  });
+  return message.reactions;
 }

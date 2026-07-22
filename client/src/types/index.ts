@@ -21,6 +21,11 @@ export interface Attachment {
   size: number;
 }
 
+export interface Reaction {
+  emoji: string;
+  users: string[];
+}
+
 export interface Message {
   _id: string;
   conversation: string;
@@ -29,6 +34,7 @@ export interface Message {
   attachment?: Attachment;
   createdAt: string;
   readBy: ReadReceipt[];
+  reactions?: Reaction[];
   editedAt?: string;
   deletedAt?: string;
 }

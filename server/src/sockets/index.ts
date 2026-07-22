@@ -4,9 +4,9 @@ import Conversation from '../models/Conversation';
 import { verifyToken } from '../utils/jwt';
 import { userRoom } from '../utils/rooms';
 import { AppError } from '../errors/AppError';
-import { createMessage, markConversationRead } from '../services/message.service';
+import { createMessage, markConversationRead, toggleReaction } from '../services/message.service';
 import { objectId } from '../schemas/common';
-import { socketMessageSend, socketConversationId } from '../schemas/socket.schema';
+import { socketMessageSend, socketConversationId, socketReact } from '../schemas/socket.schema';
 import { createSlidingWindow } from '../utils/slidingWindow';
 
 // Anti-spam: cap how many messages a single connection may send per window.
@@ -74,6 +74,27 @@ export function registerSocketHandlers(io: Server): void {
         await markConversationRead(user, parsed.data.conversationId, io);
       } catch {
         // ignore read-receipt failures silently
+      }
+    });
+
+    socket.on('message:react', async (payload: unknown, callback?: (res: unknown) => void) => {
+      const parsed = socketReact.safeParse(payload);
+      if (!parsed.success) {
+        if (callback) callback({ error: 'Invalid reaction' });
+        return;
+      }
+      try {
+        await toggleReaction(
+          user,
+          parsed.data.conversationId,
+          parsed.data.messageId,
+          parsed.data.emoji,
+          io
+        );
+      } catch (err) {
+        if (callback) {
+          callback({ error: err instanceof AppError ? err.message : 'Failed to react' });
+        }
       }
     });
 

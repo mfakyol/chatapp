@@ -7,6 +7,7 @@ import {
   markConversationRead,
   editMessage,
   deleteMessage,
+  toggleReaction,
 } from '../src/services/message.service';
 import { AppError } from '../src/errors/AppError';
 import { ioStub } from './helpers';
@@ -86,6 +87,33 @@ describe('message.service (socket-shared logic)', () => {
     const edited = await editMessage(a, convo._id.toString(), msg._id.toString(), 'edited', ioStub);
     expect(edited.content).toBe('edited');
     expect(edited.editedAt).toBeInstanceOf(Date);
+  });
+
+  it('toggleReaction adds, groups, and removes reactions', async () => {
+    const a = await makeUser('a');
+    const b = await makeUser('b');
+    const convo = await directConversation(a, b);
+    const msg = await createMessage(a, convo._id.toString(), { content: 'react to me' }, ioStub);
+    const id = msg._id.toString();
+
+    // a adds 👍
+    await toggleReaction(a, convo._id.toString(), id, '👍', ioStub);
+    // b adds 👍 → grouped under the same emoji
+    await toggleReaction(b, convo._id.toString(), id, '👍', ioStub);
+    let reloaded = await Message.findById(id);
+    expect(reloaded?.reactions).toHaveLength(1);
+    expect(reloaded?.reactions[0].emoji).toBe('👍');
+    expect(reloaded?.reactions[0].users).toHaveLength(2);
+
+    // a toggles 👍 off → only b remains
+    await toggleReaction(a, convo._id.toString(), id, '👍', ioStub);
+    reloaded = await Message.findById(id);
+    expect(reloaded?.reactions[0].users).toHaveLength(1);
+
+    // b toggles 👍 off → group removed entirely
+    await toggleReaction(b, convo._id.toString(), id, '👍', ioStub);
+    reloaded = await Message.findById(id);
+    expect(reloaded?.reactions).toHaveLength(0);
   });
 
   it('deleteMessage soft-deletes (clears content, sets deletedAt)', async () => {

@@ -11,6 +11,7 @@ import {
   IconTrash,
   IconInfoCircle,
   IconMoodSmile,
+  IconMoodPlus,
   IconSearch,
   IconX,
   IconArrowLeft,
@@ -39,6 +40,8 @@ const EMOJIS = [
   '😴', '😅', '🙌', '🤝', '👋', '🤷', '😱', '🥳', '🤩', '😇',
 ];
 
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
 export function ChatWindow({
   conversation,
   focusMessageId,
@@ -57,6 +60,7 @@ export function ChatWindow({
   const [showProfile, setShowProfile] = useState(false);
   const [openDetailId, setOpenDetailId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -200,10 +204,24 @@ export function ChatWindow({
       });
     }
 
+    function handleReaction({
+      conversationId,
+      messageId,
+      reactions,
+    }: {
+      conversationId: string;
+      messageId: string;
+      reactions: Message['reactions'];
+    }) {
+      if (conversationId !== conversation._id) return;
+      setMessages((prev) => prev.map((m) => (m._id === messageId ? { ...m, reactions } : m)));
+    }
+
     socket?.on('message:new', handleNewMessage);
     socket?.on('message:edited', handleEdited);
     socket?.on('message:deleted', handleDeleted);
     socket?.on('message:read', handleRead);
+    socket?.on('message:reaction', handleReaction);
     socket?.on('typing:start', handleTypingStart);
     socket?.on('typing:stop', handleTypingStop);
     return () => {
@@ -212,6 +230,7 @@ export function ChatWindow({
       socket?.off('message:edited', handleEdited);
       socket?.off('message:deleted', handleDeleted);
       socket?.off('message:read', handleRead);
+      socket?.off('message:reaction', handleReaction);
       socket?.off('typing:start', handleTypingStart);
       socket?.off('typing:stop', handleTypingStop);
       typingTimeoutsRef.current.forEach((t) => clearTimeout(t));
@@ -361,6 +380,13 @@ export function ChatWindow({
     setEditingId(null);
   }
 
+  const currentUserId = user?.id || user?._id;
+
+  function reactToMessage(messageId: string, emoji: string) {
+    getSocket()?.emit('message:react', { conversationId: conversation._id, messageId, emoji });
+    setReactionPickerId(null);
+  }
+
   async function handleDelete(messageId: string) {
     setMenuOpenId(null);
     if (!window.confirm(t('chat.confirmDelete'))) return;
@@ -495,6 +521,35 @@ export function ChatWindow({
                     </div>
                   )}
 
+                  {!deleted && (
+                    <div
+                      className={`absolute -top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 ${mine ? 'left-1' : 'right-1'}`}
+                    >
+                      <button
+                        onClick={() => setReactionPickerId((id) => (id === m._id ? null : m._id))}
+                        title={t('chat.react')}
+                        className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
+                      >
+                        <IconMoodPlus size={14} />
+                      </button>
+                      {reactionPickerId === m._id && (
+                        <div
+                          className={`absolute top-6 z-20 flex gap-1 rounded-full bg-[var(--bg-surface)] px-2 py-1 shadow-lg ${mine ? 'left-0' : 'right-0'}`}
+                        >
+                          {QUICK_REACTIONS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => reactToMessage(m._id, emoji)}
+                              className="rounded-full p-0.5 text-base leading-none hover:bg-[var(--bg-hover)]"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div
                     className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                       mine ? 'bg-[var(--bubble-own)] text-[var(--bubble-own-text)]' : 'bg-[var(--bg-surface)] text-[var(--text-normal)]'
@@ -562,6 +617,28 @@ export function ChatWindow({
                       </div>
                     )}
                   </div>
+
+                  {!deleted && m.reactions && m.reactions.length > 0 && (
+                    <div className={`mt-1 flex flex-wrap gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
+                      {m.reactions.map((r) => {
+                        const reacted = !!currentUserId && r.users.includes(currentUserId);
+                        return (
+                          <button
+                            key={r.emoji}
+                            onClick={() => reactToMessage(m._id, r.emoji)}
+                            className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs ${
+                              reacted
+                                ? 'border-[var(--brand)] bg-[var(--brand)]/20 text-[var(--text-normal)]'
+                                : 'border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)]'
+                            }`}
+                          >
+                            <span>{r.emoji}</span>
+                            <span>{r.users.length}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {mine && openDetailId === m._id && (
                     <MessageDetail message={m} isGroup={conversation.isGroup} currentUsername={user?.username || ''} />

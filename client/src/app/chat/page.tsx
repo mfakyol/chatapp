@@ -10,6 +10,7 @@ import { Conversation, Message } from '@/types';
 import { getConversations } from '@/services/conversation.service';
 import { getSocket } from '@/lib/socket';
 import { fullName, playNotificationSound } from '@/lib/utils';
+import { t } from '@/i18n';
 
 export default function ChatPage() {
   const { user, loading } = useAuth();
@@ -133,7 +134,7 @@ export default function ChatPage() {
   if (loading || !user) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-[#8696a0]">Loading...</p>
+        <p className="text-[#8696a0]">{t('common.loading')}</p>
       </div>
     );
   }
@@ -160,7 +161,7 @@ export default function ChatPage() {
             />
           ) : (
             <div className="flex flex-1 items-center justify-center bg-[#0b141a]">
-              <p className="text-[#8696a0]">Select a conversation to start chatting</p>
+              <p className="text-[#8696a0]">{t('chat.selectConversation')}</p>
             </div>
           )}
         </div>

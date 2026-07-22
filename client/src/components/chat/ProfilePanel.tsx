@@ -5,6 +5,7 @@ import { IconX, IconPencil, IconUserPlus, IconUserMinus, IconLogout2, IconCheck 
 import { Avatar } from '@/components/ui/Avatar';
 import { Conversation, PublicUser } from '@/types';
 import { fullName, otherParticipant, formatLastSeen } from '@/lib/utils';
+import { t } from '@/i18n';
 import { usePresenceMap } from '@/hooks/usePresence';
 import { useAuth } from '@/hooks/useAuth';
 import { getFriends } from '@/services/user.service';
@@ -80,7 +81,7 @@ export function ProfilePanel({
   }
 
   async function handleLeave() {
-    if (!window.confirm('Leave this group?')) return;
+    if (!window.confirm(t('profile.confirmLeave'))) return;
     const res = await leaveGroup(conversation._id);
     if (!res.success) setError(res.error);
   }
@@ -95,7 +96,9 @@ export function ProfilePanel({
         <button onClick={onClose} className="rounded-full p-1 text-[#8696a0] hover:bg-[#2a3942]">
           <IconX size={20} />
         </button>
-        <p className="font-medium text-[#e9edef]">{conversation.isGroup ? 'Group info' : 'Contact info'}</p>
+        <p className="font-medium text-[#e9edef]">
+          {conversation.isGroup ? t('profile.groupInfo') : t('profile.contactInfo')}
+        </p>
       </div>
 
       <div className="flex flex-col items-center gap-2 border-b border-[#2a3942] px-4 py-8">
@@ -135,7 +138,9 @@ export function ProfilePanel({
           <>
             <p className="text-sm text-[#8696a0]">@{other.username}</p>
             <p className="text-xs text-[#8696a0]">
-              {otherStatus?.isOnline ? 'online' : formatLastSeen(otherStatus?.lastSeen) || 'offline'}
+              {otherStatus?.isOnline
+                ? t('profile.online')
+                : formatLastSeen(otherStatus?.lastSeen) || t('profile.offline')}
             </p>
           </>
         )}
@@ -147,14 +152,14 @@ export function ProfilePanel({
           <div className="flex-1 overflow-y-auto px-4 py-4">
             <div className="mb-3 flex items-center justify-between">
               <h4 className="text-xs font-semibold uppercase text-[#8696a0]">
-                {conversation.participants.length} members
+                {t('profile.membersCount', { count: conversation.participants.length })}
               </h4>
               {isAdmin && (
                 <button
                   onClick={() => setAddingMember((v) => !v)}
                   className="flex items-center gap-1 text-xs text-[#00a884] hover:underline"
                 >
-                  <IconUserPlus size={14} /> Add
+                  <IconUserPlus size={14} /> {t('profile.add')}
                 </button>
               )}
             </div>
@@ -162,7 +167,7 @@ export function ProfilePanel({
             {addingMember && (
               <div className="mb-3 rounded-md bg-[#202c33] p-2">
                 {availableFriends.length === 0 && (
-                  <p className="p-2 text-xs text-[#8696a0]">No friends available to add</p>
+                  <p className="p-2 text-xs text-[#8696a0]">{t('profile.noFriendsToAdd')}</p>
                 )}
                 {availableFriends.map((f) => (
                   <button
@@ -184,14 +189,17 @@ export function ProfilePanel({
                   <Avatar name={fullName(p)} isOnline={status.isOnline} size={36} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-[#e9edef]">
-                      {fullName(p)} {p.username === currentUsername && <span className="text-[#8696a0]">(you)</span>}
+                      {fullName(p)}{' '}
+                      {p.username === currentUsername && (
+                        <span className="text-[#8696a0]">{t('common.you')}</span>
+                      )}
                     </p>
                     <p className="truncate text-xs text-[#8696a0]">@{p.username}</p>
                   </div>
                   {isAdmin && p.username !== currentUsername && (
                     <button
                       onClick={() => handleRemoveMember(p.username)}
-                      title="Remove from group"
+                      title={t('profile.removeFromGroup')}
                       className="rounded-full p-1.5 text-[#8696a0] hover:bg-[#2a3942] hover:text-red-400"
                     >
                       <IconUserMinus size={16} />
@@ -207,7 +215,7 @@ export function ProfilePanel({
               onClick={handleLeave}
               className="flex w-full items-center justify-center gap-2 rounded-md bg-[#2a3942] py-2 text-sm text-red-400 hover:bg-[#33424b]"
             >
-              <IconLogout2 size={18} /> Leave group
+              <IconLogout2 size={18} /> {t('profile.leaveGroup')}
             </button>
           </div>
         </>

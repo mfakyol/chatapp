@@ -12,44 +12,22 @@ import {
   IconArrowRight,
 } from '@tabler/icons-react';
 import { useAuth } from '@/hooks/useAuth';
+import { t, messages } from '@/i18n';
 
-const features = [
-  {
-    icon: IconBolt,
-    title: 'Realtime messaging',
-    desc: 'Messages arrive instantly over WebSockets — no refresh, no waiting.',
-  },
-  {
-    icon: IconActivity,
-    title: 'Presence & last seen',
-    desc: 'See who is online right now and when your contacts were last active.',
-  },
-  {
-    icon: IconChecks,
-    title: 'Read receipts',
-    desc: 'Sent, delivered and read ticks let you know exactly where a message is.',
-  },
-  {
-    icon: IconPaperclip,
-    title: 'Media & files',
-    desc: 'Share images and files in a chat with quick previews and downloads.',
-  },
-  {
-    icon: IconUsersGroup,
-    title: 'Group chats',
-    desc: 'Start conversations with a whole group, not just one person.',
-  },
-  {
-    icon: IconShieldLock,
-    title: 'Your account, secured',
-    desc: 'Token-based auth over HTTPS keeps your sessions safe.',
-  },
+const featureIcons = [
+  IconBolt,
+  IconActivity,
+  IconChecks,
+  IconPaperclip,
+  IconUsersGroup,
+  IconShieldLock,
 ];
+const features = featureIcons.map((icon, i) => ({ icon, ...messages.home.features[i] }));
 
 export default function Home() {
   const { user } = useAuth();
   const primaryHref = user ? '/chat' : '/register';
-  const primaryLabel = user ? 'Open chat' : 'Get started';
+  const primaryLabel = user ? t('home.openChat') : t('home.getStarted');
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#111b21] text-[#e9edef]">
@@ -58,7 +36,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <span className="flex items-center gap-2 font-semibold">
             <IconMessages className="h-6 w-6 text-[#00a884]" stroke={2} />
-            ChatApp
+            {t('common.brand')}
           </span>
           <div className="flex items-center gap-2 sm:gap-3">
             {user ? (
@@ -66,7 +44,7 @@ export default function Home() {
                 href="/chat"
                 className="rounded-full bg-[#00a884] px-4 py-1.5 text-sm font-medium text-[#111b21] transition hover:bg-[#06cf9c]"
               >
-                Open chat
+                {t('home.openChat')}
               </Link>
             ) : (
               <>
@@ -74,13 +52,13 @@ export default function Home() {
                   href="/login"
                   className="rounded-full px-4 py-1.5 text-sm font-medium text-[#e9edef] transition hover:bg-[#202c33]"
                 >
-                  Log in
+                  {t('home.navLogIn')}
                 </Link>
                 <Link
                   href="/register"
                   className="rounded-full bg-[#00a884] px-4 py-1.5 text-sm font-medium text-[#111b21] transition hover:bg-[#06cf9c]"
                 >
-                  Sign up
+                  {t('home.navSignUp')}
                 </Link>
               </>
             )}
@@ -93,15 +71,14 @@ export default function Home() {
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#2a3942] bg-[#202c33] px-3 py-1 text-xs font-medium text-[#8696a0]">
             <IconBolt className="h-3.5 w-3.5 text-[#00a884]" stroke={2} />
-            Realtime chat, right in your browser
+            {t('home.heroBadge')}
           </span>
           <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-6xl">
-            Talk. <span className="text-[#00a884]">Instantly.</span>
+            {t('home.heroTitleLead')}{' '}
+            <span className="text-[#00a884]">{t('home.heroTitleEmphasis')}</span>
           </h1>
           <p className="mt-5 max-w-xl text-base text-[#8696a0] sm:text-lg">
-            A fast, familiar messaging app — direct and group chats, online
-            presence, read receipts and media sharing. Sign up and start talking
-            in seconds.
+            {t('home.heroSubtitle')}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
@@ -116,7 +93,7 @@ export default function Home() {
                 href="/login"
                 className="inline-flex items-center gap-2 rounded-full border border-[#2a3942] px-6 py-3 text-sm font-semibold text-[#e9edef] transition hover:bg-[#202c33] sm:text-base"
               >
-                Log in
+                {t('home.navLogIn')}
               </Link>
             )}
           </div>
@@ -181,10 +158,10 @@ export default function Home() {
       <section className="border-t border-[#222d34] px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-6xl">
           <h2 className="text-center text-2xl font-semibold sm:text-3xl">
-            Everything you expect from a chat app
+            {t('home.featuresTitle')}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-center text-sm text-[#8696a0] sm:text-base">
-            Built for fast, natural conversations.
+            {t('home.featuresSubtitle')}
           </p>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((f) => (
@@ -208,10 +185,10 @@ export default function Home() {
         <div className="mx-auto max-w-3xl rounded-3xl border border-[#222d34] bg-gradient-to-br from-[#202c33] to-[#0b141a] px-6 py-14 text-center">
           <IconMessages className="mx-auto h-10 w-10 text-[#00a884]" stroke={1.75} />
           <h2 className="mt-4 text-2xl font-semibold sm:text-3xl">
-            Ready to start chatting?
+            {t('home.ctaTitle')}
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-sm text-[#8696a0] sm:text-base">
-            Create your account and message anyone in real time.
+            {t('home.ctaSubtitle')}
           </p>
           <Link
             href={primaryHref}
@@ -228,9 +205,9 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 text-sm text-[#8696a0] sm:flex-row">
           <span className="flex items-center gap-2 font-medium text-[#e9edef]">
             <IconMessages className="h-5 w-5 text-[#00a884]" stroke={2} />
-            ChatApp
+            {t('common.brand')}
           </span>
-          <span>Realtime messaging · built with Next.js & Socket.IO</span>
+          <span>{t('home.footerTagline')}</span>
         </div>
       </footer>
     </div>

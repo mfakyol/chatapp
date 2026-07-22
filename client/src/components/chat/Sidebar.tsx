@@ -30,6 +30,7 @@ import {
 import { conversationName, fullName, otherParticipant } from '@/lib/utils';
 import { getSocket } from '@/lib/socket';
 import { usePresenceMap } from '@/hooks/usePresence';
+import { t } from '@/i18n';
 
 interface Toast {
   id: number;
@@ -110,7 +111,7 @@ export function Sidebar({
           ? prev
           : { ...prev, received: [...prev.received, from] }
       );
-      pushToast(`${fullName(from)} sent you a friend request`);
+      pushToast(t('sidebar.toastRequest', { name: fullName(from) }));
     }
 
     function handleAccepted({ user: other }: { user: PublicUser }) {
@@ -119,7 +120,7 @@ export function Sidebar({
         sent: prev.sent.filter((u) => u.username !== other.username),
       }));
       setFriends((prev) => (prev.some((u) => u.username === other.username) ? prev : [...prev, other]));
-      pushToast(`${fullName(other)} accepted your friend request`);
+      pushToast(t('sidebar.toastAccepted', { name: fullName(other) }));
     }
 
     function handleDeclined({ user: other }: { user: PublicUser }) {
@@ -214,7 +215,7 @@ export function Sidebar({
   async function handleCreateGroup() {
     setError('');
     if (!groupName.trim() || groupSelection.length < 2) {
-      setError('Pick a name and at least 2 friends for a group');
+      setError(t('sidebar.errGroupRequirements'));
       return;
     }
     const res = await createGroupConversation(groupName.trim(), groupSelection);
@@ -248,7 +249,7 @@ export function Sidebar({
             <p className="text-xs text-[#8696a0]">@{user?.username}</p>
           </div>
         </div>
-        <button onClick={logout} title="Log out" className="rounded-full p-2 text-[#8696a0] hover:bg-[#2a3942]">
+        <button onClick={logout} title={t('sidebar.logOut')} className="rounded-full p-2 text-[#8696a0] hover:bg-[#2a3942]">
           <IconLogout size={20} />
         </button>
       </div>
@@ -260,7 +261,7 @@ export function Sidebar({
             tab === 'chats' ? 'border-b-2 border-[#00a884] text-[#00a884]' : 'text-[#8696a0]'
           }`}
         >
-          <IconMessageCircle2 size={18} /> Chats
+          <IconMessageCircle2 size={18} /> {t('sidebar.chats')}
         </button>
         <button
           onClick={() => setTab('people')}
@@ -268,7 +269,7 @@ export function Sidebar({
             tab === 'people' ? 'border-b-2 border-[#00a884] text-[#00a884]' : 'text-[#8696a0]'
           }`}
         >
-          <IconUsers size={18} /> People
+          <IconUsers size={18} /> {t('sidebar.people')}
           {requests.received.length > 0 && (
             <span className="ml-1 rounded-full bg-[#00a884] px-1.5 text-xs text-[#111b21]">
               {requests.received.length}
@@ -284,16 +285,16 @@ export function Sidebar({
             <input
               value={messageQuery}
               onChange={(e) => setMessageQuery(e.target.value)}
-              placeholder="Search messages..."
+              placeholder={t('sidebar.searchMessages')}
               className="w-full bg-transparent py-1 text-sm text-[#e9edef] placeholder-[#8696a0] outline-none"
             />
           </div>
 
           {messageQuery.trim() ? (
             <div>
-              {searchingMessages && <p className="p-4 text-sm text-[#8696a0]">Searching...</p>}
+              {searchingMessages && <p className="p-4 text-sm text-[#8696a0]">{t('sidebar.searching')}</p>}
               {!searchingMessages && messageResults.length === 0 && (
-                <p className="p-4 text-sm text-[#8696a0]">No messages found</p>
+                <p className="p-4 text-sm text-[#8696a0]">{t('sidebar.noMessagesFound')}</p>
               )}
               {messageResults.map((m) => (
                 <button
@@ -312,7 +313,7 @@ export function Sidebar({
                       </span>
                     </div>
                     <p className="truncate text-xs text-[#8696a0]">
-                      {m.sender.username === user?.username ? 'You: ' : `${m.sender.firstName}: `}
+                      {m.sender.username === user?.username ? t('sidebar.you') : `${m.sender.firstName}: `}
                       {messageSnippet(m)}
                     </p>
                   </div>
@@ -322,7 +323,7 @@ export function Sidebar({
           ) : (
             <>
               {conversations.length === 0 && (
-                <p className="p-4 text-sm text-[#8696a0]">No conversations yet. Add a friend to start chatting.</p>
+                <p className="p-4 text-sm text-[#8696a0]">{t('sidebar.noConversations')}</p>
               )}
               {conversations.map((c) => (
             <button
@@ -363,7 +364,7 @@ export function Sidebar({
 
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[#e9edef]">
-              {groupMode ? 'New group' : 'Search by username'}
+              {groupMode ? t('sidebar.groupHeading') : t('sidebar.searchHeading')}
             </h3>
             <button
               onClick={() => {
@@ -373,7 +374,7 @@ export function Sidebar({
               }}
               className="flex items-center gap-1 text-xs text-[#00a884] hover:underline"
             >
-              <IconUsersGroup size={16} /> {groupMode ? 'Cancel' : 'New group'}
+              <IconUsersGroup size={16} /> {groupMode ? t('sidebar.cancel') : t('sidebar.newGroup')}
             </button>
           </div>
 
@@ -382,10 +383,10 @@ export function Sidebar({
               <input
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                placeholder="Group name"
+                placeholder={t('sidebar.groupNamePlaceholder')}
                 className="rounded-md bg-[#2a3942] px-3 py-2 text-sm text-[#e9edef] placeholder-[#8696a0] outline-none"
               />
-              <p className="text-xs text-[#8696a0]">Select at least 2 friends</p>
+              <p className="text-xs text-[#8696a0]">{t('sidebar.groupHint')}</p>
               {friends.map((f) => (
                 <label key={f.username} className="flex items-center gap-2 text-sm text-[#e9edef]">
                   <input
@@ -400,7 +401,7 @@ export function Sidebar({
                 onClick={handleCreateGroup}
                 className="mt-2 rounded-md bg-[#00a884] py-2 text-sm font-medium text-[#111b21]"
               >
-                Create group
+                {t('sidebar.createGroup')}
               </button>
             </div>
           ) : (
@@ -410,14 +411,14 @@ export function Sidebar({
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search username..."
+                  placeholder={t('sidebar.searchUsername')}
                   className="w-full bg-transparent text-sm text-[#e9edef] placeholder-[#8696a0] outline-none"
                 />
               </div>
 
               {query.trim() && (
                 <div className="mb-6">
-                  {results.length === 0 && <p className="text-xs text-[#8696a0]">No users found</p>}
+                  {results.length === 0 && <p className="text-xs text-[#8696a0]">{t('sidebar.noUsersFound')}</p>}
                   {results.map((u) => (
                     <div key={u.username} className="flex items-center justify-between py-2">
                       <div className="flex items-center gap-2">
@@ -430,7 +431,7 @@ export function Sidebar({
                       <button
                         onClick={() => handleAddFriend(u.username)}
                         className="rounded-full p-2 text-[#00a884] hover:bg-[#2a3942]"
-                        title="Add friend"
+                        title={t('sidebar.addFriend')}
                       >
                         <IconUserPlus size={18} />
                       </button>
@@ -441,7 +442,7 @@ export function Sidebar({
 
               {requests.received.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="mb-2 text-xs font-semibold uppercase text-[#8696a0]">Friend requests</h4>
+                  <h4 className="mb-2 text-xs font-semibold uppercase text-[#8696a0]">{t('sidebar.friendRequests')}</h4>
                   {requests.received.map((u) => (
                     <div key={u.username} className="flex items-center justify-between py-2">
                       <div className="flex items-center gap-2">
@@ -471,8 +472,8 @@ export function Sidebar({
               )}
 
               <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase text-[#8696a0]">Friends</h4>
-                {friends.length === 0 && <p className="text-xs text-[#8696a0]">No friends yet</p>}
+                <h4 className="mb-2 text-xs font-semibold uppercase text-[#8696a0]">{t('sidebar.friends')}</h4>
+                {friends.length === 0 && <p className="text-xs text-[#8696a0]">{t('sidebar.noFriends')}</p>}
                 {friends.map((f) => (
                   <div key={f.username} className="flex items-center justify-between py-2">
                     <div className="flex items-center gap-2">
@@ -486,7 +487,7 @@ export function Sidebar({
                       onClick={() => handleStartChat(f.username)}
                       className="text-xs text-[#00a884] hover:underline"
                     >
-                      Message
+                      {t('sidebar.message')}
                     </button>
                   </div>
                 ))}

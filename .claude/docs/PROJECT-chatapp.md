@@ -60,7 +60,8 @@ Notes unique to **this** repo. General standards live in the sibling docs
 ## Conventions for this repo/owner
 - **Do not add a `Co-Authored-By` trailer** to commits (owner preference).
 - Prefer small, single-concern commits.
-- UI copy is **Turkish**; keep it consistent (extraction to i18n is a follow-up).
+- UI copy is **English**, centralized in `client/src/i18n/messages.ts` (the README/setup
+  docs are Turkish, but the app UI is English). Add new strings there, not inline.
 
 ## Refactor direction (decided)
 - **Server → TypeScript** with the layered structure in `backend-file-structure.md`.
@@ -98,7 +99,7 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
 7. ✅ **Structured logging** — `config/logger` (pino; pretty in dev, JSON in prod,
    `LOG_LEVEL`-configurable) + `pino-http` per-request logging with request ids; all
    `console.*` removed.
-8. **Client** (in progress):
+8. ✅ **Client**:
    - ✅ Context → **zustand** — `stores/auth.store` + `stores/presence.store`; hooks
      `useAuth`/`usePresence(Map)` keep the old APIs; `AuthBootstrap`/`PresenceListener`
      replace the providers. Runtime-verified (register → redirect → chat).
@@ -108,7 +109,10 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
      `{ success, data } | { success, error }`; `services/{auth,user,conversation}.service`
      wrap it; `lib/resources.ts` removed; every caller handles the Result explicitly.
      Runtime-verified (login error shows message; register + data fetch succeed).
-   - ☐ i18n.
+   - ✅ **i18n** — all UI copy extracted to `i18n/messages.ts`; `t(key, params)` accessor
+     with `{param}` interpolation; applied across home, auth pages, sidebar, chat window,
+     profile panel. (Copy is **English**, not Turkish — the earlier note was wrong. The
+     marketing demo mockup on `/` is left inline as illustrative content.)
    - _Pre-existing_: `set-state-in-effect` lint errors in `ChatWindow`/`Sidebar`/
      `ProfilePanel` (unrelated to this work; build still passes).
 9. ✅ **Backend tests** — Vitest + supertest + mongodb-memory-server (`server/test/`,

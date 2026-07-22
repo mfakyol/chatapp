@@ -89,7 +89,9 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
 5. ✅ **Data integrity** — `Conversation` cascade-deletes its `Message`s (pre
    `deleteOne`/`findOneAndDelete` hooks); read receipts use an idempotent guarded
    `updateMany`; friend-request arrays use `addToSet` to avoid duplicates under races.
-6. **Lifecycle**: `/health` should reflect DB status; graceful shutdown closes io + Mongo.
+6. ✅ **Lifecycle** — `/health` returns 503 `db:down` when Mongo is disconnected;
+   `SIGTERM`/`SIGINT` drain connections, `disconnectSockets`, close Mongo, force-exit
+   after 10 s. (Signal delivery verified on the Linux/Docker target, not Windows dev.)
 7. **Structured logging (pino)** instead of `console.*`.
 8. **Client**: Context → zustand; `lib/api.ts` throw → discriminated result; group
    components by feature (`components/chat`, `components/friends`); extract hooks; i18n.

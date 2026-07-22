@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
+import mongoose from 'mongoose';
 import passport from './config/passport';
 import { env } from './config/env';
 import authRoutes from './routes/auth.routes';
@@ -25,7 +26,14 @@ export function createApp() {
   app.use(passport.initialize());
   app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  // Readiness reflects DB connectivity so orchestrators can gate traffic.
+  app.get('/health', (_req, res) => {
+    const dbUp = mongoose.connection.readyState === 1;
+    res.status(dbUp ? 200 : 503).json({
+      status: dbUp ? 'ok' : 'error',
+      db: dbUp ? 'up' : 'down',
+    });
+  });
 
   app.use('/api/auth', authRoutes);
   app.use('/api/users', userRoutes);

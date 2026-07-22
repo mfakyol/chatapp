@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { validate } from '../middleware/validate';
+import { uploadLimiter } from '../middleware/rateLimit';
 import {
   createDirectSchema,
   createGroupSchema,
@@ -42,6 +43,7 @@ router.patch('/:conversationId/messages/:messageId', validate(editMessageSchema)
 router.delete('/:conversationId/messages/:messageId', validate(messageParamsSchema), deleteMessage);
 router.post(
   '/:conversationId/attachments',
+  uploadLimiter,
   upload.single('file'),
   validate(conversationIdParamSchema),
   sendAttachment

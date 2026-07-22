@@ -34,6 +34,14 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return res.status(409).json({ message: `This ${field} is already taken` });
   }
 
+  // http-errors-style client errors (body too large, malformed JSON, …) carry a
+  // safe 4xx status/message — surface it instead of masking as a 500.
+  const httpStatus =
+    (err as { status?: unknown }).status ?? (err as { statusCode?: unknown }).statusCode;
+  if (typeof httpStatus === 'number' && httpStatus >= 400 && httpStatus < 500) {
+    return res.status(httpStatus).json({ message: (err as Error).message || 'Bad request' });
+  }
+
   // eslint-disable-next-line no-console
   console.error(err);
   const message = env.isProd ? 'Server error' : (err as Error)?.message || 'Server error';

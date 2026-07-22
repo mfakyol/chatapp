@@ -78,8 +78,11 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
 2. ✅ **Validation everywhere** — Zod `schemas/` + `validate()` middleware on all HTTP
    inputs **and** socket payloads; `ObjectId` params rejected with 400; manual format
    guards removed from services (business/ownership checks stay).
-3. **Security hardening**: `helmet`, locked CORS (HTTP + socket), body-size limit,
-   rate limiting (auth + message/upload). (Central error handler already hides internals in prod.)
+3. ✅ **Security hardening** — `helmet` (CORP `cross-origin` so `/uploads` load in the
+   client), 1 MB JSON body limit, `authLimiter` (failed-attempt-keyed) on login/register,
+   `uploadLimiter` on attachments, `trust proxy` in prod; error handler now surfaces
+   http-errors 4xx (413/400) instead of 500. CORS was already locked in #1.
+   _Remaining_: socket `message:send` spam throttle (per-connection) — deferred.
 4. ✅ **Shared token verifier** — `utils/jwt.verifyToken` used by both the passport-jwt
    strategy and the socket handshake.
 5. **Data integrity**: cascade delete messages with a conversation; atomic read-receipt

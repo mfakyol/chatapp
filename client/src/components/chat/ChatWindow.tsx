@@ -15,9 +15,9 @@ import {
   IconX,
   IconArrowLeft,
 } from '@tabler/icons-react';
-import { Avatar } from '@/components/Avatar';
-import { ProfilePanel } from '@/components/ProfilePanel';
-import { MessageTicks } from '@/components/MessageTicks';
+import { Avatar } from '@/components/ui/Avatar';
+import { ProfilePanel } from '@/components/chat/ProfilePanel';
+import { MessageTicks } from '@/components/chat/MessageTicks';
 import { Conversation, Message, MessageSearchResult, ReadReceipt } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { usePresenceMap } from '@/hooks/usePresence';

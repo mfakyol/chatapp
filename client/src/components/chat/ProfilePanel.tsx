@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { IconX, IconPencil, IconUserPlus, IconUserMinus, IconLogout2, IconCheck } from '@tabler/icons-react';
-import { Avatar } from '@/components/Avatar';
+import { Avatar } from '@/components/ui/Avatar';
 import { Conversation, PublicUser } from '@/types';
 import { fullName, otherParticipant, formatLastSeen } from '@/lib/utils';
 import { usePresenceMap } from '@/hooks/usePresence';

@@ -102,8 +102,9 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
    - ✅ Context → **zustand** — `stores/auth.store` + `stores/presence.store`; hooks
      `useAuth`/`usePresence(Map)` keep the old APIs; `AuthBootstrap`/`PresenceListener`
      replace the providers. Runtime-verified (register → redirect → chat).
-   - ☐ `lib/api.ts` throw → discriminated result; ☐ group components by feature
-     (`components/chat`, `components/friends`); ☐ extract hooks; ☐ i18n.
+   - ✅ Components grouped by concern — `components/ui/` (Avatar) + `components/chat/`
+     (ChatWindow, Sidebar, ProfilePanel, MessageTicks); app-infra listeners stay at root.
+   - ☐ `lib/api.ts` throw → discriminated result; ☐ i18n.
    - _Pre-existing_: `set-state-in-effect` lint errors in `ChatWindow`/`Sidebar`/
      `ProfilePanel` (unrelated to this work; build still passes).
 9. ✅ **Backend tests** — Vitest + supertest + mongodb-memory-server (`server/test/`,

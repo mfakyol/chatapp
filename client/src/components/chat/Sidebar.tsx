@@ -12,7 +12,7 @@ import {
   IconUsersGroup,
 } from '@tabler/icons-react';
 import { useAuth } from '@/hooks/useAuth';
-import { Avatar } from '@/components/Avatar';
+import { Avatar } from '@/components/ui/Avatar';
 import { Conversation, FriendRequests, MessageSearchResult, PublicUser } from '@/types';
 import {
   acceptFriendRequest,

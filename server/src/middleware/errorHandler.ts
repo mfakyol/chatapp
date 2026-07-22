@@ -2,6 +2,7 @@ import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { MulterError } from 'multer';
 import { AppError } from '../errors/AppError';
 import { env } from '../config/env';
+import { logger } from '../config/logger';
 
 export const notFoundHandler: RequestHandler = (_req, res) => {
   res.status(404).json({ message: 'Not found' });
@@ -42,8 +43,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return res.status(httpStatus).json({ message: (err as Error).message || 'Bad request' });
   }
 
-  // eslint-disable-next-line no-console
-  console.error(err);
+  logger.error({ err }, 'Unhandled request error');
   const message = env.isProd ? 'Server error' : (err as Error)?.message || 'Server error';
   res.status(500).json({ message });
 };

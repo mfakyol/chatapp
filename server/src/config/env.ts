@@ -25,6 +25,7 @@ export const env = {
   jwtSecret: required('JWT_SECRET', 'dev-only-insecure-secret-change-me'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:3000',
+  logLevel: process.env.LOG_LEVEL ?? (isProd ? 'info' : 'debug'),
 } as const;
 
 export type Env = typeof env;

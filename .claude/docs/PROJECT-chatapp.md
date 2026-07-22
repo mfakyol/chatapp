@@ -44,7 +44,8 @@ Notes unique to **this** repo. General standards live in the sibling docs
   `server/uploads/`, served static read-only. Keep the allowlist + size cap on refactor.
 
 ## Env / config
-- Server env: `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `PORT` (4000), `CLIENT_URL`.
+- Server env: `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `PORT` (4000), `CLIENT_URL`,
+  `LOG_LEVEL`, `NODE_ENV`.
   Client env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SOCKET_URL`.
 - Env is centralized in typed `config/env.ts`: dev fallbacks so `npm run dev` works
   out of the box, **fail-fast in production** on a missing `MONGO_URI`/`JWT_SECRET`.
@@ -92,7 +93,9 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
 6. ✅ **Lifecycle** — `/health` returns 503 `db:down` when Mongo is disconnected;
    `SIGTERM`/`SIGINT` drain connections, `disconnectSockets`, close Mongo, force-exit
    after 10 s. (Signal delivery verified on the Linux/Docker target, not Windows dev.)
-7. **Structured logging (pino)** instead of `console.*`.
+7. ✅ **Structured logging** — `config/logger` (pino; pretty in dev, JSON in prod,
+   `LOG_LEVEL`-configurable) + `pino-http` per-request logging with request ids; all
+   `console.*` removed.
 8. **Client**: Context → zustand; `lib/api.ts` throw → discriminated result; group
    components by feature (`components/chat`, `components/friends`); extract hooks; i18n.
 9. **Tests**: stand up backend Vitest suite; decide on client testing.

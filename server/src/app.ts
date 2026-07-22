@@ -3,8 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
 import mongoose from 'mongoose';
+import { pinoHttp } from 'pino-http';
 import passport from './config/passport';
 import { env } from './config/env';
+import { logger } from './config/logger';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import conversationRoutes from './routes/conversation.routes';
@@ -17,6 +19,9 @@ export function createApp() {
   // Behind the nginx proxy in production: trust it so client IPs (used by the
   // rate limiter) are read from X-Forwarded-For. Don't trust proxies in dev.
   if (env.isProd) app.set('trust proxy', 1);
+
+  // Per-request structured logging with a generated request id (req.log / req.id).
+  app.use(pinoHttp({ logger }));
 
   // `cross-origin` CORP lets the Next client (a different origin) load images
   // served from /uploads; the default `same-origin` would block them.

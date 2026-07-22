@@ -5,6 +5,7 @@ import createApp from './app';
 import connectDB from './config/db';
 import registerSocketHandlers from './sockets';
 import { env } from './config/env';
+import { logger } from './config/logger';
 
 const FORCE_EXIT_MS = 10_000;
 
@@ -15,12 +16,10 @@ function setupGracefulShutdown(server: http.Server, io: Server): void {
   const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
-    // eslint-disable-next-line no-console
-    console.log(`${signal} received, shutting down gracefully...`);
+    logger.info(`${signal} received, shutting down gracefully...`);
 
     const forceTimer = setTimeout(() => {
-      // eslint-disable-next-line no-console
-      console.error('Could not close in time, forcing exit');
+      logger.error('Could not close in time, forcing exit');
       process.exit(1);
     }, FORCE_EXIT_MS);
     forceTimer.unref();
@@ -32,8 +31,7 @@ function setupGracefulShutdown(server: http.Server, io: Server): void {
       clearTimeout(forceTimer);
       process.exit(0);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Error during shutdown', err);
+      logger.error({ err }, 'Error during shutdown');
       process.exit(1);
     }
   };
@@ -58,13 +56,11 @@ async function main(): Promise<void> {
   setupGracefulShutdown(server, io);
 
   server.listen(env.port, () => {
-    // eslint-disable-next-line no-console
-    console.log(`Server listening on port ${env.port}`);
+    logger.info(`Server listening on port ${env.port}`);
   });
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error('Failed to start server', err);
+  logger.error({ err }, 'Failed to start server');
   process.exit(1);
 });

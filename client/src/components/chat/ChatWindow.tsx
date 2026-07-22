@@ -69,6 +69,8 @@ export function ChatWindow({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const uploadErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [showEmoji, setShowEmoji] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -417,12 +419,18 @@ export function ChatWindow({
     inputRef.current?.focus();
   }
 
+  function showUploadError(message: string) {
+    setUploadError(message);
+    if (uploadErrorTimerRef.current) clearTimeout(uploadErrorTimerRef.current);
+    uploadErrorTimerRef.current = setTimeout(() => setUploadError(''), 5000);
+  }
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     const res = await sendAttachment(conversation._id, file);
-    if (!res.success) console.error(res.error);
+    if (!res.success) showUploadError(t('chat.uploadFailed', { error: res.error }));
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -766,6 +774,12 @@ export function ChatWindow({
           </div>
         )}
 
+        {uploadError && (
+          <div className="border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 pt-2">
+            <p className="text-xs text-[var(--danger)]">{uploadError}</p>
+          </div>
+        )}
+
         <div className="relative flex items-center gap-2 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
           {showEmoji && (
             <div className="absolute bottom-full left-4 mb-2 grid grid-cols-6 gap-1 rounded-md bg-[var(--bg-surface)] p-2 shadow-lg">
@@ -780,7 +794,13 @@ export function ChatWindow({
               ))}
             </div>
           )}
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z"
+            onChange={handleFileChange}
+          />
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}

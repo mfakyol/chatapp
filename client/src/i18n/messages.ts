@@ -101,6 +101,7 @@ export const messages = {
     typing: 'typing...',
     typingGroup: '{names} {verb} typing...',
     attachFile: 'Attach file',
+    uploadFailed: 'Could not send file: {error}',
     emoji: 'Emoji',
     react: 'Add reaction',
     reply: 'Reply',

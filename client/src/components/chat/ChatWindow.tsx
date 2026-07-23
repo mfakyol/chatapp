@@ -101,6 +101,11 @@ export function ChatWindow({
   // Per-member read pointers (userId → lastReadAt), seeded from the conversation
   // and kept live by conversation:read events. Ticks derive from this.
   const [memberReads, setMemberReads] = useState<Record<string, string>>({});
+  // Floating date chip: shows the day of the topmost visible message (via
+  // IntersectionObserver); hidden while the list is scrolled to the very top.
+  const [floatingDay, setFloatingDay] = useState('');
+  const [showFloatingDay, setShowFloatingDay] = useState(false);
+  const visibleMessageIdsRef = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -272,6 +277,34 @@ export function ChatWindow({
     }
   }, [messages, highlightedId]);
 
+  // Observe every message; the floating chip shows the day of the topmost one
+  // currently visible in the scroll viewport.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || messages.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = (entry.target as HTMLElement).dataset.mid;
+          if (!id) continue;
+          if (entry.isIntersecting) visibleMessageIdsRef.current.add(id);
+          else visibleMessageIdsRef.current.delete(id);
+        }
+        const topmost = messages.find((m) => visibleMessageIdsRef.current.has(m._id));
+        if (topmost) setFloatingDay(dayLabel(topmost.createdAt));
+      },
+      { root: container }
+    );
+
+    visibleMessageIdsRef.current.clear();
+    for (const m of messages) {
+      const el = messageRefs.current.get(m._id);
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [messages]);
+
   async function loadMore() {
     if (loadingMore || !hasMore || messages.length === 0) return;
     const container = scrollContainerRef.current;
@@ -298,7 +331,11 @@ export function ChatWindow({
 
   function handleScroll() {
     const container = scrollContainerRef.current;
-    if (container && container.scrollTop < 80) {
+    if (!container) return;
+    // Hide the floating chip at the very top — the first inline separator is
+    // already in view there, a duplicate overlay would just cover it.
+    setShowFloatingDay(container.scrollTop > 60);
+    if (container.scrollTop < 80) {
       loadMore();
     }
   }
@@ -557,7 +594,15 @@ export function ChatWindow({
           </div>
         )}
 
-        <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="relative min-h-0 flex-1">
+          {floatingDay && showFloatingDay && (
+            <div className="pointer-events-none absolute left-0 right-0 top-2 z-20 flex justify-center">
+              <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow">
+                {floatingDay}
+              </span>
+            </div>
+          )}
+        <div ref={scrollContainerRef} onScroll={handleScroll} className="h-full overflow-y-auto px-4 py-4">
           {loadingMore && (
             <p className="mb-2 text-center text-xs text-[var(--text-muted)]">{t('chat.loadingOlder')}</p>
           )}
@@ -571,9 +616,7 @@ export function ChatWindow({
             return (
               <Fragment key={m._id}>
               {newDay && (
-                // sticky: the current day's chip stays pinned at the top of the
-                // scroll area until the next day's chip pushes it out (WhatsApp).
-                <div className="sticky top-0 z-10 my-2 flex justify-center">
+                <div className="my-2 flex justify-center">
                   <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow">
                     {dayLabel(m.createdAt)}
                   </span>
@@ -582,6 +625,7 @@ export function ChatWindow({
               <div className={`group mb-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className="relative max-w-xs"
+                  data-mid={m._id}
                   ref={(el) => {
                     if (el) messageRefs.current.set(m._id, el);
                     else messageRefs.current.delete(m._id);
@@ -782,6 +826,7 @@ export function ChatWindow({
             );
           })}
           <div ref={bottomRef} />
+        </div>
         </div>
 
         {replyingTo && (

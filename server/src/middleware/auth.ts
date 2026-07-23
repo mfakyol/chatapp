@@ -1,19 +1,26 @@
 import type { Request, RequestHandler } from 'express';
-import passport from '../config/passport';
-import type { UserDocument } from '../models/User';
+import User, { UserDocument } from '../models/User';
 
-/** JWT bearer guard. On success attaches the user document to `req.user`. */
-export const requireAuth: RequestHandler = (req, res, next) => {
-  passport.authenticate(
-    'jwt',
-    { session: false },
-    (err: unknown, user: UserDocument | false) => {
-      if (err) return next(err);
-      if (!user) return res.status(401).json({ message: 'Unauthorized' });
-      req.user = user;
-      next();
+/**
+ * Session guard: resolves the user from the server-side session (httpOnly
+ * cookie). On success attaches the user document to `req.user`.
+ */
+export const requireAuth: RequestHandler = async (req, res, next) => {
+  try {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const user = await User.findById(userId);
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ message: 'Unauthorized' });
     }
-  )(req, res, next);
+
+    req.user = user;
+    next();
+  } catch (err) {
+    next(err);
+  }
 };
 
 /** Typed accessor for the authenticated user on a guarded route. */

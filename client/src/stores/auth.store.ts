@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { setToken, Result } from '@/lib/api';
+import { Result } from '@/lib/api';
 import * as authService from '@/services/auth.service';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
 import { PublicUser, RegisterPayload } from '@/types';
@@ -9,7 +9,7 @@ export type { RegisterPayload };
 interface AuthState {
   user: PublicUser | null;
   loading: boolean;
-  /** Restore a session from a stored token on app start. */
+  /** Restore the session (httpOnly cookie) on app start. */
   bootstrap: () => Promise<void>;
   login: (identifier: string, password: string) => Promise<Result<void>>;
   register: (payload: RegisterPayload) => Promise<Result<void>>;
@@ -23,17 +23,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
 
   bootstrap: async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) {
-      set({ loading: false });
-      return;
-    }
+    // The cookie is httpOnly (invisible to JS) — just ask the server who we are.
     const res = await authService.me();
     if (res.success) {
       set({ user: res.data.user });
-      connectSocket(token);
-    } else {
-      setToken(null);
+      connectSocket();
     }
     set({ loading: false });
   },
@@ -41,23 +35,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (identifier, password) => {
     const res = await authService.login(identifier, password);
     if (!res.success) return res;
-    setToken(res.data.token);
     set({ user: res.data.user });
-    connectSocket(res.data.token);
+    connectSocket();
     return { success: true, data: undefined };
   },
 
   register: async (payload) => {
     const res = await authService.register(payload);
     if (!res.success) return res;
-    setToken(res.data.token);
     set({ user: res.data.user });
-    connectSocket(res.data.token);
+    connectSocket();
     return { success: true, data: undefined };
   },
 
   logout: () => {
-    setToken(null);
+    authService.logout(); // fire-and-forget: destroys the server-side session
     set({ user: null });
     disconnectSocket();
   },

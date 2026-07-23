@@ -4,7 +4,7 @@ import type { Express } from 'express';
 import Conversation from '../src/models/Conversation';
 import ConversationMember from '../src/models/ConversationMember';
 import Message from '../src/models/Message';
-import { buildTestApp, registerUser, makeFriends, auth, recordingIo } from './helpers';
+import { buildTestApp, registerUser, makeFriends, recordingIo } from './helpers';
 
 let app: Express;
 beforeEach(() => {
@@ -14,10 +14,7 @@ beforeEach(() => {
 describe('POST /api/conversations/direct', () => {
   it('creates a direct conversation between friends', async () => {
     const { a } = await makeFriends(app);
-    const res = await request(app)
-      .post('/api/conversations/direct')
-      .set(auth(a.token))
-      .send({ username: 'bob' });
+    const res = await a.agent.post('/api/conversations/direct').send({ username: 'bob' });
 
     expect(res.status).toBe(201);
     expect(res.body.conversation.isGroup).toBe(false);
@@ -27,15 +24,9 @@ describe('POST /api/conversations/direct', () => {
 
   it('is idempotent (directKey upsert returns the same conversation)', async () => {
     const { a, b } = await makeFriends(app);
-    const first = await request(app)
-      .post('/api/conversations/direct')
-      .set(auth(a.token))
-      .send({ username: 'bob' });
+    const first = await a.agent.post('/api/conversations/direct').send({ username: 'bob' });
     // Second create from the OTHER side must also hit the same conversation.
-    const second = await request(app)
-      .post('/api/conversations/direct')
-      .set(auth(b.token))
-      .send({ username: 'alice' });
+    const second = await b.agent.post('/api/conversations/direct').send({ username: 'alice' });
     expect(second.body.conversation._id).toBe(first.body.conversation._id);
     expect(await Conversation.countDocuments({})).toBe(1);
   });
@@ -43,19 +34,13 @@ describe('POST /api/conversations/direct', () => {
   it('rejects messaging a non-friend with 403', async () => {
     const a = await registerUser(app, { username: 'alice', email: 'alice@test.co' });
     await registerUser(app, { username: 'carol', email: 'carol@test.co' });
-    const res = await request(app)
-      .post('/api/conversations/direct')
-      .set(auth(a.token))
-      .send({ username: 'carol' });
+    const res = await a.agent.post('/api/conversations/direct').send({ username: 'carol' });
     expect(res.status).toBe(403);
   });
 
   it('returns 404 for an unknown user', async () => {
     const a = await registerUser(app);
-    const res = await request(app)
-      .post('/api/conversations/direct')
-      .set(auth(a.token))
-      .send({ username: 'ghost' });
+    const res = await a.agent.post('/api/conversations/direct').send({ username: 'ghost' });
     expect(res.status).toBe(404);
   });
 
@@ -66,10 +51,7 @@ describe('POST /api/conversations/direct', () => {
     const recApp = buildTestApp(rec.io);
     const { a, b } = await makeFriends(recApp);
 
-    await request(recApp)
-      .post('/api/conversations/direct')
-      .set(auth(a.token))
-      .send({ username: 'bob' });
+    await a.agent.post('/api/conversations/direct').send({ username: 'bob' });
 
     const announce = rec.emits.find((e) => e.event === 'conversation:new');
     expect(announce).toBeDefined();
@@ -78,11 +60,8 @@ describe('POST /api/conversations/direct', () => {
 });
 
 describe('messages', () => {
-  async function directConvo(x: Express, token: string) {
-    const res = await request(x)
-      .post('/api/conversations/direct')
-      .set(auth(token))
-      .send({ username: 'bob' });
+  async function directConvo(a: Awaited<ReturnType<typeof registerUser>>) {
+    const res = await a.agent.post('/api/conversations/direct').send({ username: 'bob' });
     return res.body.conversation._id as string;
   }
 
@@ -90,11 +69,10 @@ describe('messages', () => {
     const rec = recordingIo();
     const recApp = buildTestApp(rec.io);
     const { a, b } = await makeFriends(recApp);
-    const convoId = await directConvo(recApp, a.token);
+    const convoId = await directConvo(a);
 
-    const res = await request(recApp)
+    const res = await a.agent
       .post(`/api/conversations/${convoId}/messages`)
-      .set(auth(a.token))
       .send({ content: 'hello', clientTempId: 'tmp-1' });
 
     expect(res.status).toBe(201);
@@ -108,12 +86,11 @@ describe('messages', () => {
 
   it('is idempotent on clientTempId (retry does not duplicate)', async () => {
     const { a } = await makeFriends(app);
-    const convoId = await directConvo(app, a.token);
+    const convoId = await directConvo(a);
 
     const send = () =>
-      request(app)
+      a.agent
         .post(`/api/conversations/${convoId}/messages`)
-        .set(auth(a.token))
         .send({ content: 'once', clientTempId: 'retry-1' });
 
     const first = await send();
@@ -124,46 +101,35 @@ describe('messages', () => {
 
   it('rejects a send from a non-member with 404', async () => {
     const { a } = await makeFriends(app);
-    const convoId = await directConvo(app, a.token);
+    const convoId = await directConvo(a);
     const outsider = await registerUser(app, { username: 'carol', email: 'carol@test.co' });
 
-    const res = await request(app)
+    const res = await outsider.agent
       .post(`/api/conversations/${convoId}/messages`)
-      .set(auth(outsider.token))
       .send({ content: 'sneak' });
     expect(res.status).toBe(404);
   });
 
   it('rejects an invalid ObjectId with 400', async () => {
     const a = await registerUser(app);
-    const res = await request(app)
-      .get('/api/conversations/not-an-id/messages')
-      .set(auth(a.token));
+    const res = await a.agent.get('/api/conversations/not-an-id/messages');
     expect(res.status).toBe(400);
   });
 
   it('marks read via lastReadAt pointer and reports unread counts', async () => {
     const { a, b } = await makeFriends(app);
-    const convoId = await directConvo(app, a.token);
+    const convoId = await directConvo(a);
 
-    await request(app)
-      .post(`/api/conversations/${convoId}/messages`)
-      .set(auth(a.token))
-      .send({ content: 'one' });
-    await request(app)
-      .post(`/api/conversations/${convoId}/messages`)
-      .set(auth(a.token))
-      .send({ content: 'two' });
+    await a.agent.post(`/api/conversations/${convoId}/messages`).send({ content: 'one' });
+    await a.agent.post(`/api/conversations/${convoId}/messages`).send({ content: 'two' });
 
-    let list = await request(app).get('/api/conversations').set(auth(b.token));
+    let list = await b.agent.get('/api/conversations');
     expect(list.body.conversations[0].unreadCount).toBe(2);
 
-    const read = await request(app)
-      .post(`/api/conversations/${convoId}/read`)
-      .set(auth(b.token));
+    const read = await b.agent.post(`/api/conversations/${convoId}/read`);
     expect(read.status).toBe(200);
 
-    list = await request(app).get('/api/conversations').set(auth(b.token));
+    list = await b.agent.get('/api/conversations');
     expect(list.body.conversations[0].unreadCount).toBe(0);
 
     const member = await ConversationMember.findOne({ conversation: convoId, user: b.user.id });
@@ -174,9 +140,8 @@ describe('messages', () => {
 describe('POST /api/conversations/group', () => {
   it('rejects a group with fewer than 2 other members (400)', async () => {
     const { a } = await makeFriends(app);
-    const res = await request(app)
+    const res = await a.agent
       .post('/api/conversations/group')
-      .set(auth(a.token))
       .send({ name: 'Squad', usernames: ['bob'] });
     expect(res.status).toBe(400);
   });
@@ -186,14 +151,13 @@ describe('POST /api/conversations/group', () => {
     const b = await registerUser(app, { username: 'bob', email: 'bob@test.co' });
     const c = await registerUser(app, { username: 'carol', email: 'carol@test.co' });
     for (const name of ['bob', 'carol']) {
-      await request(app).post(`/api/users/friend-requests/${name}`).set(auth(a.token));
+      await a.agent.post(`/api/users/friend-requests/${name}`);
     }
-    await request(app).post('/api/users/friend-requests/alice/accept').set(auth(b.token));
-    await request(app).post('/api/users/friend-requests/alice/accept').set(auth(c.token));
+    await b.agent.post('/api/users/friend-requests/alice/accept');
+    await c.agent.post('/api/users/friend-requests/alice/accept');
 
-    const res = await request(app)
+    const res = await a.agent
       .post('/api/conversations/group')
-      .set(auth(a.token))
       .send({ name: 'Squad', usernames: ['bob', 'carol'] });
 
     expect(res.status).toBe(201);
@@ -206,20 +170,14 @@ describe('POST /api/conversations/group', () => {
 describe('DELETE /api/conversations/:id', () => {
   it('deletes the conversation and cascades messages + memberships', async () => {
     const { a } = await makeFriends(app);
-    const created = await request(app)
-      .post('/api/conversations/direct')
-      .set(auth(a.token))
-      .send({ username: 'bob' });
+    const created = await a.agent.post('/api/conversations/direct').send({ username: 'bob' });
     const convoId = created.body.conversation._id;
 
-    await request(app)
+    await a.agent
       .post(`/api/conversations/${convoId}/messages`)
-      .set(auth(a.token))
       .send({ content: 'to be deleted' });
 
-    const res = await request(app)
-      .delete(`/api/conversations/${convoId}`)
-      .set(auth(a.token));
+    const res = await a.agent.delete(`/api/conversations/${convoId}`);
     expect(res.status).toBe(200);
 
     expect(await Conversation.findById(convoId)).toBeNull();
@@ -229,15 +187,10 @@ describe('DELETE /api/conversations/:id', () => {
 
   it('returns 404 for a non-member', async () => {
     const { a } = await makeFriends(app);
-    const created = await request(app)
-      .post('/api/conversations/direct')
-      .set(auth(a.token))
-      .send({ username: 'bob' });
+    const created = await a.agent.post('/api/conversations/direct').send({ username: 'bob' });
 
     const outsider = await registerUser(app, { username: 'carol', email: 'carol@test.co' });
-    const res = await request(app)
-      .delete(`/api/conversations/${created.body.conversation._id}`)
-      .set(auth(outsider.token));
+    const res = await outsider.agent.delete(`/api/conversations/${created.body.conversation._id}`);
     expect(res.status).toBe(404);
   });
 });

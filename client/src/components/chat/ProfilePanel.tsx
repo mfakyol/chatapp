@@ -11,8 +11,9 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { Avatar } from '@/components/ui/Avatar';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Conversation, PublicUser } from '@/types';
-import { fullName, otherParticipant, formatLastSeen } from '@/lib/utils';
+import { fullName, otherParticipant, formatLastSeen, userId } from '@/lib/utils';
 import { t } from '@/i18n';
 import { usePresenceMap } from '@/hooks/usePresence';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,18 +37,15 @@ export function ProfilePanel({
 }) {
   const { user } = useAuth();
   const presence = usePresenceMap();
+  const { confirm, confirmDialog } = useConfirm();
   const [renaming, setRenaming] = useState(false);
-  const [nameDraft, setNameDraft] = useState(conversation.name);
+  const [nameDraft, setNameDraft] = useState('');
   const [addingMember, setAddingMember] = useState(false);
   const [friends, setFriends] = useState<PublicUser[]>([]);
   const [error, setError] = useState('');
 
-  const currentUserId = user?.id || user?._id;
+  const currentUserId = userId(user);
   const isAdmin = !!currentUserId && (conversation.admins || []).some((id) => id === currentUserId);
-
-  useEffect(() => {
-    setNameDraft(conversation.name);
-  }, [conversation.name]);
 
   useEffect(() => {
     if (addingMember) {
@@ -57,8 +55,8 @@ export function ProfilePanel({
     }
   }, [addingMember]);
 
-  function liveStatus(userId?: string, fallbackOnline?: boolean, fallbackLastSeen?: string) {
-    const live = userId ? presence[userId] : undefined;
+  function liveStatus(id: string, fallbackOnline?: boolean, fallbackLastSeen?: string) {
+    const live = id ? presence[id] : undefined;
     return {
       isOnline: live?.isOnline ?? fallbackOnline ?? false,
       lastSeen: live?.lastSeen ?? fallbackLastSeen,
@@ -66,7 +64,7 @@ export function ProfilePanel({
   }
 
   const other = !conversation.isGroup ? otherParticipant(conversation, currentUsername) : undefined;
-  const otherStatus = other ? liveStatus(other.id || other._id, other.isOnline, other.lastSeen) : null;
+  const otherStatus = other ? liveStatus(userId(other), other.isOnline, other.lastSeen) : null;
 
   async function handleRename() {
     setError('');
@@ -90,13 +88,13 @@ export function ProfilePanel({
   }
 
   async function handleLeave() {
-    if (!window.confirm(t('profile.confirmLeave'))) return;
+    if (!(await confirm(t('profile.confirmLeave')))) return;
     const res = await leaveGroup(conversation._id);
     if (!res.success) setError(res.error);
   }
 
   async function handleDelete() {
-    if (!window.confirm(t('profile.confirmDelete'))) return;
+    if (!(await confirm(t('profile.confirmDelete')))) return;
     const res = await deleteConversation(conversation._id);
     if (!res.success) return setError(res.error);
     onClose();
@@ -141,7 +139,14 @@ export function ProfilePanel({
             <div className="flex items-center gap-2">
               <p className="text-lg font-medium text-[var(--text-normal)]">{conversation.name}</p>
               {isAdmin && (
-                <button onClick={() => setRenaming(true)} className="text-[var(--text-muted)] hover:text-[var(--text-normal)]">
+                <button
+                  onClick={() => {
+                    // Seed the draft here (event handler) — no sync-state effect.
+                    setNameDraft(conversation.name);
+                    setRenaming(true);
+                  }}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-normal)]"
+                >
                   <IconPencil size={16} />
                 </button>
               )}
@@ -199,7 +204,7 @@ export function ProfilePanel({
             )}
 
             {conversation.participants.map((p) => {
-              const status = liveStatus(p.id || p._id, p.isOnline, p.lastSeen);
+              const status = liveStatus(userId(p), p.isOnline, p.lastSeen);
               return (
                 <div key={p.username} className="flex items-center gap-3 py-2">
                   <Avatar name={fullName(p)} isOnline={status.isOnline} size={36} />
@@ -245,6 +250,8 @@ export function ProfilePanel({
           <IconTrash size={18} /> {t('profile.deleteChat')}
         </button>
       </div>
+
+      {confirmDialog}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 import { currentUser } from '../middleware/auth';
 import { getIo } from '../utils/io';
 import { badRequest } from '../errors/AppError';
+import { attachmentUrl } from '../utils/attachments';
 import * as conversationService from '../services/conversation.service';
 import * as messageService from '../services/message.service';
 
@@ -156,7 +157,7 @@ export const sendAttachment: RequestHandler = async (req, res, next) => {
         content: asString(req.body.caption),
         clientTempId: asString(req.body.clientTempId),
         attachment: {
-          url: `/uploads/${req.file.filename}`,
+          url: attachmentUrl(req.file.filename),
           fileName: req.file.originalname,
           mimeType: req.file.mimetype,
           size: req.file.size,

@@ -1,12 +1,13 @@
-import { request, apiUrl, getToken, Result } from '@/lib/api';
+import { request, apiUrl, notifyUnauthorized, Result } from '@/lib/api';
 import { Conversation, Message, MessageSearchResult } from '@/types';
 
 export const getConversations = () =>
   request<{ conversations: Conversation[] }>('/conversations');
 
-export const getMessages = (conversationId: string, around?: string) =>
+export const getMessages = (conversationId: string, around?: string, init?: { signal?: AbortSignal }) =>
   request<{ messages: Message[] }>(
-    `/conversations/${conversationId}/messages${around ? `?around=${around}` : ''}`
+    `/conversations/${conversationId}/messages${around ? `?around=${around}` : ''}`,
+    { signal: init?.signal }
   );
 
 export const getOlderMessages = (conversationId: string, before: string) =>
@@ -94,18 +95,20 @@ export async function sendAttachment(
   conversationId: string,
   file: File
 ): Promise<Result<{ message: Message }>> {
-  const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
 
   try {
     const res = await fetch(apiUrl(`/conversations/${conversationId}/attachments`), {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      credentials: 'include',
       body: formData,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { success: false, error: data.message || 'Failed to upload file' };
+    if (!res.ok) {
+      if (res.status === 401) notifyUnauthorized();
+      return { success: false, error: data.message || 'Failed to upload file' };
+    }
     return { success: true, data };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Failed to upload file' };

@@ -26,8 +26,13 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return res.status(err.status).json({ message: err.message });
   }
 
-  if (err instanceof MulterError || (err as Error)?.message === 'Unsupported file type') {
-    return res.status(400).json({ message: (err as Error).message });
+  const uploadError = (err as Error)?.message;
+  if (
+    err instanceof MulterError ||
+    uploadError === 'Unsupported file type' ||
+    uploadError === 'File content does not match its type'
+  ) {
+    return res.status(400).json({ message: uploadError || 'Unsupported file type' });
   }
 
   if (isDuplicateKeyError(err)) {

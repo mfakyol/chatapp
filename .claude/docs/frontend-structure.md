@@ -72,9 +72,9 @@ src/
 
 - **Never** `dangerouslySetInnerHTML` with user/remote data (message content, usernames).
   Rely on React escaping.
-- **Auth token** lives in `localStorage` today — that makes strict XSS hygiene part of
-  the auth story; any injected script can read it. Sanitize/escape all user-rendered
-  content and avoid `eval`/dynamic HTML.
+- **Auth is httpOnly cookie sessions** — no credential ever sits in JS-readable
+  storage, so XSS cannot exfiltrate auth. All fetches send `credentials: 'include'`;
+  the socket connects with `withCredentials`. Still sanitize/escape user content.
 - **Socket.io**: only act on events from the app's own connection; validate/normalize
   payload shape before writing to a store — treat server pushes as untrusted input.
 - Validate/normalize redirect targets (must start with `/`, not `//`) to prevent open redirects.

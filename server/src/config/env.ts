@@ -22,8 +22,9 @@ export const env = {
   isProd,
   port: Number(process.env.PORT ?? 4000),
   mongoUri: required('MONGO_URI', 'mongodb://localhost:27017/chat-app'),
-  jwtSecret: required('JWT_SECRET', 'dev-only-insecure-secret-change-me'),
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
+  sessionSecret: required('SESSION_SECRET', 'dev-only-insecure-secret-change-me'),
+  /** Session lifetime in ms (default 7 days). */
+  sessionTtlMs: Number(process.env.SESSION_TTL_MS ?? 7 * 24 * 60 * 60 * 1000),
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:3000',
   logLevel: process.env.LOG_LEVEL ?? (isProd ? 'info' : 'debug'),
 } as const;

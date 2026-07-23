@@ -1,7 +1,7 @@
 import type { Server } from 'socket.io';
+import type { SessionData } from 'express-session';
 import User from '../models/User';
 import ConversationMember from '../models/ConversationMember';
-import { verifyToken } from '../utils/jwt';
 import { userRoom, userRooms } from '../utils/rooms';
 import { presence } from '../utils/presence';
 import { friendIds } from '../services/friendship.service';
@@ -18,11 +18,13 @@ import { logger } from '../config/logger';
 export function registerSocketHandlers(io: Server): void {
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth?.token;
-      if (!token) return next(new Error('Unauthorized'));
+      // The shared express-session middleware (mounted via io.engine.use) has
+      // already parsed the httpOnly cookie and loaded the session.
+      const session = (socket.request as { session?: SessionData }).session;
+      const userId = session?.userId;
+      if (!userId) return next(new Error('Unauthorized'));
 
-      const payload = verifyToken(token);
-      const user = await User.findById(payload.sub);
+      const user = await User.findById(userId);
       if (!user) return next(new Error('Unauthorized'));
 
       socket.user = user;

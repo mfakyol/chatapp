@@ -1,70 +1,36 @@
 'use client';
 
-import { Fragment, useEffect, useRef, useState } from 'react';
-import {
-  IconSend,
-  IconPaperclip,
-  IconFile,
-  IconDownload,
-  IconDotsVertical,
-  IconPencil,
-  IconTrash,
-  IconInfoCircle,
-  IconMoodSmile,
-  IconMoodPlus,
-  IconArrowBackUp,
-  IconSearch,
-  IconX,
-  IconArrowLeft,
-  IconCheck,
-  IconChecks,
-} from '@tabler/icons-react';
-import { Avatar } from '@/components/ui/Avatar';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ProfilePanel } from '@/components/chat/ProfilePanel';
-import { MessageTicks } from '@/components/chat/MessageTicks';
-import { Conversation, Message, MessageSearchResult, PublicUser } from '@/types';
+import { ChatHeader } from '@/components/chat/ChatHeader';
+import { ChatSearchBar } from '@/components/chat/ChatSearchBar';
+import { MessageList, MessageListHandle } from '@/components/chat/MessageList';
+import { Composer } from '@/components/chat/Composer';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { Conversation, Message, MessageSearchResult } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { usePresenceMap } from '@/hooks/usePresence';
 import { getSocket } from '@/lib/socket';
 import {
   getMessages,
-  getOlderMessages,
-  sendAttachment,
   sendMessage,
   markRead,
-  reactToMessage as reactMessageRequest,
+  reactToMessage,
   searchMessages,
   editMessage,
   deleteMessage,
 } from '@/services/conversation.service';
-import { conversationName, otherParticipant, fullName, fileUrl, formatFileSize, formatLastSeen } from '@/lib/utils';
+import { conversationName, otherParticipant, formatLastSeen, userId } from '@/lib/utils';
+import { upsertMessage, markDeleted, replaceMessage, setReactions } from '@/lib/messageListOps';
 import { t } from '@/i18n';
 
-/** Calendar-day bucket for date separators. */
-function dayKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
+const PAGE_SIZE = 50;
 
-/** WhatsApp-style day label: Today / Yesterday / full date. */
-function dayLabel(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000);
-  if (diffDays === 0) return t('chat.today');
-  if (diffDays === 1) return t('chat.yesterday');
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-const EMOJIS = [
-  '😀', '😂', '😍', '😊', '😉', '😎', '🤔', '😢', '😭', '😡',
-  '👍', '👎', '👏', '🙏', '💪', '🎉', '❤️', '🔥', '✨', '💯',
-  '😴', '😅', '🙌', '🤝', '👋', '🤷', '😱', '🥳', '🤩', '😇',
-];
-
-const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
-
+/**
+ * Orchestrator for one open conversation. Mounted with `key={conversation._id}`
+ * by the page, so all state here is per-conversation by construction — there is
+ * no reset-on-switch logic anywhere.
+ */
 export function ChatWindow({
   conversation,
   focusMessageId,
@@ -78,88 +44,82 @@ export function ChatWindow({
 }) {
   const { user } = useAuth();
   const presence = usePresenceMap();
+  const { confirm, confirmDialog } = useConfirm();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [draft, setDraft] = useState('');
-  const [showProfile, setShowProfile] = useState(false);
-  const [openDetailId, setOpenDetailId] = useState<string | null>(null);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  // After a jump-to-old-message the list shows a window around the target and
+  // is "detached" from the live tail: incoming messages are NOT appended (they
+  // would sit next to a gap). The list shows a "jump to latest" affordance.
+  const [detached, setDetached] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const uploadErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const [showEmoji, setShowEmoji] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MessageSearchResult[]>([]);
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  // Per-member read pointers (userId → lastReadAt), seeded from the conversation
-  // and kept live by conversation:read events. Ticks derive from this.
-  const [memberReads, setMemberReads] = useState<Record<string, string>>({});
-  // Floating date chip: shows the day of the topmost visible message (via
-  // IntersectionObserver); hidden while the list is scrolled to the very top.
-  const [floatingDay, setFloatingDay] = useState('');
-  const [showFloatingDay, setShowFloatingDay] = useState(false);
-  const visibleMessageIdsRef = useRef<Set<string>>(new Set());
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  // Live read-pointer updates layered over the snapshot from the conversation
+  // payload; the merged map is derived, so no state-sync effect is needed.
+  const [readOverrides, setReadOverrides] = useState<Record<string, string>>({});
+  const listRef = useRef<MessageListHandle>(null);
+  const detachedRef = useRef(false);
+  useEffect(() => {
+    detachedRef.current = detached;
+  }, [detached]);
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const isTypingRef = useRef(false);
-  const typingStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const skipAutoScrollRef = useRef(false);
 
-  const other = !conversation.isGroup ? otherParticipant(conversation, user?.username || '') : undefined;
-  const otherId = other?.id || other?._id;
-  const otherLive = otherId ? presence[otherId] : undefined;
+  const currentUserId = userId(user);
+  const currentUsername = user?.username || '';
+
+  const memberReads = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of conversation.members ?? []) {
+      const id = userId(m.user);
+      if (id) map[id] = m.lastReadAt;
+    }
+    return { ...map, ...readOverrides };
+  }, [conversation.members, readOverrides]);
+
+  const other = !conversation.isGroup ? otherParticipant(conversation, currentUsername) : undefined;
+  const otherLive = other ? presence[userId(other)] : undefined;
   const otherIsOnline = otherLive?.isOnline ?? other?.isOnline ?? false;
   const otherLastSeen = otherLive?.lastSeen ?? other?.lastSeen;
 
   const typingNames = Array.from(typingUsers)
-    .map((id) => conversation.participants.find((p) => (p.id || p._id) === id))
+    .map((id) => conversation.participants.find((p) => userId(p) === id))
     .filter((p): p is NonNullable<typeof p> => !!p)
     .map((p) => p.firstName);
   const typingLabel =
     typingNames.length === 0
       ? ''
-      : conversation.isGroup
-        ? t('chat.typingGroup', {
-            names: typingNames.join(', '),
-            verb: typingNames.length > 1 ? 'are' : 'is',
-          })
-        : t('chat.typing');
+      : !conversation.isGroup
+        ? t('chat.typing')
+        : typingNames.length === 1
+          ? t('chat.typingOne', { name: typingNames[0] })
+          : t('chat.typingMany', { names: typingNames.join(', ') });
+  const headerSubtitle =
+    typingLabel ||
+    (conversation.isGroup ? '' : otherIsOnline ? t('chat.online') : formatLastSeen(otherLastSeen));
 
-  // Seed the read-pointer map whenever the conversation (or its members) change.
-  useEffect(() => {
-    const map: Record<string, string> = {};
-    for (const m of conversation.members ?? []) {
-      const id = m.user.id || m.user._id;
-      if (id) map[id] = m.lastReadAt;
-    }
-    setMemberReads(map);
-  }, [conversation._id, conversation.members]);
+  /** Fetch the newest page and re-attach to the live tail. */
+  async function returnToLatest(): Promise<void> {
+    const res = await getMessages(conversation._id);
+    if (!res.success) return;
+    setMessages(res.data.messages);
+    setHasMore(res.data.messages.length >= PAGE_SIZE);
+    setDetached(false);
+  }
 
+  // Initial load + socket wiring. Aborts the in-flight fetch on unmount, which
+  // also silences StrictMode's duplicate dev request.
   useEffect(() => {
     let active = true;
-    setShowProfile(false);
-    setShowSearch(false);
-    setSearchQuery('');
-    setMenuOpenId(null);
-    setEditingId(null);
-    setHasMore(true);
-    setLoadingMore(false);
+    const abort = new AbortController();
+    const typingTimers = typingTimeoutsRef.current;
 
-    getMessages(conversation._id).then((res) => {
+    getMessages(conversation._id, undefined, { signal: abort.signal }).then((res) => {
       if (!active || !res.success) return;
       setMessages(res.data.messages);
-      if (res.data.messages.length < 50) setHasMore(false);
+      if (res.data.messages.length < PAGE_SIZE) setHasMore(false);
     });
     markRead(conversation._id);
 
@@ -167,27 +127,28 @@ export function ChatWindow({
 
     function handleNewMessage({ message }: { message: Message }) {
       if (message.conversation !== conversation._id) return;
-      upsertMessage(message);
-      if (message.sender.username !== user?.username) {
+      // Detached from the tail (viewing history): don't append next to a gap.
+      if (!detachedRef.current) {
+        setMessages((prev) => upsertMessage(prev, message));
+      }
+      if (message.sender.username !== currentUsername) {
         markRead(conversation._id);
       }
     }
 
     function handleEdited({ message }: { message: Message }) {
       if (message.conversation !== conversation._id) return;
-      setMessages((prev) => prev.map((m) => (m._id === message._id ? message : m)));
+      setMessages((prev) => replaceMessage(prev, message._id, message));
     }
 
     function handleDeleted({ conversationId, messageId }: { conversationId: string; messageId: string }) {
       if (conversationId !== conversation._id) return;
-      setMessages((prev) =>
-        prev.map((m) => (m._id === messageId ? { ...m, content: '', attachment: undefined, deletedAt: new Date().toISOString() } : m))
-      );
+      setMessages((prev) => markDeleted(prev, messageId));
     }
 
     function handleConversationRead({
       conversationId,
-      userId,
+      userId: readerId,
       lastReadAt,
     }: {
       conversationId: string;
@@ -195,39 +156,7 @@ export function ChatWindow({
       lastReadAt: string;
     }) {
       if (conversationId !== conversation._id) return;
-      setMemberReads((prev) => ({ ...prev, [userId]: lastReadAt }));
-    }
-
-    function clearTypingTimeout(userId: string) {
-      const existing = typingTimeoutsRef.current.get(userId);
-      if (existing) clearTimeout(existing);
-      typingTimeoutsRef.current.delete(userId);
-    }
-
-    function handleTypingStart({ conversationId, userId }: { conversationId: string; userId: string }) {
-      if (conversationId !== conversation._id) return;
-      setTypingUsers((prev) => new Set(prev).add(userId));
-      clearTypingTimeout(userId);
-      typingTimeoutsRef.current.set(
-        userId,
-        setTimeout(() => {
-          setTypingUsers((prev) => {
-            const next = new Set(prev);
-            next.delete(userId);
-            return next;
-          });
-        }, 3000)
-      );
-    }
-
-    function handleTypingStop({ conversationId, userId }: { conversationId: string; userId: string }) {
-      if (conversationId !== conversation._id) return;
-      clearTypingTimeout(userId);
-      setTypingUsers((prev) => {
-        const next = new Set(prev);
-        next.delete(userId);
-        return next;
-      });
+      setReadOverrides((prev) => ({ ...prev, [readerId]: lastReadAt }));
     }
 
     function handleReaction({
@@ -240,9 +169,54 @@ export function ChatWindow({
       reactions: Message['reactions'];
     }) {
       if (conversationId !== conversation._id) return;
-      setMessages((prev) => prev.map((m) => (m._id === messageId ? { ...m, reactions } : m)));
+      setMessages((prev) => setReactions(prev, messageId, reactions));
     }
 
+    function clearTypingTimeout(id: string) {
+      const existing = typingTimeoutsRef.current.get(id);
+      if (existing) clearTimeout(existing);
+      typingTimeoutsRef.current.delete(id);
+    }
+
+    function handleTypingStart({ conversationId, userId: typerId }: { conversationId: string; userId: string }) {
+      if (conversationId !== conversation._id) return;
+      setTypingUsers((prev) => new Set(prev).add(typerId));
+      clearTypingTimeout(typerId);
+      typingTimeoutsRef.current.set(
+        typerId,
+        setTimeout(() => {
+          setTypingUsers((prev) => {
+            const next = new Set(prev);
+            next.delete(typerId);
+            return next;
+          });
+        }, 3000)
+      );
+    }
+
+    function handleTypingStop({ conversationId, userId: typerId }: { conversationId: string; userId: string }) {
+      if (conversationId !== conversation._id) return;
+      clearTypingTimeout(typerId);
+      setTypingUsers((prev) => {
+        const next = new Set(prev);
+        next.delete(typerId);
+        return next;
+      });
+    }
+
+    // Reconnect resync: refetch the thread so nothing broadcast during the
+    // disconnect gap stays missing.
+    function handleReconnect() {
+      getMessages(conversation._id).then((res) => {
+        if (!active || !res.success) return;
+        setMessages(res.data.messages);
+        setHasMore(res.data.messages.length >= PAGE_SIZE);
+        setDetached(false);
+      });
+      markRead(conversation._id);
+    }
+
+    socket?.on('connect', handleReconnect);
     socket?.on('message:new', handleNewMessage);
     socket?.on('message:updated', handleEdited);
     socket?.on('message:deleted', handleDeleted);
@@ -252,6 +226,8 @@ export function ChatWindow({
     socket?.on('typing:stop', handleTypingStop);
     return () => {
       active = false;
+      abort.abort();
+      socket?.off('connect', handleReconnect);
       socket?.off('message:new', handleNewMessage);
       socket?.off('message:updated', handleEdited);
       socket?.off('message:deleted', handleDeleted);
@@ -259,179 +235,42 @@ export function ChatWindow({
       socket?.off('message:reaction', handleReaction);
       socket?.off('typing:start', handleTypingStart);
       socket?.off('typing:stop', handleTypingStop);
-      typingTimeoutsRef.current.forEach((t) => clearTimeout(t));
-      typingTimeoutsRef.current.clear();
-      setTypingUsers(new Set());
-      stopTyping();
+      typingTimers.forEach((timer) => clearTimeout(timer));
+      typingTimers.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation._id]);
 
-  useEffect(() => {
-    if (skipAutoScrollRef.current) {
-      skipAutoScrollRef.current = false;
-      return;
-    }
-    if (!highlightedId) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, highlightedId]);
-
-  // Observe every message; the floating chip shows the day of the topmost one
-  // currently visible in the scroll viewport.
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || messages.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = (entry.target as HTMLElement).dataset.mid;
-          if (!id) continue;
-          if (entry.isIntersecting) visibleMessageIdsRef.current.add(id);
-          else visibleMessageIdsRef.current.delete(id);
-        }
-        const topmost = messages.find((m) => visibleMessageIdsRef.current.has(m._id));
-        if (topmost) setFloatingDay(dayLabel(topmost.createdAt));
-      },
-      { root: container }
-    );
-
-    visibleMessageIdsRef.current.clear();
-    for (const m of messages) {
-      const el = messageRefs.current.get(m._id);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
-  }, [messages]);
-
-  async function loadMore() {
-    if (loadingMore || !hasMore || messages.length === 0) return;
-    const container = scrollContainerRef.current;
-    const prevScrollHeight = container?.scrollHeight || 0;
-    setLoadingMore(true);
-    try {
-      const res = await getOlderMessages(conversation._id, messages[0].createdAt);
-      if (!res.success) return;
-      if (res.data.messages.length === 0) {
-        setHasMore(false);
-        return;
-      }
-      skipAutoScrollRef.current = true;
-      setMessages((prev) => [...res.data.messages, ...prev]);
-      requestAnimationFrame(() => {
-        if (container) {
-          container.scrollTop = container.scrollHeight - prevScrollHeight;
-        }
-      });
-    } finally {
-      setLoadingMore(false);
-    }
-  }
-
-  function handleScroll() {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    // Hide the floating chip at the very top — the first inline separator is
-    // already in view there, a duplicate overlay would just cover it.
-    setShowFloatingDay(container.scrollTop > 60);
-    if (container.scrollTop < 80) {
-      loadMore();
-    }
-  }
-
-  async function jumpToMessage(messageId: string) {
-    const existing = messageRefs.current.get(messageId);
-    if (existing) {
-      existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      const res = await getMessages(conversation._id, messageId);
-      if (!res.success) return;
-      setHasMore(true);
-      skipAutoScrollRef.current = true;
-      setMessages(res.data.messages);
-      requestAnimationFrame(() => {
-        messageRefs.current.get(messageId)?.scrollIntoView({ block: 'center' });
-      });
-    }
-    setHighlightedId(messageId);
-    setTimeout(() => setHighlightedId(null), 2000);
-  }
-
+  // Sidebar search result → jump into the thread.
   useEffect(() => {
     if (focusMessageId) {
-      jumpToMessage(focusMessageId).then(() => onFocused?.());
+      listRef.current?.jumpToMessage(focusMessageId).then(() => onFocused?.());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusMessageId]);
+  }, [focusMessageId, onFocused]);
 
+  // Debounced in-conversation search. The cancelled flag prevents an older
+  // response from clobbering a newer query's results (out-of-order race).
   useEffect(() => {
-    if (!showSearch || !searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
+    const q = searchQuery.trim();
+    if (!showSearch || !q) return;
+    let cancelled = false;
     const timeout = setTimeout(async () => {
-      const res = await searchMessages(searchQuery.trim(), conversation._id);
+      const res = await searchMessages(q, conversation._id);
+      if (cancelled) return;
       if (res.success) setSearchResults(res.data.messages);
     }, 300);
-    return () => clearTimeout(timeout);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [searchQuery, showSearch, conversation._id]);
+  const shownSearchResults = showSearch && searchQuery.trim() ? searchResults : [];
 
-  function stopTyping() {
-    if (typingStopTimeoutRef.current) {
-      clearTimeout(typingStopTimeoutRef.current);
-      typingStopTimeoutRef.current = null;
-    }
-    if (isTypingRef.current) {
-      getSocket()?.emit('typing:stop', { conversationId: conversation._id });
-      isTypingRef.current = false;
-    }
-  }
+  /** Optimistic send; returns false so the composer can restore the draft. */
+  async function handleSend(content: string, replyToId?: string): Promise<boolean> {
+    // Sending while detached first re-attaches to the tail (WhatsApp behavior).
+    if (detachedRef.current) await returnToLatest();
 
-  function handleDraftChange(value: string) {
-    setDraft(value);
-    const socket = getSocket();
-    if (!isTypingRef.current) {
-      socket?.emit('typing:start', { conversationId: conversation._id });
-      isTypingRef.current = true;
-    }
-    if (typingStopTimeoutRef.current) clearTimeout(typingStopTimeoutRef.current);
-    typingStopTimeoutRef.current = setTimeout(stopTyping, 2000);
-  }
-
-  function messagePreview(m: Message): string {
-    if (m.deletedAt) return t('chat.messageDeleted');
-    if (m.attachment) return `📎 ${m.attachment.fileName}`;
-    return m.content;
-  }
-
-  /** Insert or replace: reconciles optimistic bubbles via clientTempId. */
-  function upsertMessage(message: Message) {
-    setMessages((prev) => {
-      if (message.clientTempId) {
-        const idx = prev.findIndex(
-          (m) => m.clientTempId === message.clientTempId || m._id === message.clientTempId
-        );
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = message;
-          return next;
-        }
-      }
-      if (prev.some((m) => m._id === message._id)) {
-        return prev.map((m) => (m._id === message._id ? message : m));
-      }
-      return [...prev, message];
-    });
-  }
-
-  async function handleSend() {
-    const content = draft.trim();
-    if (!content) return;
-    stopTyping();
-
-    // Optimistic: show the message instantly under a temp id; the server echo
-    // (REST response and/or message:new broadcast) replaces it by clientTempId.
     const tempId = `tmp-${crypto.randomUUID()}`;
     const temp: Message = {
       _id: tempId,
@@ -440,7 +279,7 @@ export function ChatWindow({
       sender: {
         id: currentUserId,
         _id: currentUserId,
-        username: user?.username || '',
+        username: currentUsername,
         firstName: user?.firstName || '',
         lastName: user?.lastName || '',
       },
@@ -450,9 +289,7 @@ export function ChatWindow({
       createdAt: new Date().toISOString(),
       pending: true,
     };
-    const replyToId = replyingTo?._id;
     setMessages((prev) => [...prev, temp]);
-    setDraft('');
     setReplyingTo(null);
 
     const res = await sendMessage(conversation._id, {
@@ -461,545 +298,102 @@ export function ChatWindow({
       clientTempId: tempId,
     });
     if (!res.success) {
-      // Roll back the optimistic bubble and give the user their draft back.
       setMessages((prev) => prev.filter((m) => m._id !== tempId));
-      setDraft(content);
-      return;
+      return false;
     }
-    upsertMessage(res.data.message);
+    setMessages((prev) => upsertMessage(prev, res.data.message));
+    return true;
   }
 
-  function handleEmojiPick(emoji: string) {
-    setDraft((prev) => prev + emoji);
-    setShowEmoji(false);
-    inputRef.current?.focus();
-  }
-
-  function showUploadError(message: string) {
-    setUploadError(message);
-    if (uploadErrorTimerRef.current) clearTimeout(uploadErrorTimerRef.current);
-    uploadErrorTimerRef.current = setTimeout(() => setUploadError(''), 5000);
-  }
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    const res = await sendAttachment(conversation._id, file);
-    if (!res.success) showUploadError(t('chat.uploadFailed', { error: res.error }));
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-
-  function startEdit(m: Message) {
-    setMenuOpenId(null);
-    setEditingId(m._id);
-    setEditDraft(m.content);
-  }
-
-  async function saveEdit(messageId: string) {
-    if (!editDraft.trim()) return;
-    const res = await editMessage(conversation._id, messageId, editDraft.trim());
+  async function handleSaveEdit(messageId: string, content: string) {
+    const res = await editMessage(conversation._id, messageId, content);
     if (res.success) {
-      setMessages((prev) => prev.map((m) => (m._id === messageId ? res.data.message : m)));
+      setMessages((prev) => replaceMessage(prev, messageId, res.data.message));
     }
-    setEditingId(null);
-  }
-
-  const currentUserId = user?.id || user?._id;
-  const otherReads = Object.entries(memberReads)
-    .filter(([id]) => id !== currentUserId)
-    .map(([, at]) => at);
-
-  function reactToMessage(messageId: string, emoji: string) {
-    // Fire-and-forget: the server broadcasts message:reaction back to us too.
-    reactMessageRequest(conversation._id, messageId, emoji);
-    setReactionPickerId(null);
   }
 
   async function handleDelete(messageId: string) {
-    setMenuOpenId(null);
-    if (!window.confirm(t('chat.confirmDelete'))) return;
+    if (!(await confirm(t('chat.confirmDelete')))) return;
     const res = await deleteMessage(conversation._id, messageId);
     if (!res.success) return;
-    setMessages((prev) =>
-      prev.map((m) => (m._id === messageId ? { ...m, content: '', attachment: undefined, deletedAt: new Date().toISOString() } : m))
-    );
+    setMessages((prev) => markDeleted(prev, messageId));
+  }
+
+  function handleReact(messageId: string, emoji: string) {
+    // Fire-and-forget: the server broadcasts message:reaction back to us too.
+    reactToMessage(conversation._id, messageId, emoji);
+  }
+
+  /** Around-fetch replace coming from a jump: possibly detaches from the tail. */
+  function handleJumpReplace(list: Message[]) {
+    const latestKnownId = messages[messages.length - 1]?._id;
+    setMessages(list);
+    setHasMore(true);
+    // If the fetched window still contains what we knew as the latest message,
+    // we are not actually detached from the tail.
+    setDetached(!latestKnownId || !list.some((m) => m._id === latestKnownId));
   }
 
   return (
     <div className="flex h-full min-h-0 flex-1">
       <div className="flex h-full min-h-0 flex-1 flex-col bg-[var(--bg-chat)]">
-        <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
-          {onBack && (
-            <button onClick={onBack} className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] md:hidden">
-              <IconArrowLeft size={20} />
-            </button>
-          )}
-          <button
-            onClick={() => setShowProfile(true)}
-            className="flex min-w-0 flex-1 items-center gap-3 text-left"
-          >
-            <Avatar name={conversationName(conversation, user?.username || '')} isOnline={!conversation.isGroup && otherIsOnline} size={40} />
-            <div className="min-w-0">
-              <p className="truncate font-medium text-[var(--text-normal)]">
-                {conversationName(conversation, user?.username || '')}
-              </p>
-              <p className="truncate text-xs text-[var(--text-muted)]">
-                {typingLabel || (conversation.isGroup ? '' : otherIsOnline ? t('chat.online') : formatLastSeen(otherLastSeen))}
-              </p>
-            </div>
-          </button>
-          <button
-            onClick={() => setShowSearch((v) => !v)}
-            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
-            title={t('chat.searchInConversation')}
-          >
-            <IconSearch size={20} />
-          </button>
-        </div>
+        <ChatHeader
+          title={conversationName(conversation, currentUsername)}
+          subtitle={headerSubtitle}
+          isOnline={!conversation.isGroup && otherIsOnline}
+          onBack={onBack}
+          onOpenProfile={() => setShowProfile(true)}
+          onToggleSearch={() => setShowSearch((v) => !v)}
+        />
 
         {showSearch && (
-          <div className="border-b border-[var(--border)] bg-[var(--bg-app)] p-3">
-            <div className="flex items-center gap-2 rounded-md bg-[var(--bg-elevated)] px-3 py-2">
-              <IconSearch size={16} className="text-[var(--text-muted)]" />
-              <input
-                autoFocus
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t('chat.searchPlaceholder')}
-                className="w-full bg-transparent text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
-              />
-              <button onClick={() => setShowSearch(false)} className="text-[var(--text-muted)]">
-                <IconX size={16} />
-              </button>
-            </div>
-            {searchQuery.trim() && (
-              <div className="mt-2 max-h-48 overflow-y-auto">
-                {searchResults.length === 0 && <p className="p-2 text-xs text-[var(--text-muted)]">{t('chat.noMessagesFound')}</p>}
-                {searchResults.map((m) => (
-                  <button
-                    key={m._id}
-                    onClick={() => jumpToMessage(m._id)}
-                    className="flex w-full flex-col items-start rounded px-2 py-2 text-left hover:bg-[var(--bg-hover)]"
-                  >
-                    <span className="text-xs font-medium text-[var(--brand)]">{m.sender.firstName}</span>
-                    <span className="truncate text-sm text-[var(--text-normal)]">
-                      {m.attachment ? `📎 ${m.attachment.fileName}` : m.content}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="relative min-h-0 flex-1">
-          {floatingDay && showFloatingDay && (
-            <div className="pointer-events-none absolute left-0 right-0 top-2 z-20 flex justify-center">
-              <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow">
-                {floatingDay}
-              </span>
-            </div>
-          )}
-        <div ref={scrollContainerRef} onScroll={handleScroll} className="h-full overflow-y-auto px-4 py-4">
-          {loadingMore && (
-            <p className="mb-2 text-center text-xs text-[var(--text-muted)]">{t('chat.loadingOlder')}</p>
-          )}
-          {!hasMore && messages.length > 0 && (
-            <p className="mb-2 text-center text-xs text-[var(--text-muted)]">{t('chat.startOfConversation')}</p>
-          )}
-          {messages.map((m, i) => {
-            const mine = m.sender.username === user?.username;
-            const deleted = !!m.deletedAt;
-            const newDay = i === 0 || dayKey(messages[i - 1].createdAt) !== dayKey(m.createdAt);
-            return (
-              <Fragment key={m._id}>
-              {newDay && (
-                <div className="my-2 flex justify-center">
-                  <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow">
-                    {dayLabel(m.createdAt)}
-                  </span>
-                </div>
-              )}
-              <div className={`group mb-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className="relative max-w-xs"
-                  data-mid={m._id}
-                  ref={(el) => {
-                    if (el) messageRefs.current.set(m._id, el);
-                    else messageRefs.current.delete(m._id);
-                  }}
-                >
-                  {mine && !deleted && (
-                    <div className="absolute -top-2 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        onClick={() => setMenuOpenId((id) => (id === m._id ? null : m._id))}
-                        className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
-                      >
-                        <IconDotsVertical size={14} />
-                      </button>
-                      {menuOpenId === m._id && (
-                        <div className="absolute right-0 top-6 z-20 w-40 rounded-md bg-[var(--bg-surface)] py-1 text-sm shadow-lg">
-                          <button
-                            onClick={() => {
-                              setOpenDetailId((id) => (id === m._id ? null : m._id));
-                              setMenuOpenId(null);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--text-normal)] hover:bg-[var(--bg-hover)]"
-                          >
-                            <IconInfoCircle size={16} /> {t('chat.info')}
-                          </button>
-                          {!m.attachment && (
-                            <button
-                              onClick={() => startEdit(m)}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--text-normal)] hover:bg-[var(--bg-hover)]"
-                            >
-                              <IconPencil size={16} /> {t('chat.edit')}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDelete(m._id)}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--danger)] hover:bg-[var(--bg-hover)]"
-                          >
-                            <IconTrash size={16} /> {t('chat.delete')}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {!deleted && (
-                    <div
-                      className={`absolute -top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${mine ? 'left-1' : 'right-1'}`}
-                    >
-                      <button
-                        onClick={() => setReactionPickerId((id) => (id === m._id ? null : m._id))}
-                        title={t('chat.react')}
-                        className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
-                      >
-                        <IconMoodPlus size={14} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setReplyingTo(m);
-                          inputRef.current?.focus();
-                        }}
-                        title={t('chat.reply')}
-                        className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
-                      >
-                        <IconArrowBackUp size={14} />
-                      </button>
-                      {reactionPickerId === m._id && (
-                        <div
-                          className={`absolute top-6 z-20 flex gap-1 rounded-full bg-[var(--bg-surface)] px-2 py-1 shadow-lg ${mine ? 'left-0' : 'right-0'}`}
-                        >
-                          {QUICK_REACTIONS.map((emoji) => (
-                            <button
-                              key={emoji}
-                              onClick={() => reactToMessage(m._id, emoji)}
-                              className="rounded-full p-0.5 text-base leading-none hover:bg-[var(--bg-hover)]"
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div
-                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                      mine ? 'bg-[var(--bubble-own)] text-[var(--bubble-own-text)]' : 'bg-[var(--bg-surface)] text-[var(--text-normal)]'
-                    } ${highlightedId === m._id ? 'ring-2 ring-[var(--brand)]' : ''}`}
-                  >
-                    {conversation.isGroup && !mine && !deleted && (
-                      <p className="mb-0.5 text-xs font-semibold text-[var(--brand)]">{m.sender.firstName}</p>
-                    )}
-
-                    {deleted ? (
-                      <p className="italic text-[var(--text-muted)]">{t('chat.messageDeleted')}</p>
-                    ) : editingId === m._id ? (
-                      <div className="flex flex-col gap-2">
-                        <input
-                          autoFocus
-                          value={editDraft}
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && saveEdit(m._id)}
-                          className="rounded bg-black/20 px-2 py-1 text-sm text-[var(--text-normal)] outline-none"
-                        />
-                        <div className="flex justify-end gap-2 text-xs">
-                          <button onClick={() => setEditingId(null)} className="text-[var(--text-muted)]">
-                            {t('common.cancel')}
-                          </button>
-                          <button onClick={() => saveEdit(m._id)} className="text-[var(--brand)]">
-                            {t('common.save')}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {m.replyTo && (
-                          <button
-                            onClick={() => m.replyTo && jumpToMessage(m.replyTo._id)}
-                            className="mb-1 flex w-full flex-col items-start rounded border-l-2 border-[var(--brand)] bg-black/10 px-2 py-1 text-left"
-                          >
-                            <span className="text-xs font-semibold text-[var(--brand)]">
-                              {m.replyTo.sender?.firstName || m.replyTo.sender?.username}
-                            </span>
-                            <span className="max-w-full truncate text-xs opacity-80">
-                              {messagePreview(m.replyTo)}
-                            </span>
-                          </button>
-                        )}
-                        {m.attachment && m.attachment.mimeType.startsWith('image/') && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={fileUrl(m.attachment.url)}
-                            alt={m.attachment.fileName}
-                            className="mb-1 max-h-60 w-full rounded object-cover"
-                          />
-                        )}
-                        {m.attachment && !m.attachment.mimeType.startsWith('image/') && (
-                          <a
-                            href={fileUrl(m.attachment.url)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mb-1 flex items-center gap-2 rounded bg-black/20 px-2 py-2 hover:bg-black/30"
-                          >
-                            <IconFile size={22} />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs">{m.attachment.fileName}</p>
-                              <p className="text-[10px] text-[var(--text-muted)]">{formatFileSize(m.attachment.size)}</p>
-                            </div>
-                            <IconDownload size={16} />
-                          </a>
-                        )}
-
-                        {m.content && <p>{m.content}</p>}
-                      </>
-                    )}
-
-                    {!deleted && (
-                      <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-[var(--text-muted)]">
-                        {m.editedAt && <span>{t('chat.edited')}</span>}
-                        <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        {mine && <MessageTicks message={m} otherReads={otherReads} />}
-                      </div>
-                    )}
-                  </div>
-
-                  {!deleted && m.reactions && m.reactions.length > 0 && (
-                    <div className={`mt-1 flex flex-wrap gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
-                      {m.reactions.map((r) => {
-                        const reacted = !!currentUserId && r.users.includes(currentUserId);
-                        return (
-                          <button
-                            key={r.emoji}
-                            onClick={() => reactToMessage(m._id, r.emoji)}
-                            className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs ${
-                              reacted
-                                ? 'border-[var(--brand)] bg-[var(--brand)]/20 text-[var(--text-normal)]'
-                                : 'border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)]'
-                            }`}
-                          >
-                            <span>{r.emoji}</span>
-                            <span>{r.users.length}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {mine && openDetailId === m._id && (
-                    <MessageDetail
-                      message={m}
-                      isGroup={conversation.isGroup}
-                      currentUserId={currentUserId || ''}
-                      memberReads={memberReads}
-                      participants={conversation.participants}
-                    />
-                  )}
-                </div>
-              </div>
-              </Fragment>
-            );
-          })}
-          <div ref={bottomRef} />
-        </div>
-        </div>
-
-        {replyingTo && (
-          <div className="flex items-center gap-2 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 pt-2">
-            <IconArrowBackUp size={16} className="shrink-0 text-[var(--brand)]" />
-            <div className="min-w-0 flex-1 border-l-2 border-[var(--brand)] pl-2">
-              <p className="text-xs font-semibold text-[var(--brand)]">
-                {t('chat.replyingTo', {
-                  name: replyingTo.sender.firstName || replyingTo.sender.username,
-                })}
-              </p>
-              <p className="truncate text-xs text-[var(--text-muted)]">{messagePreview(replyingTo)}</p>
-            </div>
-            <button
-              onClick={() => setReplyingTo(null)}
-              title={t('common.cancel')}
-              className="rounded-full p-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
-            >
-              <IconX size={16} />
-            </button>
-          </div>
-        )}
-
-        {uploadError && (
-          <div className="border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 pt-2">
-            <p className="text-xs text-[var(--danger)]">{uploadError}</p>
-          </div>
-        )}
-
-        <div className="relative flex items-center gap-2 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
-          {showEmoji && (
-            <div className="absolute bottom-full left-4 mb-2 grid grid-cols-6 gap-1 rounded-md bg-[var(--bg-surface)] p-2 shadow-lg">
-              {EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => handleEmojiPick(emoji)}
-                  className="rounded p-1 text-xl hover:bg-[var(--bg-hover)]"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z"
-            onChange={handleFileChange}
+          <ChatSearchBar
+            query={searchQuery}
+            results={shownSearchResults}
+            onQueryChange={setSearchQuery}
+            onClose={() => setShowSearch(false)}
+            onPick={(id) => listRef.current?.jumpToMessage(id)}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            title={t('chat.attachFile')}
-            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] disabled:opacity-50"
-          >
-            <IconPaperclip size={20} />
-          </button>
-          <button
-            onClick={() => setShowEmoji((v) => !v)}
-            title={t('chat.emoji')}
-            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
-          >
-            <IconMoodSmile size={20} />
-          </button>
-          <input
-            ref={inputRef}
-            value={draft}
-            onChange={(e) => handleDraftChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={uploading ? t('chat.uploading') : t('chat.typeMessage')}
-            className="flex-1 rounded-full bg-[var(--bg-elevated)] px-4 py-2 text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
-          />
-          <button
-            onClick={handleSend}
-            className="rounded-full bg-[var(--brand)] p-2.5 text-[var(--brand-text)] hover:bg-[var(--brand-hover)]"
-          >
-            <IconSend size={18} />
-          </button>
-        </div>
+        )}
+
+        <MessageList
+          ref={listRef}
+          conversationId={conversation._id}
+          messages={messages}
+          currentUsername={currentUsername}
+          currentUserId={currentUserId}
+          isGroup={conversation.isGroup}
+          participants={conversation.participants}
+          memberReads={memberReads}
+          hasMore={hasMore}
+          detached={detached}
+          onExhausted={() => setHasMore(false)}
+          onPrepend={(older) => setMessages((prev) => [...older, ...prev])}
+          onJumpReplace={handleJumpReplace}
+          onReturnToLatest={returnToLatest}
+          onSaveEdit={handleSaveEdit}
+          onDelete={handleDelete}
+          onReact={handleReact}
+          onReply={setReplyingTo}
+        />
+
+        <Composer
+          conversationId={conversation._id}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+          onSend={handleSend}
+        />
       </div>
 
       {showProfile && (
         <ProfilePanel
           conversation={conversation}
-          currentUsername={user?.username || ''}
+          currentUsername={currentUsername}
           onClose={() => setShowProfile(false)}
         />
       )}
-    </div>
-  );
-}
 
-function MessageDetail({
-  message,
-  isGroup,
-  currentUserId,
-  memberReads,
-  participants,
-}: {
-  message: Message;
-  isGroup: boolean;
-  currentUserId: string;
-  memberReads: Record<string, string>;
-  participants: PublicUser[];
-}) {
-  const sentAt = new Date(message.createdAt).toLocaleString();
-  const sentTime = new Date(message.createdAt).getTime();
-
-  // A member has seen this message iff their read pointer passed its createdAt.
-  const others = participants
-    .map((p) => ({ user: p, id: p.id || p._id || '' }))
-    .filter(({ id }) => id && id !== currentUserId);
-  const readers = others.filter(({ id }) => {
-    const at = memberReads[id];
-    return !!at && new Date(at).getTime() >= sentTime;
-  });
-  const deliveredOnly = others.filter((o) => !readers.includes(o));
-
-  return (
-    <div className="mt-1 w-56 rounded-md bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--text-normal)] shadow-lg">
-      <p className="text-[var(--text-muted)]">{t('chat.detailSent', { time: sentAt })}</p>
-
-      {isGroup ? (
-        <>
-          {readers.length > 0 && (
-            <>
-              <p className="mt-2 flex items-center gap-1 font-semibold text-[var(--tick)]">
-                <IconChecks size={14} /> {t('chat.detailReadBy', { count: readers.length })}
-              </p>
-              {readers.map(({ user: u, id }) => (
-                <div key={u.username} className="flex items-center gap-2 py-1">
-                  <Avatar name={fullName(u)} size={20} />
-                  <span className="min-w-0 flex-1 truncate">{fullName(u)}</span>
-                  <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
-                    {new Date(memberReads[id]).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-          {deliveredOnly.length > 0 && (
-            <>
-              <p className="mt-2 flex items-center gap-1 font-semibold text-[var(--text-muted)]">
-                <IconCheck size={14} /> {t('chat.detailDeliveredTo', { count: deliveredOnly.length })}
-              </p>
-              {deliveredOnly.map(({ user: u }) => (
-                <div key={u.username} className="flex items-center gap-2 py-1">
-                  <Avatar name={fullName(u)} size={20} />
-                  <span className="min-w-0 flex-1 truncate">{fullName(u)}</span>
-                </div>
-              ))}
-            </>
-          )}
-          {readers.length === 0 && deliveredOnly.length === 0 && (
-            <p className="mt-1 text-[var(--text-muted)]">{t('chat.detailNotSeen')}</p>
-          )}
-        </>
-      ) : readers.length > 0 ? (
-        <p className="mt-1 flex items-center gap-1">
-          <IconChecks size={14} className="text-[var(--tick)]" />
-          {t('chat.detailSeen', {
-            time: new Date(memberReads[readers[0].id]).toLocaleString(),
-          })}
-        </p>
-      ) : (
-        <p className="mt-1 flex items-center gap-1 text-[var(--text-muted)]">
-          <IconCheck size={14} /> {t('chat.detailDelivered')}
-        </p>
-      )}
+      {confirmDialog}
     </div>
   );
 }

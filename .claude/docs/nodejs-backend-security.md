@@ -3,9 +3,10 @@
 Reusable security checklist for Node + Express + TypeScript APIs. Apply these by
 default on every backend; treat exceptions as decisions that need justification.
 
-> **This repo:** auth is **stateless JWT (Bearer token)**, not server sessions — the
-> "sessions" guidance below maps to token handling. Socket.io shares the same JWT.
-> See [`PROJECT-chatapp.md`](PROJECT-chatapp.md) for what's already done vs. open.
+> **This repo:** auth is **cookie sessions** (express-session + connect-mongo,
+> httpOnly/sameSite-lax/secure-in-prod, regenerate on login, destroy on logout).
+> Socket.io mounts the same session middleware on its engine, so handshakes are
+> authenticated by the same cookie. See [`PROJECT-chatapp.md`](PROJECT-chatapp.md).
 
 ## Input & validation
 - Validate **every** external input at the boundary (`body`, `params`, `query`,

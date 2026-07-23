@@ -4,7 +4,7 @@ WhatsApp-benzeri gerçek zamanlı sohbet uygulaması. Tekil ve grup sohbetleri, 
 
 ## Stack
 
-- **Server**: TypeScript, Express, MongoDB (Mongoose), Passport (local + JWT), Socket.io, Multer
+- **Server**: TypeScript, Express, MongoDB (Mongoose), Passport (local) + cookie sessions, Socket.io, Multer
 - **Client**: Next.js (App Router), Tailwind CSS, Tabler Icons, socket.io-client
 
 ## Kurulum
@@ -19,7 +19,7 @@ docker run -d --name chat-app-mongo -p 27017:27017 mongo:7
 
 ```bash
 cd server
-cp .env.example .env   # JWT_SECRET değerini değiştirin
+cp .env.example .env   # SESSION_SECRET değerini değiştirin
 npm install
 npm run dev            # http://localhost:4000
 ```
@@ -41,7 +41,7 @@ NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
 
 ## Özellikler
 
-- Kayıt/giriş (Passport local + JWT), urlsafe/tekil username
+- Kayıt/giriş (Passport local + httpOnly cookie session), urlsafe/tekil username
 - Username'e göre kullanıcı arama, arkadaşlık istekleri (socket ile anlık)
 - Tekil ve grup sohbetleri, grup yönetimi (rename, üye ekle/çıkar, ayrılma)
 - Gerçek zamanlı mesajlaşma, okundu bilgisi, "yazıyor..." göstergesi, online/offline durumu

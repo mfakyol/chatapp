@@ -20,8 +20,8 @@ services:
       - NODE_ENV=production
       # Shared MongoDB — full URI (with this project's DB user) lives in .env.
       - MONGO_URI=${MONGO_URI:?set MONGO_URI in .env}
-      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in .env}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - SESSION_SECRET=${SESSION_SECRET:?set SESSION_SECRET in .env}
+      - SESSION_TTL_MS=${SESSION_TTL_MS:-604800000}
       # CORS + Socket.io origin. Must be the public HTTPS origin.
       - CLIENT_URL=https://${DOMAIN:?set DOMAIN in .env}
     volumes:

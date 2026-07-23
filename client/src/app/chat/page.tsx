@@ -6,10 +6,9 @@ import { useAuth } from '@/hooks/useAuth';
 import PresenceListener from '@/components/PresenceListener';
 import { Sidebar } from '@/components/chat/Sidebar';
 import { ChatWindow } from '@/components/chat/ChatWindow';
-import { Conversation, Message } from '@/types';
+import { Conversation } from '@/types';
 import { getConversations } from '@/services/conversation.service';
-import { getSocket } from '@/lib/socket';
-import { fullName, playNotificationSound } from '@/lib/utils';
+import { subscribeChatSocket } from '@/services/chatSocket.service';
 import { t } from '@/i18n';
 
 export default function ChatPage() {
@@ -19,10 +18,15 @@ export default function ChatPage() {
   const [active, setActive] = useState<Conversation | null>(null);
   const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
   const activeIdRef = useRef<string | null>(null);
+  const conversationsRef = useRef<Conversation[]>([]);
 
   useEffect(() => {
     activeIdRef.current = active?._id || null;
   }, [active]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -42,91 +46,15 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
+    if (!user) return;
 
-    function handleNewMessage({ message }: { message: Message }) {
-      const isActive = message.conversation === activeIdRef.current;
-      const fromSelf = message.sender.username === user?.username;
-
-      setConversations((prev) => {
-        const exists = prev.some((c) => c._id === message.conversation);
-        if (!exists) {
-          getConversations().then((res) => {
-            if (res.success) setConversations(res.data.conversations);
-          });
-          return prev;
-        }
-
-        const updated = prev.map((c) =>
-          c._id === message.conversation
-            ? {
-                ...c,
-                lastMessage: message,
-                unreadCount: isActive ? 0 : (c.unreadCount || 0) + (fromSelf ? 0 : 1),
-              }
-            : c
-        );
-        const target = updated.find((c) => c._id === message.conversation)!;
-        return [target, ...updated.filter((c) => c._id !== message.conversation)];
-      });
-
-      if (fromSelf) return;
-
-      const isHidden = typeof document !== 'undefined' && document.hidden;
-      if (!isActive || isHidden) {
-        playNotificationSound();
-      }
-      if (isHidden && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-        const body = message.attachment ? `📎 ${message.attachment.fileName}` : message.content;
-        const notification = new Notification(fullName(message.sender), { body });
-        notification.onclick = () => {
-          window.focus();
-          setConversations((prev) => {
-            const conv = prev.find((c) => c._id === message.conversation);
-            if (conv) setActive(conv);
-            return prev;
-          });
-        };
-      }
-    }
-
-    function handleConversationUpdated({ conversation }: { conversation: Conversation }) {
-      setConversations((prev) => prev.map((c) => (c._id === conversation._id ? { ...c, ...conversation } : c)));
-      setActive((prev) => (prev && prev._id === conversation._id ? { ...prev, ...conversation } : prev));
-    }
-
-    function handleConversationGone({ conversationId }: { conversationId: string }) {
-      setConversations((prev) => prev.filter((c) => c._id !== conversationId));
-      setActive((prev) => (prev && prev._id === conversationId ? null : prev));
-    }
-
-    // A conversation we were just added to (or that a friend started with us).
-    function handleConversationNew({ conversation }: { conversation: Conversation }) {
-      setConversations((prev) =>
-        prev.some((c) => c._id === conversation._id) ? prev : [conversation, ...prev]
-      );
-    }
-
-    // Reconnect resync: refetch so anything broadcast during the gap is recovered.
-    function handleReconnect() {
-      getConversations().then((res) => {
-        if (res.success) setConversations(res.data.conversations);
-      });
-    }
-
-    socket.on('connect', handleReconnect);
-    socket.on('message:new', handleNewMessage);
-    socket.on('conversation:new', handleConversationNew);
-    socket.on('conversation:updated', handleConversationUpdated);
-    socket.on('conversation:deleted', handleConversationGone);
-    return () => {
-      socket.off('connect', handleReconnect);
-      socket.off('message:new', handleNewMessage);
-      socket.off('conversation:new', handleConversationNew);
-      socket.off('conversation:updated', handleConversationUpdated);
-      socket.off('conversation:deleted', handleConversationGone);
-    };
+    return subscribeChatSocket({
+      getActiveConversationId: () => activeIdRef.current,
+      getConversations: () => conversationsRef.current,
+      currentUsername: user.username,
+      setConversations,
+      setActive,
+    });
   }, [user]);
 
   function handleConversationCreated(conversation: Conversation) {
@@ -172,6 +100,9 @@ export default function ChatPage() {
         <div className={`${active ? 'flex' : 'hidden md:flex'} min-h-0 flex-1`}>
           {active ? (
             <ChatWindow
+              // Remount per conversation: every piece of per-conversation state
+              // starts fresh, killing the whole reset-in-effect class.
+              key={active._id}
               conversation={active}
               focusMessageId={focusMessageId}
               onFocused={() => setFocusMessageId(null)}

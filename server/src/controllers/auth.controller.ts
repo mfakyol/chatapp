@@ -1,14 +1,28 @@
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler } from 'express';
 import passport from '../config/passport';
 import { registerUser } from '../services/auth.service';
-import { signToken } from '../utils/jwt';
 import { currentUser } from '../middleware/auth';
 import type { UserDocument } from '../models/User';
+
+/**
+ * Start a fresh session for a just-authenticated user. Regenerating first
+ * prevents session fixation: the pre-auth session id is never promoted.
+ */
+function establishSession(req: Request, user: UserDocument): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => {
+      if (err) return reject(err);
+      req.session.userId = user._id.toString();
+      req.session.save((saveErr) => (saveErr ? reject(saveErr) : resolve()));
+    });
+  });
+}
 
 export const register: RequestHandler = async (req, res, next) => {
   try {
     const user = await registerUser(req.body);
-    res.status(201).json({ token: signToken(user), user: user.toPublicJSON() });
+    await establishSession(req, user);
+    res.status(201).json({ user: user.toPublicJSON() });
   } catch (err) {
     next(err);
   }
@@ -18,12 +32,24 @@ export const login: RequestHandler = (req, res, next) => {
   passport.authenticate(
     'local',
     { session: false },
-    (err: unknown, user: UserDocument | false, info?: { message?: string }) => {
+    async (err: unknown, user: UserDocument | false, info?: { message?: string }) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || 'Invalid credentials' });
-      res.json({ token: signToken(user), user: user.toPublicJSON() });
+      try {
+        await establishSession(req, user);
+        res.json({ user: user.toPublicJSON() });
+      } catch (sessionErr) {
+        next(sessionErr);
+      }
     }
   )(req, res, next);
+};
+
+export const logout: RequestHandler = (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie('sid');
+    res.json({ message: 'Logged out' });
+  });
 };
 
 export const me: RequestHandler = (req, res) => {

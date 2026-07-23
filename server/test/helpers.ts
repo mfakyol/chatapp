@@ -1,4 +1,4 @@
-import request from 'supertest';
+import request, { Agent } from 'supertest';
 import type { Server } from 'socket.io';
 import type { Express } from 'express';
 import createApp from '../src/app';
@@ -11,6 +11,44 @@ export function buildTestApp(io: Server = ioStub): Express {
   const app = createApp();
   app.set('io', io);
   return app;
+}
+
+export interface TestUser {
+  /** Cookie-jar agent: carries the session across requests. */
+  agent: Agent;
+  user: { id: string; username: string; email: string };
+}
+
+const DEFAULTS = {
+  username: 'alice',
+  email: 'alice@test.co',
+  password: 'secret6',
+  firstName: 'Al',
+  lastName: 'Ice',
+};
+
+/** Register a user; returns a logged-in agent (session cookie captured). */
+export async function registerUser(
+  app: Express,
+  overrides: Partial<typeof DEFAULTS> = {}
+): Promise<TestUser> {
+  const agent = request.agent(app);
+  const res = await agent.post('/api/auth/register').send({ ...DEFAULTS, ...overrides });
+  if (res.status !== 201) {
+    throw new Error(`registerUser failed: ${res.status} ${JSON.stringify(res.body)}`);
+  }
+  return { agent, user: res.body.user };
+}
+
+/** Register two users and make them friends (a sends, b accepts). */
+export async function makeFriends(app: Express) {
+  const a = await registerUser(app, { username: 'alice', email: 'alice@test.co' });
+  const b = await registerUser(app, { username: 'bob', email: 'bob@test.co' });
+
+  await a.agent.post('/api/users/friend-requests/bob');
+  await b.agent.post('/api/users/friend-requests/alice/accept');
+
+  return { a, b };
 }
 
 export interface RecordedIo {
@@ -29,44 +67,4 @@ export function recordingIo(): RecordedIo {
     in: () => ({ socketsJoin: () => {}, socketsLeave: () => {} }),
   } as unknown as Server;
   return { emits, io };
-}
-
-export interface TestUser {
-  token: string;
-  user: { id: string; username: string; email: string };
-}
-
-const DEFAULTS = {
-  username: 'alice',
-  email: 'alice@test.co',
-  password: 'secret6',
-  firstName: 'Al',
-  lastName: 'Ice',
-};
-
-/** Register a user and return the auth token + public user. */
-export async function registerUser(
-  app: Express,
-  overrides: Partial<typeof DEFAULTS> = {}
-): Promise<TestUser> {
-  const res = await request(app)
-    .post('/api/auth/register')
-    .send({ ...DEFAULTS, ...overrides });
-  if (res.status !== 201) {
-    throw new Error(`registerUser failed: ${res.status} ${JSON.stringify(res.body)}`);
-  }
-  return { token: res.body.token, user: res.body.user };
-}
-
-export const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
-
-/** Register two users and make them friends (a sends, b accepts). */
-export async function makeFriends(app: Express) {
-  const a = await registerUser(app, { username: 'alice', email: 'alice@test.co' });
-  const b = await registerUser(app, { username: 'bob', email: 'bob@test.co' });
-
-  await request(app).post('/api/users/friend-requests/bob').set(auth(a.token));
-  await request(app).post('/api/users/friend-requests/alice/accept').set(auth(b.token));
-
-  return { a, b };
 }

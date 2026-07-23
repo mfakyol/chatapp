@@ -10,7 +10,11 @@ Notes unique to **this** repo. General standards live in the sibling docs
     = `tsx watch`; `npm run build` = `tsc` → `dist/`; `npm start` = `node dist/index.js`).
     Serves `/api/*`, `/health`, and static `/uploads/*`. It does **not** serve the app HTML.
   - `proxy/` — nginx reverse proxy; `deploy/` + `docker-compose.prod.yml` for prod.
-- MongoDB via `mongo:7` (docker). Auth is **stateless JWT Bearer**, no server sessions.
+- MongoDB via `mongo:7` (docker). Auth is **cookie sessions** (express-session +
+  connect-mongo): httpOnly `sid` cookie, sameSite lax, secure in prod, rolling 7d TTL.
+  Login/register **regenerate** the session (fixation) and logout destroys it. The SAME
+  session middleware is mounted on Socket.io via `io.engine.use`, so socket handshakes
+  authenticate from the cookie — no token exists anywhere.
 - **Implication:** `trust proxy` must be set correctly on the server (runs behind nginx)
   before relying on client IPs for rate limiting.
 
@@ -68,11 +72,11 @@ client→server socket events are `typing:start|stop` (ephemeral, never persiste
   `server/uploads/`, served static read-only. Keep the allowlist + size cap on refactor.
 
 ## Env / config
-- Server env: `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `PORT` (4000), `CLIENT_URL`,
+- Server env: `MONGO_URI`, `SESSION_SECRET`, `SESSION_TTL_MS`, `PORT` (4000), `CLIENT_URL`,
   `LOG_LEVEL`, `NODE_ENV`.
   Client env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SOCKET_URL`.
 - Env is centralized in typed `config/env.ts`: dev fallbacks so `npm run dev` works
-  out of the box, **fail-fast in production** on a missing `MONGO_URI`/`JWT_SECRET`.
+  out of the box, **fail-fast in production** on a missing `MONGO_URI`/`SESSION_SECRET`.
 
 ## Testing
 - **Backend:** Vitest + `supertest` + `mongodb-memory-server` in `server/test/`
@@ -124,8 +128,8 @@ socket payload is Zod-validated at the boundary; `ObjectId` params reject with 4
    `uploadLimiter` on attachments, `trust proxy` in prod; error handler now surfaces
    http-errors 4xx (413/400) instead of 500. CORS was already locked in #1.
    _Remaining_: socket `message:send` spam throttle (per-connection) — deferred.
-4. ✅ **Shared token verifier** — `utils/jwt.verifyToken` used by both the passport-jwt
-   strategy and the socket handshake.
+4. ✅ **Single auth source** — cookie sessions shared by REST and the socket handshake
+   (one express-session middleware mounted on both; JWT removed entirely).
 5. ✅ **Data integrity** — `Conversation` cascade-deletes its `Message`s (pre
    `deleteOne`/`findOneAndDelete` hooks); read receipts use an idempotent guarded
    `updateMany`; friend-request arrays use `addToSet` to avoid duplicates under races.

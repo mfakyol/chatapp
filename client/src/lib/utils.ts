@@ -1,5 +1,19 @@
 import { Conversation, PublicUser } from '@/types';
 
+/** Calendar-day bucket for date separators. */
+export function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/**
+ * The one place that resolves a user's id — the API serializes some users with
+ * `id`, some (populated documents) with `_id`. Never hand-roll `u.id || u._id`.
+ */
+export function userId(u: Pick<PublicUser, 'id' | '_id'> | null | undefined): string {
+  return u?.id || u?._id || '';
+}
+
 export function conversationName(conversation: Conversation, currentUsername: string): string {
   if (conversation.isGroup) return conversation.name || 'Unnamed group';
   const other = conversation.participants.find((p) => p.username !== currentUsername);

@@ -1,4 +1,5 @@
 import http from 'http';
+import fs from 'fs';
 import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import createApp from './app';
@@ -6,6 +7,8 @@ import connectDB from './config/db';
 import registerSocketHandlers from './sockets';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { createSessionMiddleware } from './config/session';
+import { UPLOADS_DIR } from './utils/attachments';
 
 const FORCE_EXIT_MS = 10_000;
 
@@ -41,14 +44,20 @@ function setupGracefulShutdown(server: http.Server, io: Server): void {
 }
 
 async function main(): Promise<void> {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
   await connectDB();
 
-  const app = createApp();
+  // One session middleware shared by Express AND the Socket.io engine, so the
+  // socket handshake is authenticated by the same httpOnly session cookie.
+  const sessionMiddleware = createSessionMiddleware();
+  const app = createApp(sessionMiddleware);
   const server = http.createServer(app);
 
   const io = new Server(server, {
     cors: { origin: env.clientUrl, credentials: true },
   });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  io.engine.use(sessionMiddleware as any);
 
   registerSocketHandlers(io);
   app.set('io', io);

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
+import { validateUpload } from '../middleware/validateUpload';
 import { validate } from '../middleware/validate';
 import { uploadLimiter, messageLimiter } from '../middleware/rateLimit';
 import {
@@ -59,6 +60,7 @@ router.post(
   '/:conversationId/attachments',
   uploadLimiter,
   upload.single('file'),
+  validateUpload,
   validate(conversationIdParamSchema),
   sendAttachment
 );

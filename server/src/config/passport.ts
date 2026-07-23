@@ -1,10 +1,10 @@
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
-import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
 import User from '../models/User';
-import { env } from './env';
-import type { JwtPayload } from '../utils/jwt';
 
+// Only the local strategy is used (credential verification at login).
+// Authenticated state lives in the server-side session, not in passport's
+// serialize/deserialize machinery — requireAuth reads the session directly.
 passport.use(
   'local',
   new LocalStrategy(
@@ -22,25 +22,6 @@ passport.use(
         return done(null, user);
       } catch (err) {
         return done(err);
-      }
-    }
-  )
-);
-
-passport.use(
-  'jwt',
-  new JwtStrategy(
-    {
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: env.jwtSecret,
-    },
-    async (payload: JwtPayload, done) => {
-      try {
-        const user = await User.findById(payload.sub);
-        if (!user) return done(null, false);
-        return done(null, user);
-      } catch (err) {
-        return done(err, false);
       }
     }
   )

@@ -10,7 +10,6 @@ function isDuplicateKeyError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 11000;
 }
 
-/** Public shape with live presence merged in (isOnline is not stored in the DB). */
 export function withPresence(user: UserDocument): PublicUser & { isOnline: boolean } {
   return { ...user.toPublicJSON(), isOnline: presence.isOnline(user._id.toString()) };
 }
@@ -21,7 +20,6 @@ async function findTarget(username: string | undefined): Promise<UserDocument> {
   return target;
 }
 
-/** Ids of everyone the user is friends with (used by presence fan-out too). */
 export async function friendIds(userId: Types.ObjectId): Promise<string[]> {
   const links = await Friendship.find({
     status: 'accepted',
@@ -47,13 +45,11 @@ export async function sendFriendRequest(
   } catch (err) {
     if (!isDuplicateKeyError(err)) throw err;
 
-    // A document for this pair already exists — resolve what that means.
     const existing = await Friendship.findOne(pair);
-    if (!existing) throw err; // deleted concurrently; extremely unlikely
+    if (!existing) throw err;
     if (existing.status === 'accepted') throw conflict('Already friends');
     if (existing.requestedBy.equals(me._id)) throw conflict('Friend request already sent');
 
-    // They had already requested us → auto-accept (atomic single-doc update).
     existing.status = 'accepted';
     await existing.save();
     io.to(userRoom(me._id)).emit('friend:accepted', { user: withPresence(target) });

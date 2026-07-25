@@ -7,11 +7,6 @@ import { attachmentUrl } from '../utils/attachments';
 import * as conversationService from '../services/conversation.service';
 import * as messageService from '../services/message.service';
 
-/**
- * Pre-upload gate for the attachment route: reject non-members BEFORE multer
- * writes their file to disk — otherwise any authenticated user could park
- * 10MB files on the server just by POSTing at a conversation they're not in.
- */
 export const ensureMembership: RequestHandler = async (req, res, next) => {
   try {
     await conversationService.requireMembership(currentUser(req), req.params.conversationId);
@@ -182,7 +177,6 @@ export const sendAttachment: RequestHandler = async (req, res, next) => {
     );
     res.status(201).json({ message });
   } catch (err) {
-    // The file was already written by multer; a failed send must not leak it.
     if (req.file) await fs.unlink(req.file.path).catch(() => {});
     next(err);
   }

@@ -3,7 +3,6 @@ import { Types } from 'mongoose';
 import ConversationMember from '../models/ConversationMember';
 import { userRooms } from '../utils/rooms';
 
-/** Current member user-ids of a conversation, resolved from the database. */
 export async function conversationMemberIds(
   conversationId: Types.ObjectId | string
 ): Promise<string[]> {
@@ -11,11 +10,6 @@ export async function conversationMemberIds(
   return members.map((m) => m.user.toString());
 }
 
-/**
- * The single fan-out point: emit an event to every member of a conversation,
- * addressed to their per-user rooms. Recipients are always resolved from the DB
- * at send time — there is no room membership to keep in sync.
- */
 export async function broadcastToConversation(
   io: Server,
   conversationId: Types.ObjectId | string,

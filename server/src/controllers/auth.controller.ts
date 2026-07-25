@@ -4,10 +4,6 @@ import { registerUser } from '../services/auth.service';
 import { currentUser } from '../middleware/auth';
 import type { UserDocument } from '../models/User';
 
-/**
- * Start a fresh session for a just-authenticated user. Regenerating first
- * prevents session fixation: the pre-auth session id is never promoted.
- */
 function establishSession(req: Request, user: UserDocument): Promise<void> {
   return new Promise((resolve, reject) => {
     req.session.regenerate((err) => {

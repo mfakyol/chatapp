@@ -43,9 +43,6 @@ export async function getMessages(
     const target = await Message.findOne({ _id: opts.around, conversation: conversationId });
     if (!target) throw notFound('Message not found');
 
-    // (createdAt, _id) is the cursor, not createdAt alone: messages sharing a
-    // timestamp (bulk inserts, seeds) would otherwise be duplicated or dropped
-    // at the window split.
     const half = Math.floor(limit / 2);
     const [before, after] = await Promise.all([
       Message.find({
@@ -119,11 +116,6 @@ export interface CreateMessageInput {
   clientTempId?: string;
 }
 
-/**
- * Persist a message, bump the conversation's `lastMessage`, and fan out
- * `message:new` to the members resolved at send time. Idempotent on
- * (sender, clientTempId): a retried send returns the already-persisted message.
- */
 export async function createMessage(
   user: UserDocument,
   conversationId: string,
@@ -132,7 +124,6 @@ export async function createMessage(
 ): Promise<MessageDocument> {
   await requireMembership(user, conversationId);
 
-  // Only allow replying to a message in the same conversation.
   let replyTo: string | undefined;
   if (input.replyTo) {
     const target = await Message.exists({ _id: input.replyTo, conversation: conversationId });
@@ -155,7 +146,7 @@ export async function createMessage(
         sender: user._id,
         clientTempId: input.clientTempId,
       }).populate(MESSAGE_POPULATE);
-      if (existing) return existing; // duplicate retry — already persisted & broadcast
+      if (existing) return existing;
     }
     throw err;
   }
@@ -215,7 +206,6 @@ export async function deleteMessage(
   });
 }
 
-/** Toggle the caller's reaction with `emoji` on a message and broadcast the result. */
 export async function toggleReaction(
   user: UserDocument,
   conversationId: string,

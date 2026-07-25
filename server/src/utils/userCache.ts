@@ -1,11 +1,5 @@
 import User, { UserDocument } from '../models/User';
 
-/**
- * Tiny TTL cache in front of the per-request `User.findById` done by the auth
- * guard and the socket handshake. User documents are effectively immutable
- * while a session lives (no profile editing yet), so a short TTL is safe; call
- * {@link invalidateUser} from any future user-mutation path.
- */
 const TTL_MS = 30_000;
 const MAX_ENTRIES = 1000;
 

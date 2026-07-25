@@ -24,7 +24,6 @@ describe('POST /api/conversations/direct', () => {
   it('is idempotent (directKey upsert returns the same conversation)', async () => {
     const { a, b } = await makeFriends(app);
     const first = await a.agent.post('/api/conversations/direct').send({ username: 'bob' });
-    // Second create from the OTHER side must also hit the same conversation.
     const second = await b.agent.post('/api/conversations/direct').send({ username: 'alice' });
     expect(second.body.conversation._id).toBe(first.body.conversation._id);
     expect(await Conversation.countDocuments({})).toBe(1);
@@ -43,8 +42,6 @@ describe('POST /api/conversations/direct', () => {
     expect(res.status).toBe(404);
   });
 
-  // Regression: delivery is addressed to user rooms resolved from the DB, and
-  // both participants must be announced the new conversation immediately.
   it('announces conversation:new to both participants user rooms', async () => {
     const rec = recordingIo();
     const recApp = buildTestApp(rec.io);
@@ -120,7 +117,6 @@ describe('messages', () => {
     const convoId = await directConvo(a);
     await b.agent.post('/api/conversations/direct').send({ username: 'alice' });
 
-    // Exhaust A's per-user bucket (15 / 5s) from the shared test IP.
     let limited = 0;
     for (let i = 0; i < 16; i++) {
       const res = await a.agent
@@ -130,7 +126,6 @@ describe('messages', () => {
     }
     expect(limited).toBeGreaterThan(0);
 
-    // B shares the IP but has their own bucket — still allowed to send.
     const other = await b.agent
       .post(`/api/conversations/${convoId}/messages`)
       .send({ content: 'from bob' });

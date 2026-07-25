@@ -8,12 +8,6 @@ export interface RequestParts {
   query?: unknown;
 }
 
-/**
- * Validate `body`/`params`/`query` against a Zod schema. On success the parsed
- * `body` and `query` (trimmed/normalized) replace the originals; `params` are
- * validated but left untouched (services normalize casing themselves). On
- * failure a 400 {@link AppError} is forwarded to the central error handler.
- */
 export const validate =
   <T extends RequestParts>(schema: ZodType<T>): RequestHandler =>
   (req, _res, next) => {

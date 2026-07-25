@@ -12,12 +12,6 @@ export interface IReaction {
   users: Types.Array<Types.ObjectId>;
 }
 
-// Read state is NOT stored here — it's the per-member `lastReadAt` pointer on
-// ConversationMember, so message documents never grow with reads.
-//
-// `clientTempId` is the sender-generated id for optimistic UI. The partial
-// unique index makes retried sends idempotent: the same (sender, clientTempId)
-// can never insert twice.
 export interface IMessage {
   conversation: Types.ObjectId;
   sender: Types.ObjectId;

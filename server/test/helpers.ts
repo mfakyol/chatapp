@@ -3,7 +3,6 @@ import type { Server } from 'socket.io';
 import type { Express } from 'express';
 import createApp from '../src/app';
 
-// A no-op Socket.io double so REST handlers that emit events work under test.
 const emitter = { emit: () => {}, socketsJoin: () => {}, socketsLeave: () => {} };
 export const ioStub = { to: () => emitter, in: () => emitter } as unknown as Server;
 
@@ -14,7 +13,6 @@ export function buildTestApp(io: Server = ioStub): Express {
 }
 
 export interface TestUser {
-  /** Cookie-jar agent: carries the session across requests. */
   agent: Agent;
   user: { id: string; username: string; email: string };
 }
@@ -27,7 +25,6 @@ const DEFAULTS = {
   lastName: 'Ice',
 };
 
-/** Register a user; returns a logged-in agent (session cookie captured). */
 export async function registerUser(
   app: Express,
   overrides: Partial<typeof DEFAULTS> = {}
@@ -40,7 +37,6 @@ export async function registerUser(
   return { agent, user: res.body.user };
 }
 
-/** Register two users and make them friends (a sends, b accepts). */
 export async function makeFriends(app: Express) {
   const a = await registerUser(app, { username: 'alice', email: 'alice@test.co' });
   const b = await registerUser(app, { username: 'bob', email: 'bob@test.co' });
@@ -56,7 +52,6 @@ export interface RecordedIo {
   io: Server;
 }
 
-/** An io double that records emits (io.to can take a room or a room array). */
 export function recordingIo(): RecordedIo {
   const emits: RecordedIo['emits'] = [];
   const io = {

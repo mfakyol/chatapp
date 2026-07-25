@@ -18,7 +18,7 @@ async function deleteAvatarFile(filename: string): Promise<void> {
   try {
     await fs.unlink(path.join(UPLOADS_DIR, filename));
   } catch {
-    // already gone
+    void 0;
   }
 }
 

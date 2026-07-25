@@ -1,14 +1,5 @@
 import mongoose, { Schema, Types, HydratedDocument, Model } from 'mongoose';
 
-/**
- * One document per (conversation, user). This is the single source of truth for
- * membership: "who receives this event" is resolved from here at send time, and
- * all per-member state lives here.
- *
- * `lastReadAt` is the read pointer (WhatsApp/Discord model): marking a
- * conversation read is a single-field update, unread count is a range count,
- * and a message is "seen" by a member iff member.lastReadAt >= message.createdAt.
- */
 export interface IConversationMember {
   conversation: Types.ObjectId;
   user: Types.ObjectId;

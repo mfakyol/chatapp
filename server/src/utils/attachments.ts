@@ -1,19 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-/** Where multer writes uploaded files (shared by upload + serve). */
 export const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
 
-/**
- * Browser-reported MIME aliases mapped to a canonical allowed type. Windows
- * commonly sends zip as application/x-zip-compressed, etc.
- */
 export const MIME_ALIASES: Record<string, string> = {
   'application/x-zip-compressed': 'application/zip',
   'application/x-rar-compressed': 'application/vnd.rar',
 };
 
-/** Canonical MIME -> safe on-disk extension (never trust originalname). */
 export const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
@@ -43,10 +37,8 @@ export const MIME_TO_EXT: Record<string, string> = {
 
 export const ALLOWED_MIME_TYPES = new Set(Object.keys(MIME_TO_EXT));
 
-/** Types we accept without a detectable magic signature (strict allowlist). */
 const MIME_WITHOUT_MAGIC = new Set(['text/plain', 'text/csv']);
 
-/** Detected signature -> claimed MIME types that share that on-disk format. */
 const COMPATIBLE_WITH_DETECTED: Record<string, readonly string[]> = {
   'application/zip': [
     'application/zip',
@@ -63,7 +55,6 @@ const COMPATIBLE_WITH_DETECTED: Record<string, readonly string[]> = {
   'video/webm': ['video/webm', 'audio/webm'],
 };
 
-/** Extensions that must never be stored, even if MIME is spoofed. */
 const BLOCKED_EXTENSIONS = new Set([
   '.html',
   '.htm',
@@ -100,7 +91,6 @@ async function readFileHead(filePath: string, len = 4100): Promise<Buffer> {
   }
 }
 
-/** Magic-byte sniffing for the upload allowlist (CommonJS-safe; no file-type dep). */
 function detectMimeFromBuffer(buf: Buffer): string | undefined {
   if (buf.length >= 8 && buf.subarray(0, 8).equals(PNG_SIG)) return 'image/png';
   if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
@@ -168,7 +158,6 @@ export function isBlockedOriginalExtension(originalName: string): boolean {
   return BLOCKED_EXTENSIONS.has(path.extname(originalName).toLowerCase());
 }
 
-/** Public API path stored on messages (auth required to download). */
 export function attachmentUrl(filename: string): string {
   return `/api/attachments/${filename}`;
 }
@@ -181,12 +170,6 @@ export function assertSafeFilename(filename: string): void {
   }
 }
 
-/**
- * Best-effort removal of the on-disk file behind an attachment URL. Called when
- * the owning message (or its whole conversation) is deleted, so uploads never
- * leak as orphans. Failures are swallowed — the DB delete must not roll back
- * because a file was already gone.
- */
 export async function removeAttachmentFileByUrl(url: string | undefined): Promise<void> {
   if (!url) return;
   const filename = path.posix.basename(url);
@@ -194,14 +177,10 @@ export async function removeAttachmentFileByUrl(url: string | undefined): Promis
     assertSafeFilename(filename);
     await fs.unlink(path.join(UPLOADS_DIR, filename));
   } catch {
-    // already gone or unsafe name — nothing to clean up
+    void 0;
   }
 }
 
-/**
- * Verify on-disk bytes match an allowed type. Deletes the file and throws when
- * validation fails so callers can return 400 to the uploader.
- */
 export async function validateUploadedFile(filePath: string, claimedMime: string): Promise<void> {
   const canonical = normalizeMime(claimedMime);
   if (!canonical) {

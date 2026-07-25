@@ -1,11 +1,5 @@
 import mongoose, { Schema, Types, HydratedDocument, Model } from 'mongoose';
 
-/**
- * One document per user pair. `userA`/`userB` are always stored in sorted order
- * (smaller ObjectId first) so the unique compound index makes a duplicate or
- * reversed-direction request structurally impossible. State transitions are
- * single-document atomic updates — no cross-document race conditions.
- */
 export interface IFriendship {
   userA: Types.ObjectId;
   userB: Types.ObjectId;
@@ -32,7 +26,6 @@ friendshipSchema.index({ userA: 1, userB: 1 }, { unique: true });
 friendshipSchema.index({ userB: 1, status: 1 });
 friendshipSchema.index({ userA: 1, status: 1 });
 
-/** Canonical (sorted) pair for a friendship lookup/insert. */
 export function sortedPair(
   a: Types.ObjectId,
   b: Types.ObjectId

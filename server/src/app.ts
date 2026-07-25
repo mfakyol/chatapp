@@ -13,30 +13,19 @@ import conversationRoutes from './routes/conversation.routes';
 import attachmentRoutes from './routes/attachment.routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 
-/**
- * Build the Express app (middleware + routes). Import this in tests.
- * Pass a session middleware to share it with Socket.io's engine (so socket
- * handshakes authenticate from the same cookie); omitted, one is created.
- */
 export function createApp(sessionMiddleware: SessionMiddleware = createSessionMiddleware()) {
   const app = express();
 
-  // Behind the nginx proxy in production: trust it so client IPs (used by the
-  // rate limiter) are read from X-Forwarded-For. Don't trust proxies in dev.
   if (env.isProd) app.set('trust proxy', 1);
 
-  // Per-request structured logging with a generated request id (req.log / req.id).
   app.use(pinoHttp({ logger }));
 
-  // `cross-origin` CORP lets the Next client (a different origin) load images
-  // from /api/attachments with credentials; the default `same-origin` would block them.
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cors({ origin: env.clientUrl, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(sessionMiddleware);
   app.use(passport.initialize());
 
-  // Readiness reflects DB connectivity so orchestrators can gate traffic.
   app.get('/health', (_req, res) => {
     const dbUp = mongoose.connection.readyState === 1;
     res.status(dbUp ? 200 : 503).json({

@@ -1,8 +1,3 @@
-/**
- * Application-level error carrying an HTTP status. Controllers/services throw
- * these; the central error handler ({@link module:middleware/errorHandler})
- * translates them into responses. Nothing else formats error responses.
- */
 export class AppError extends Error {
   readonly status: number;
   readonly code?: string;

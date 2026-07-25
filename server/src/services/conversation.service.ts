@@ -15,11 +15,6 @@ const LAST_MESSAGE_POPULATE = {
   populate: { path: 'sender', select: 'username firstName lastName' },
 };
 
-/**
- * API shape of a conversation: the conversation document plus everything the
- * client needs, assembled from ConversationMember (participants, admins,
- * per-member read pointers) with live presence merged into participants.
- */
 export interface AssembledConversation {
   [key: string]: unknown;
   _id: Types.ObjectId;
@@ -89,7 +84,6 @@ export async function assembleConversation(
   return assemble(conversation, await membersOf(conversation._id));
 }
 
-/** Assert the caller is a member; returns their membership document. */
 export async function requireMembership(user: UserDocument, conversationId: string) {
   const membership = await ConversationMember.findOne({
     conversation: conversationId,
@@ -112,9 +106,6 @@ export async function listConversations(user: UserDocument) {
   if (memberships.length === 0) return [];
   const convIds = memberships.map((m) => m.conversation);
 
-  // ONE unread query for all conversations (instead of a countDocuments per
-  // conversation): each $or branch is (conversation, createdAt > lastReadAt),
-  // which the {conversation, createdAt} index serves per branch.
   const [conversations, allMembers, unreadAgg] = await Promise.all([
     Conversation.find({ _id: { $in: convIds } })
       .populate(LAST_MESSAGE_POPULATE)
@@ -165,8 +156,6 @@ export async function createDirectConversation(
   if (other._id.equals(user._id)) throw badRequest('Cannot start a conversation with yourself');
   if (!(await areFriends(user._id, other._id))) throw forbidden('You can only message friends');
 
-  // Race-proof: the unique sparse index on directKey makes this upsert the only
-  // way a direct conversation for this pair can ever exist.
   const conversation = await Conversation.findOneAndUpdate(
     { directKey: directKeyFor(user._id, other._id) },
     { $setOnInsert: { type: 'direct', createdBy: user._id } },
@@ -194,9 +183,6 @@ export async function createGroupConversation(
   usernames: string[],
   io: Server
 ): Promise<AssembledConversation> {
-  // Dedupe and drop the creator's own name: duplicates (or self) would violate
-  // the unique (conversation, user) membership index mid-insert and leave a
-  // half-created group behind.
   const wanted = [...new Set(usernames.map((u) => u.toLowerCase()))].filter(
     (u) => u !== user.username
   );
@@ -319,7 +305,6 @@ export async function leaveGroup(
 
   await ConversationMember.deleteOne({ conversation: conversation._id, user: user._id });
 
-  // Keep the group governable: promote the oldest member if no admin remains.
   const remaining = await ConversationMember.find({ conversation: conversation._id }).sort({
     joinedAt: 1,
   });
@@ -347,16 +332,14 @@ export async function deleteConversation(
     throw forbidden('Only admins can delete the group');
   }
 
-  // Snapshot recipients before the cascade removes the membership docs.
   const memberIds = await ConversationMember.find({ conversation: conversation._id }).select(
     'user'
   );
-  await conversation.deleteOne(); // cascade: messages + members
+  await conversation.deleteOne();
 
   io.to(userRooms(memberIds.map((m) => m.user))).emit('conversation:deleted', { conversationId });
 }
 
-/** Advance the caller's read pointer and tell members (for ticks/unread). */
 export async function markConversationRead(
   user: UserDocument,
   conversationId: string,

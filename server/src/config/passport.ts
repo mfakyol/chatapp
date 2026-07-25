@@ -2,9 +2,6 @@ import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import User from '../models/User';
 
-// Only the local strategy is used (credential verification at login).
-// Authenticated state lives in the server-side session, not in passport's
-// serialize/deserialize machinery — requireAuth reads the session directly.
 passport.use(
   'local',
   new LocalStrategy(

@@ -17,10 +17,6 @@ function isDuplicateKeyError(err: unknown): err is MongoDuplicateKeyError {
   return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 11000;
 }
 
-/**
- * Single source of error responses. Maps known error shapes to status codes and
- * hides internal details in production.
- */
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof AppError) {
     return res.status(err.status).json({ message: err.message });
@@ -40,8 +36,6 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return res.status(409).json({ message: `This ${field} is already taken` });
   }
 
-  // http-errors-style client errors (body too large, malformed JSON, …) carry a
-  // safe 4xx status/message — surface it instead of masking as a 500.
   const httpStatus =
     (err as { status?: unknown }).status ?? (err as { statusCode?: unknown }).statusCode;
   if (typeof httpStatus === 'number' && httpStatus >= 400 && httpStatus < 500) {

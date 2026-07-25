@@ -11,8 +11,6 @@ export const serveAttachment: RequestHandler = async (req, res, next) => {
     );
 
     const inline = mimeType.startsWith('image/');
-    // Escape the user-controlled filename for the header: quotes/backslashes
-    // break the quoted-string form; RFC 5987 `filename*` carries the exact name.
     const base = path.basename(fileName);
     const fallback = base.replace(/["\\\r\n]/g, '_');
     const encoded = encodeURIComponent(base);

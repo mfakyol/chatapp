@@ -6,7 +6,6 @@ import type { Express } from 'express';
 import { buildTestApp, makeFriends, registerUser } from './helpers';
 import { UPLOADS_DIR } from '../src/utils/attachments';
 
-// Minimal valid 1x1 PNG
 const PNG_BYTES = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64'

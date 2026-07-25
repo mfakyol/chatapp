@@ -13,8 +13,6 @@ export interface PublicUser {
   lastSeen: Date;
 }
 
-// Friendships live in the Friendship collection; live presence lives in the
-// in-memory PresenceTracker. The user document holds only identity + lastSeen.
 export interface IUser {
   username: string;
   email: string;

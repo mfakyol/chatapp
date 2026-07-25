@@ -2,7 +2,6 @@ import User, { UserDocument } from '../models/User';
 import { conflict } from '../errors/AppError';
 import type { RegisterBody } from '../schemas/auth.schema';
 
-/** Create a user from a request body already validated by `registerSchema`. */
 export async function registerUser(input: RegisterBody): Promise<UserDocument> {
   const { username, email, password, firstName, lastName } = input;
 

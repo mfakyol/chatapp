@@ -12,7 +12,6 @@ import { UPLOADS_DIR } from './utils/attachments';
 
 const FORCE_EXIT_MS = 10_000;
 
-/** Drain connections, close Socket.io + Mongo, with a hard force-exit fallback. */
 function setupGracefulShutdown(server: http.Server, io: Server): void {
   let shuttingDown = false;
 
@@ -47,8 +46,6 @@ async function main(): Promise<void> {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
   await connectDB();
 
-  // One session middleware shared by Express AND the Socket.io engine, so the
-  // socket handshake is authenticated by the same httpOnly session cookie.
   const sessionMiddleware = createSessionMiddleware();
   const app = createApp(sessionMiddleware);
   const server = http.createServer(app);
@@ -56,8 +53,7 @@ async function main(): Promise<void> {
   const io = new Server(server, {
     cors: { origin: env.clientUrl, credentials: true },
   });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  io.engine.use(sessionMiddleware as any);
+  io.engine.use(sessionMiddleware as unknown as Parameters<typeof io.engine.use>[0]);
 
   registerSocketHandlers(io);
   app.set('io', io);

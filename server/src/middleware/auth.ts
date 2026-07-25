@@ -2,10 +2,6 @@ import type { Request, RequestHandler } from 'express';
 import type { UserDocument } from '../models/User';
 import { loadUser } from '../utils/userCache';
 
-/**
- * Session guard: resolves the user from the server-side session (httpOnly
- * cookie) via a short-TTL cache. On success attaches the user to `req.user`.
- */
 export const requireAuth: RequestHandler = async (req, res, next) => {
   try {
     const userId = req.session?.userId;
@@ -24,7 +20,6 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
   }
 };
 
-/** Typed accessor for the authenticated user on a guarded route. */
 export function currentUser(req: Request): UserDocument {
   return req.user as UserDocument;
 }

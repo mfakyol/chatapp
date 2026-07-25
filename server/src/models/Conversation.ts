@@ -1,12 +1,6 @@
 import mongoose, { Schema, Types, HydratedDocument, Model } from 'mongoose';
 import { removeAttachmentFileByUrl } from '../utils/attachments';
 
-/**
- * The conversation itself — membership lives in ConversationMember. For direct
- * chats `directKey` is "<idLo>:<idHi>" under a unique sparse index, so creating
- * a direct conversation is a race-proof upsert: a second conversation for the
- * same pair is impossible at the database level.
- */
 export interface IConversation {
   type: 'direct' | 'group';
   name: string;
@@ -33,13 +27,10 @@ const conversationSchema = new Schema<IConversation, ConversationModel>(
 
 conversationSchema.index({ directKey: 1 }, { unique: true, sparse: true });
 
-/** Canonical direct-conversation key for a user pair. */
 export function directKeyFor(a: Types.ObjectId, b: Types.ObjectId): string {
   return [a.toString(), b.toString()].sort().join(':');
 }
 
-// Cascade: deleting a conversation removes its messages, memberships AND the
-// uploaded files its messages referenced (no orphans left on disk).
 async function cascadeDelete(conversationId: Types.ObjectId): Promise<void> {
   const withFiles = await mongoose
     .model('Message')

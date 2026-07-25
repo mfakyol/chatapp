@@ -21,9 +21,9 @@ export interface Reaction {
   users: string[];
 }
 
-// Read state is NOT on messages: each member carries a lastReadAt pointer
-// (Conversation.members); a message is seen by a member iff
-// member.lastReadAt >= message.createdAt.
+
+
+
 export interface Message {
   _id: string;
   conversation: string;
@@ -36,7 +36,7 @@ export interface Message {
   editedAt?: string;
   deletedAt?: string;
   createdAt: string;
-  /** Local-only: optimistic message not yet confirmed by the server. */
+  
   pending?: boolean;
 }
 

@@ -1,26 +1,32 @@
-import { Conversation, PublicUser } from '@/types';
+import { Conversation, PublicUser } from "@/types";
 
-/** Calendar-day bucket for date separators. */
+
 export function dayKey(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-/**
- * The one place that resolves a user's id — the API serializes some users with
- * `id`, some (populated documents) with `_id`. Never hand-roll `u.id || u._id`.
- */
-export function userId(u: Pick<PublicUser, 'id' | '_id'> | null | undefined): string {
-  return u?.id || u?._id || '';
+export function userId(
+  u: Pick<PublicUser, "id" | "_id"> | null | undefined,
+): string {
+  return u?.id || u?._id || "";
 }
 
-export function conversationName(conversation: Conversation, currentUsername: string): string {
-  if (conversation.isGroup) return conversation.name || 'Unnamed group';
-  const other = conversation.participants.find((p) => p.username !== currentUsername);
-  return other ? `${other.firstName} ${other.lastName}` : 'Unknown';
+export function conversationName(
+  conversation: Conversation,
+  currentUsername: string,
+): string {
+  if (conversation.isGroup) return conversation.name || "Unnamed group";
+  const other = conversation.participants.find(
+    (p) => p.username !== currentUsername,
+  );
+  return other ? `${other.firstName} ${other.lastName}` : "Unknown";
 }
 
-export function otherParticipant(conversation: Conversation, currentUsername: string): PublicUser | undefined {
+export function otherParticipant(
+  conversation: Conversation,
+  currentUsername: string,
+): PublicUser | undefined {
   return conversation.participants.find((p) => p.username !== currentUsername);
 }
 
@@ -28,7 +34,9 @@ export function fullName(user: PublicUser): string {
   return `${user.firstName} ${user.lastName}`;
 }
 
-const SERVER_ORIGIN = (process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000').replace(/\/$/, '');
+const SERVER_ORIGIN = (
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000"
+).replace(/\/$/, "");
 
 export function fileUrl(path: string): string {
   return `${SERVER_ORIGIN}${path}`;
@@ -41,22 +49,30 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function formatLastSeen(lastSeen?: string): string {
-  if (!lastSeen) return '';
+  if (!lastSeen) return "";
   const date = new Date(lastSeen);
   const now = new Date();
   const sameDay = date.toDateString() === now.toDateString();
-  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return sameDay ? `last seen today at ${time}` : `last seen ${date.toLocaleDateString()} ${time}`;
+  const time = date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return sameDay
+    ? `last seen today at ${time}`
+    : `last seen ${date.toLocaleDateString()} ${time}`;
 }
 
 export function playNotificationSound() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
     const ctx = new AudioContextClass();
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
-    oscillator.type = 'sine';
+    oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(880, ctx.currentTime);
     gain.gain.setValueAtTime(0.15, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
@@ -66,6 +82,6 @@ export function playNotificationSound() {
     oscillator.stop(ctx.currentTime + 0.3);
     oscillator.onended = () => ctx.close();
   } catch {
-    // audio not available, ignore
+    
   }
 }

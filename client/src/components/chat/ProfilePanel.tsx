@@ -12,11 +12,17 @@ import {
 } from '@tabler/icons-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { PanelHeader } from '@/components/ui/PanelHeader';
+import { FormError } from '@/components/ui/FormError';
+import { SectionHeading } from '@/components/ui/SectionHeading';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Conversation, PublicUser } from '@/types';
 import { fullName, otherParticipant, formatLastSeen, userId } from '@/lib/utils';
-import { t } from '@/i18n';
+import { useT } from '@/hooks/useT';
 import { usePresenceMap } from '@/hooks/usePresence';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/stores/auth.store';
 import { getFriends } from '@/services/user.service';
 import {
   renameGroup,
@@ -35,7 +41,8 @@ export function ProfilePanel({
   currentUsername: string;
   onClose: () => void;
 }) {
-  const { user } = useAuth();
+  const { t } = useT();
+  const user = useAuthStore((s) => s.user);
   const presence = usePresenceMap();
   const { confirm, confirmDialog } = useConfirm();
   const [renaming, setRenaming] = useState(false);
@@ -105,17 +112,17 @@ export function ProfilePanel({
   );
 
   return (
-    <div className="fixed inset-0 z-30 flex h-full w-full shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-app)] md:static md:z-auto md:w-80">
-      <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3">
-        <button onClick={onClose} className="rounded-full p-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">
+    <div className="fixed inset-0 z-30 flex h-full w-full shrink-0 flex-col border-l border-(--border) bg-(--bg-app) md:static md:z-auto md:w-80">
+      <PanelHeader>
+        <Button variant="iconSm" onClick={onClose} aria-label={t('common.cancel')}>
           <IconX size={20} />
-        </button>
-        <p className="font-medium text-[var(--text-normal)]">
+        </Button>
+        <p className="font-medium text-(--text-normal)">
           {conversation.isGroup ? t('profile.groupInfo') : t('profile.contactInfo')}
         </p>
-      </div>
+      </PanelHeader>
 
-      <div className="flex flex-col items-center gap-2 border-b border-[var(--border)] px-4 py-8">
+      <div className="flex flex-col items-center gap-2 border-b border-(--border) px-4 py-8">
         <Avatar
           name={conversation.isGroup ? conversation.name : other ? fullName(other) : '?'}
           isOnline={!conversation.isGroup && otherStatus?.isOnline}
@@ -124,41 +131,41 @@ export function ProfilePanel({
         {conversation.isGroup ? (
           renaming ? (
             <div className="flex items-center gap-2">
-              <input
+              <Input
+                variant="inline"
                 autoFocus
                 value={nameDraft}
                 onChange={(e) => setNameDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-                className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-sm text-[var(--text-normal)] outline-none"
               />
-              <button onClick={handleRename} className="text-[var(--brand)]">
+              <Button variant="textBrand" onClick={handleRename} aria-label={t('common.save')}>
                 <IconCheck size={18} />
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <p className="text-lg font-medium text-[var(--text-normal)]">{conversation.name}</p>
+              <p className="text-lg font-medium text-(--text-normal)">{conversation.name}</p>
               {isAdmin && (
-                <button
+                <Button
+                  variant="text"
                   onClick={() => {
-                    // Seed the draft here (event handler) — no sync-state effect.
                     setNameDraft(conversation.name);
                     setRenaming(true);
                   }}
-                  className="text-[var(--text-muted)] hover:text-[var(--text-normal)]"
+                  aria-label={t('chat.edit')}
                 >
                   <IconPencil size={16} />
-                </button>
+                </Button>
               )}
             </div>
           )
         ) : (
-          <p className="text-lg font-medium text-[var(--text-normal)]">{other ? fullName(other) : ''}</p>
+          <p className="text-lg font-medium text-(--text-normal)">{other ? fullName(other) : ''}</p>
         )}
         {!conversation.isGroup && other && (
           <>
-            <p className="text-sm text-[var(--text-muted)]">@{other.username}</p>
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-sm text-(--text-muted)">@{other.username}</p>
+            <p className="text-xs text-(--text-muted)">
               {otherStatus?.isOnline
                 ? t('profile.online')
                 : formatLastSeen(otherStatus?.lastSeen) || t('profile.offline')}
@@ -169,36 +176,35 @@ export function ProfilePanel({
 
       {conversation.isGroup && (
         <>
-          {error && <p className="px-4 pt-3 text-sm text-[var(--danger)]">{error}</p>}
+          {error && <FormError className="px-4 pt-3">{error}</FormError>}
           <div className="flex-1 overflow-y-auto px-4 py-4">
             <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-xs font-semibold uppercase text-[var(--text-muted)]">
+              <SectionHeading>
                 {t('profile.membersCount', { count: conversation.participants.length })}
-              </h4>
+              </SectionHeading>
               {isAdmin && (
-                <button
-                  onClick={() => setAddingMember((v) => !v)}
-                  className="flex items-center gap-1 text-xs text-[var(--brand)] hover:underline"
-                >
+                <Button variant="linkXsIcon" onClick={() => setAddingMember((v) => !v)}>
                   <IconUserPlus size={14} /> {t('profile.add')}
-                </button>
+                </Button>
               )}
             </div>
 
             {addingMember && (
-              <div className="mb-3 rounded-md bg-[var(--bg-surface)] p-2">
+              <div className="mb-3 rounded-md bg-(--bg-surface) p-2">
                 {availableFriends.length === 0 && (
-                  <p className="p-2 text-xs text-[var(--text-muted)]">{t('profile.noFriendsToAdd')}</p>
+                  <EmptyState size="xs" className="p-2">
+                    {t('profile.noFriendsToAdd')}
+                  </EmptyState>
                 )}
                 {availableFriends.map((f) => (
-                  <button
+                  <Button
                     key={f.username}
+                    variant="rowItem"
                     onClick={() => handleAddMember(f.username)}
-                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-[var(--text-normal)] hover:bg-[var(--bg-hover)]"
                   >
                     <Avatar name={fullName(f)} size={24} />
                     {fullName(f)}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -209,46 +215,41 @@ export function ProfilePanel({
                 <div key={p.username} className="flex items-center gap-3 py-2">
                   <Avatar name={fullName(p)} isOnline={status.isOnline} size={36} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-[var(--text-normal)]">
+                    <p className="truncate text-sm text-(--text-normal)">
                       {fullName(p)}{' '}
                       {p.username === currentUsername && (
-                        <span className="text-[var(--text-muted)]">{t('common.you')}</span>
+                        <span className="text-(--text-muted)">{t('common.you')}</span>
                       )}
                     </p>
-                    <p className="truncate text-xs text-[var(--text-muted)]">@{p.username}</p>
+                    <p className="truncate text-xs text-(--text-muted)">@{p.username}</p>
                   </div>
                   {isAdmin && p.username !== currentUsername && (
-                    <button
+                    <Button
+                      variant="iconDangerSm"
                       onClick={() => handleRemoveMember(p.username)}
                       title={t('profile.removeFromGroup')}
-                      className="rounded-full p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--danger)]"
+                      aria-label={t('profile.removeFromGroup')}
                     >
                       <IconUserMinus size={16} />
-                    </button>
+                    </Button>
                   )}
                 </div>
               );
             })}
           </div>
 
-          <div className="border-t border-[var(--border)] p-4">
-            <button
-              onClick={handleLeave}
-              className="flex w-full items-center justify-center gap-2 rounded-md bg-[var(--bg-elevated)] py-2 text-sm text-[var(--danger)] hover:bg-[var(--bg-hover)]"
-            >
+          <div className="border-t border-(--border) p-4">
+            <Button variant="destructiveBlock" onClick={handleLeave}>
               <IconLogout2 size={18} /> {t('profile.leaveGroup')}
-            </button>
+            </Button>
           </div>
         </>
       )}
 
-      <div className="mt-auto border-t border-[var(--border)] p-4">
-        <button
-          onClick={handleDelete}
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-[var(--bg-elevated)] py-2 text-sm text-[var(--danger)] hover:bg-[var(--bg-hover)]"
-        >
+      <div className="mt-auto border-t border-(--border) p-4">
+        <Button variant="destructiveBlock" onClick={handleDelete}>
           <IconTrash size={18} /> {t('profile.deleteChat')}
-        </button>
+        </Button>
       </div>
 
       {confirmDialog}

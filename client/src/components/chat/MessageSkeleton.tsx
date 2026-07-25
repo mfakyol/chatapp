@@ -1,6 +1,6 @@
 'use client';
 
-// Alternating widths/sides roughly shaped like a real thread.
+
 const ROWS: { width: number; mine: boolean }[] = [
   { width: 180, mine: false },
   { width: 240, mine: false },
@@ -12,14 +12,14 @@ const ROWS: { width: number; mine: boolean }[] = [
   { width: 220, mine: true },
 ];
 
-/** Pulsing placeholder shown while a conversation's first page loads. */
+
 export function MessageSkeleton() {
   return (
     <div className="min-h-0 flex-1 overflow-hidden px-4 py-4" aria-hidden>
       {ROWS.map((row, i) => (
         <div key={i} className={`mb-3 flex ${row.mine ? 'justify-end' : 'justify-start'}`}>
           <div
-            className="h-10 animate-pulse rounded-lg bg-[var(--bg-surface)]"
+            className="h-10 animate-pulse rounded-lg bg-(--bg-surface)"
             style={{ width: row.width }}
           />
         </div>

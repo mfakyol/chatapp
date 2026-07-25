@@ -90,7 +90,7 @@ export const createGroupConversation = (name: string, usernames: string[]) =>
     body: JSON.stringify({ name, usernames }),
   });
 
-/** Multipart upload — hand-rolled fetch (not JSON) but returns the same Result shape. */
+
 export async function sendAttachment(
   conversationId: string,
   file: File

@@ -12,14 +12,14 @@ export interface ChatSocketContext {
   setActive: Dispatch<SetStateAction<Conversation | null>>;
 }
 
-// Monotonic sequence so an older refetch response can never clobber a newer
-// one (or one from a previous subscription).
+
+
 let refetchSeq = 0;
 
 function refetchConversations(ctx: ChatSocketContext): void {
   const seq = ++refetchSeq;
   getConversations().then((res) => {
-    if (seq !== refetchSeq) return; // superseded
+    if (seq !== refetchSeq) return; 
     if (res.success) ctx.setConversations(res.data.conversations);
   });
 }
@@ -31,8 +31,8 @@ function handleNewMessage(
   const isActive = message.conversation === ctx.getActiveConversationId();
   const fromSelf = message.sender.username === ctx.currentUsername;
 
-  // Side effects stay OUTSIDE the state updater — updaters must be pure
-  // (StrictMode runs them twice, which would double the refetch).
+  
+  
   const known = ctx.getConversations().some((c) => c._id === message.conversation);
   if (!known) {
     refetchConversations(ctx);
@@ -104,16 +104,12 @@ function handleConversationNew(
   );
 }
 
-/**
- * Subscribes to conversation-level socket events. Returns an unsubscribe
- * function. Uses connectSocket() (idempotent) so subscribing can never
- * silently no-op because the socket wasn't created yet.
- */
+
 export function subscribeChatSocket(ctx: ChatSocketContext): () => void {
   const socket = connectSocket();
 
-  // The FIRST 'connect' of a fresh socket is not a reconnect — the page's own
-  // initial fetch already covers it. Only later connects resync.
+  
+  
   let everConnected = socket.connected;
   const onReconnect = () => {
     if (!everConnected) {
@@ -138,7 +134,7 @@ export function subscribeChatSocket(ctx: ChatSocketContext): () => void {
   socket.on('conversation:deleted', onConversationGone);
 
   return () => {
-    refetchSeq++; // invalidate any in-flight refetch for this subscription
+    refetchSeq++; 
     socket.off('connect', onReconnect);
     socket.off('message:new', onNewMessage);
     socket.off('conversation:new', onConversationNew);

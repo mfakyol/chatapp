@@ -2,9 +2,11 @@
 
 import { IconArrowLeft, IconSearch } from '@tabler/icons-react';
 import { Avatar } from '@/components/ui/Avatar';
-import { t } from '@/i18n';
+import { Button } from '@/components/ui/Button';
+import { PanelHeader } from '@/components/ui/PanelHeader';
+import { useT } from '@/hooks/useT';
 
-/** Conversation header: identity, presence/typing subline, search toggle. */
+
 export function ChatHeader({
   title,
   subtitle,
@@ -20,27 +22,33 @@ export function ChatHeader({
   onOpenProfile: () => void;
   onToggleSearch: () => void;
 }) {
+  const { t } = useT();
   return (
-    <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
+    <PanelHeader surface>
       {onBack && (
-        <button onClick={onBack} className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] md:hidden">
+        <Button variant="icon" onClick={onBack} className="md:hidden" aria-label={t('common.cancel')}>
           <IconArrowLeft size={20} />
-        </button>
+        </Button>
       )}
-      <button onClick={onOpenProfile} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+      <Button
+        variant="unstyled"
+        onClick={onOpenProfile}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
         <Avatar name={title} isOnline={isOnline} size={40} />
         <div className="min-w-0">
-          <p className="truncate font-medium text-[var(--text-normal)]">{title}</p>
-          <p className="truncate text-xs text-[var(--text-muted)]">{subtitle}</p>
+          <p className="truncate font-medium text-(--text-normal)">{title}</p>
+          <p className="truncate text-xs text-(--text-muted)">{subtitle}</p>
         </div>
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="icon"
         onClick={onToggleSearch}
-        className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
         title={t('chat.searchInConversation')}
+        aria-label={t('chat.searchInConversation')}
       >
         <IconSearch size={20} />
-      </button>
-    </div>
+      </Button>
+    </PanelHeader>
   );
 }

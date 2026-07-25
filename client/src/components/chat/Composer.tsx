@@ -14,7 +14,11 @@ import { useDraftStore } from '@/stores/draft.store';
 import { sendAttachment } from '@/services/conversation.service';
 import { messagePreview } from '@/lib/format';
 import { useDismiss } from '@/hooks/useDismiss';
-import { t } from '@/i18n';
+import { useT } from '@/hooks/useT';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { FormError } from '@/components/ui/FormError';
+import { EmojiPicker } from '@/components/ui/EmojiPicker';
 
 const EMOJIS = [
   '😀', '😂', '😍', '😊', '😉', '😎', '🤔', '😢', '😭', '😡',
@@ -22,16 +26,12 @@ const EMOJIS = [
   '😴', '😅', '🙌', '🤝', '👋', '🤷', '😱', '🥳', '🤩', '😇',
 ];
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // keep in sync with the server's Multer limit
+const MAX_FILE_BYTES = 10 * 1024 * 1024; 
 
 const ACCEPTED_FILES =
   'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z';
 
-/**
- * Message composer: draft + typing signals, emoji picker, attachment upload,
- * reply preview. Owns its own keystroke state so typing never re-renders the
- * message list; remounted per conversation via the parent's key.
- */
+
 export function Composer({
   conversationId,
   replyingTo,
@@ -41,10 +41,11 @@ export function Composer({
   conversationId: string;
   replyingTo: Message | null;
   onCancelReply: () => void;
-  /** Returns false when the send failed — the draft is restored. */
+  
   onSend: (content: string, replyToId?: string) => Promise<boolean>;
 }) {
-  // Restore the parked draft for this chat (WhatsApp keeps per-chat drafts).
+  const { t } = useT();
+  
   const [draft, setDraft] = useState(
     () => useDraftStore.getState().drafts[conversationId] ?? ''
   );
@@ -74,8 +75,8 @@ export function Composer({
     }
   }
 
-  // Cut the typing signal when the composer unmounts (conversation switch),
-  // and park the in-progress draft so it's restored when the chat is reopened.
+  
+  
   useEffect(() => {
     return () => {
       stopTyping();
@@ -83,19 +84,18 @@ export function Composer({
       if (draftRef.current.trim()) park(conversationId, draftRef.current);
       else clearDraft(conversationId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, []);
 
-  // Picking a message to reply to focuses the input.
+  
   useEffect(() => {
     if (replyingTo) inputRef.current?.focus();
   }, [replyingTo]);
 
   function handleDraftChange(value: string) {
     setDraft(value);
-    const socket = getSocket();
     if (!isTypingRef.current) {
-      socket?.emit('typing:start', { conversationId });
+      getSocket()?.emit('typing:start', { conversationId });
       isTypingRef.current = true;
     }
     if (typingStopTimeoutRef.current) clearTimeout(typingStopTimeoutRef.current);
@@ -128,7 +128,7 @@ export function Composer({
     if (!file) return;
     if (fileInputRef.current) fileInputRef.current.value = '';
 
-    // Pre-check the server's limit — don't upload 50MB just to get a 400 back.
+    
     if (file.size > MAX_FILE_BYTES) {
       showUploadError(t('chat.fileTooLarge', { max: '10 MB' }));
       return;
@@ -143,48 +143,37 @@ export function Composer({
   return (
     <>
       {replyingTo && (
-        <div className="flex items-center gap-2 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 pt-2">
-          <IconArrowBackUp size={16} className="shrink-0 text-[var(--brand)]" />
-          <div className="min-w-0 flex-1 border-l-2 border-[var(--brand)] pl-2">
-            <p className="text-xs font-semibold text-[var(--brand)]">
+        <div className="flex items-center gap-2 border-t border-(--border) bg-(--bg-surface) px-4 pt-2">
+          <IconArrowBackUp size={16} className="shrink-0 text-(--brand)" />
+          <div className="min-w-0 flex-1 border-l-2 border-(--brand) pl-2">
+            <p className="text-xs font-semibold text-(--brand)">
               {t('chat.replyingTo', {
                 name: replyingTo.sender.firstName || replyingTo.sender.username,
               })}
             </p>
-            <p className="truncate text-xs text-[var(--text-muted)]">{messagePreview(replyingTo)}</p>
+            <p className="truncate text-xs text-(--text-muted)">{messagePreview(replyingTo)}</p>
           </div>
-          <button
+          <Button
+            variant="iconSm"
             onClick={onCancelReply}
             title={t('common.cancel')}
             aria-label={t('common.cancel')}
-            className="rounded-full p-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
           >
             <IconX size={16} />
-          </button>
+          </Button>
         </div>
       )}
 
       {uploadError && (
-        <div className="border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 pt-2">
-          <p className="text-xs text-[var(--danger)]">{uploadError}</p>
+        <div className="border-t border-(--border) bg-(--bg-surface) px-4 pt-2">
+          <FormError size="xs">{uploadError}</FormError>
         </div>
       )}
 
-      <div className="relative flex items-center gap-2 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
+      <div className="relative flex items-center gap-2 border-t border-(--border) bg-(--bg-surface) px-4 py-3">
         {showEmoji && (
-          <div
-            data-dismiss-root
-            className="absolute bottom-full left-4 mb-2 grid grid-cols-6 gap-1 rounded-md bg-[var(--bg-surface)] p-2 shadow-lg"
-          >
-            {EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => handleEmojiPick(emoji)}
-                className="rounded p-1 text-xl hover:bg-[var(--bg-hover)]"
-              >
-                {emoji}
-              </button>
-            ))}
+          <div data-dismiss-root className="absolute bottom-full left-4 mb-2">
+            <EmojiPicker emojis={EMOJIS} onPick={handleEmojiPick} />
           </div>
         )}
         <input
@@ -194,26 +183,27 @@ export function Composer({
           accept={ACCEPTED_FILES}
           onChange={handleFileChange}
         />
-        <button
+        <Button
+          variant="icon"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
           title={t('chat.attachFile')}
           aria-label={t('chat.attachFile')}
-          className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] disabled:opacity-50"
         >
           <IconPaperclip size={20} />
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="icon"
           data-dismiss-root
           onClick={() => setShowEmoji((v) => !v)}
           title={t('chat.emoji')}
           aria-label={t('chat.emoji')}
-          className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
         >
           <IconMoodSmile size={20} />
-        </button>
-        <input
+        </Button>
+        <Input
           ref={inputRef}
+          variant="pill"
           value={draft}
           onChange={(e) => handleDraftChange(e.target.value)}
           onKeyDown={(e) => {
@@ -221,15 +211,10 @@ export function Composer({
             if (e.key === 'Escape' && replyingTo) onCancelReply();
           }}
           placeholder={uploading ? t('chat.uploading') : t('chat.typeMessage')}
-          className="flex-1 rounded-full bg-[var(--bg-elevated)] px-4 py-2 text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
         />
-        <button
-          onClick={handleSend}
-          aria-label={t('chat.send')}
-          className="rounded-full bg-[var(--brand)] p-2.5 text-[var(--brand-text)] hover:bg-[var(--brand-hover)]"
-        >
+        <Button variant="iconBrand" onClick={handleSend} aria-label={t('chat.send')}>
           <IconSend size={18} />
-        </button>
+        </Button>
       </div>
     </>
   );

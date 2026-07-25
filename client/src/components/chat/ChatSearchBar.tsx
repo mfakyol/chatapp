@@ -1,10 +1,12 @@
 'use client';
 
-import { IconSearch, IconX } from '@tabler/icons-react';
 import { MessageSearchResult } from '@/types';
-import { t } from '@/i18n';
+import { useT } from '@/hooks/useT';
+import { SearchField } from '@/components/ui/SearchField';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ListRowButton } from '@/components/ui/ListRowButton';
 
-/** In-conversation message search: input + result list. */
+
 export function ChatSearchBar({
   query,
   results,
@@ -18,37 +20,35 @@ export function ChatSearchBar({
   onClose: () => void;
   onPick: (messageId: string) => void;
 }) {
+  const { t } = useT();
   return (
-    <div className="border-b border-[var(--border)] bg-[var(--bg-app)] p-3">
-      <div className="flex items-center gap-2 rounded-md bg-[var(--bg-elevated)] px-3 py-2">
-        <IconSearch size={16} className="text-[var(--text-muted)]" />
-        <input
-          autoFocus
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          placeholder={t('chat.searchPlaceholder')}
-          className="w-full bg-transparent text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
-        />
-        <button onClick={onClose} className="text-[var(--text-muted)]">
-          <IconX size={16} />
-        </button>
-      </div>
+    <div className="border-b border-(--border) bg-(--bg-app) p-3">
+      <SearchField
+        autoFocus
+        value={query}
+        onChange={onQueryChange}
+        onClear={onClose}
+        placeholder={t('chat.searchPlaceholder')}
+      />
       {query.trim() && (
         <div className="mt-2 max-h-48 overflow-y-auto">
           {results.length === 0 && (
-            <p className="p-2 text-xs text-[var(--text-muted)]">{t('chat.noMessagesFound')}</p>
+            <EmptyState size="xs" className="p-2">
+              {t('chat.noMessagesFound')}
+            </EmptyState>
           )}
           {results.map((m) => (
-            <button
+            <ListRowButton
               key={m._id}
+              align="start"
+              className="flex-col items-start gap-0 rounded px-2 py-2"
               onClick={() => onPick(m._id)}
-              className="flex w-full flex-col items-start rounded px-2 py-2 text-left hover:bg-[var(--bg-hover)]"
             >
-              <span className="text-xs font-medium text-[var(--brand)]">{m.sender.firstName}</span>
-              <span className="truncate text-sm text-[var(--text-normal)]">
+              <span className="text-xs font-medium text-(--brand)">{m.sender.firstName}</span>
+              <span className="truncate text-sm text-(--text-normal)">
                 {m.attachment ? `📎 ${m.attachment.fileName}` : m.content}
               </span>
-            </button>
+            </ListRowButton>
           ))}
         </div>
       )}

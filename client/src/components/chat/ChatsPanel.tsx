@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconSearch } from '@tabler/icons-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Conversation, MessageSearchResult, PublicUser } from '@/types';
 import { searchMessages } from '@/services/conversation.service';
 import { useDraftStore } from '@/stores/draft.store';
 import { conversationName, fullName, otherParticipant } from '@/lib/utils';
-import { t } from '@/i18n';
+import { useT } from '@/hooks/useT';
+import { SearchField } from '@/components/ui/SearchField';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ListRowButton } from '@/components/ui/ListRowButton';
 
-/** Chats tab: global message search + the conversation list. */
+
 export function ChatsPanel({
   conversations,
   activeConversationId,
@@ -25,15 +27,16 @@ export function ChatsPanel({
   onSelect: (conversation: Conversation) => void;
   onOpenSearchResult: (conversationId: string, messageId: string) => void;
 }) {
+  const { t } = useT();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MessageSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
-  // Parked composer drafts (written when a chat is switched away from). The
-  // open chat's live draft lives in its Composer, so it's not shown here.
+  
+  
   const drafts = useDraftStore((s) => s.drafts);
 
-  // Debounced search; the cancelled flag prevents an older response from
-  // clobbering a newer query's results (out-of-order race).
+  
+  
   useEffect(() => {
     const q = query.trim();
     if (!q) return;
@@ -58,8 +61,8 @@ export function ChatsPanel({
   }
 
   function resultConversationName(m: MessageSearchResult): string {
-    // Resolve the display name from our own conversation list (the search
-    // payload carries only the conversation id/name/type, not its members).
+    
+    
     const convo = conversations.find((c) => c._id === m.conversation._id);
     if (convo) return conversationName(convo, currentUsername);
     return m.conversation.name || fullName(m.sender);
@@ -73,74 +76,68 @@ export function ChatsPanel({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-        <IconSearch size={16} className="text-[var(--text-muted)]" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('sidebar.searchMessages')}
-          className="w-full bg-transparent py-1 text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
-        />
-      </div>
+      <SearchField
+        variant="bordered"
+        className="py-1"
+        value={query}
+        onChange={setQuery}
+        placeholder={t('sidebar.searchMessages')}
+      />
 
       {query.trim() ? (
         <div>
-          {searching && <p className="p-4 text-sm text-[var(--text-muted)]">{t('sidebar.searching')}</p>}
+          {searching && <EmptyState>{t('sidebar.searching')}</EmptyState>}
           {!searching && shownResults.length === 0 && (
-            <p className="p-4 text-sm text-[var(--text-muted)]">{t('sidebar.noMessagesFound')}</p>
+            <EmptyState>{t('sidebar.noMessagesFound')}</EmptyState>
           )}
           {shownResults.map((m) => (
-            <button
+            <ListRowButton
               key={m._id}
+              align="start"
               onClick={() => onOpenSearchResult(m.conversation._id, m._id)}
-              className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-[var(--bg-hover)]"
             >
               <Avatar name={resultConversationName(m)} size={36} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
-                  <p className="truncate text-sm font-medium text-[var(--text-normal)]">
+                  <p className="truncate text-sm font-medium text-(--text-normal)">
                     {resultConversationName(m)}
                   </p>
-                  <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+                  <span className="shrink-0 text-[10px] text-(--text-muted)">
                     {new Date(m.createdAt).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="truncate text-xs text-[var(--text-muted)]">
+                <p className="truncate text-xs text-(--text-muted)">
                   {m.sender.username === currentUsername ? t('sidebar.you') : `${m.sender.firstName}: `}
                   {snippet(m)}
                 </p>
               </div>
-            </button>
+            </ListRowButton>
           ))}
         </div>
       ) : (
         <>
-          {conversations.length === 0 && (
-            <p className="p-4 text-sm text-[var(--text-muted)]">{t('sidebar.noConversations')}</p>
-          )}
+          {conversations.length === 0 && <EmptyState>{t('sidebar.noConversations')}</EmptyState>}
           {conversations.map((c) => {
             const other = !c.isGroup ? otherParticipant(c, currentUsername) : undefined;
             const draft = c._id !== activeConversationId ? drafts[c._id]?.trim() : undefined;
             return (
-              <button
+              <ListRowButton
                 key={c._id}
+                active={activeConversationId === c._id}
                 onClick={() => onSelect(c)}
-                className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[var(--bg-hover)] ${
-                  activeConversationId === c._id ? 'bg-[var(--bg-elevated)]' : ''
-                }`}
               >
                 <Avatar
                   name={conversationName(c, currentUsername)}
                   isOnline={!c.isGroup && !!other && isUserOnline(other)}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[var(--text-normal)]">
+                  <p className="truncate text-sm font-medium text-(--text-normal)">
                     {conversationName(c, currentUsername)}
                   </p>
-                  <p className="truncate text-xs text-[var(--text-muted)]">
+                  <p className="truncate text-xs text-(--text-muted)">
                     {draft ? (
                       <>
-                        <span className="font-medium text-[var(--brand)]">{t('sidebar.draft')}</span>{' '}
+                        <span className="font-medium text-(--brand)">{t('sidebar.draft')}</span>{' '}
                         {draft}
                       </>
                     ) : (
@@ -149,11 +146,11 @@ export function ChatsPanel({
                   </p>
                 </div>
                 {!!c.unreadCount && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand)] px-1.5 text-xs font-medium text-[var(--brand-text)]">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-(--brand) px-1.5 text-xs font-medium text-(--brand-text)">
                     {c.unreadCount}
                   </span>
                 )}
-              </button>
+              </ListRowButton>
             );
           })}
         </>

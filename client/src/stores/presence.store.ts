@@ -8,7 +8,7 @@ export interface PresenceEntry {
 interface PresenceState {
   presence: Record<string, PresenceEntry>;
   setPresence: (userId: string, entry: PresenceEntry) => void;
-  /** Clear everything — presence must not leak across accounts on logout. */
+  
   reset: () => void;
 }
 

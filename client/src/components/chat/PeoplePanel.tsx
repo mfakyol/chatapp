@@ -3,21 +3,26 @@
 import { useEffect, useState } from 'react';
 import {
   IconCheck,
-  IconSearch,
   IconUserMinus,
   IconUserPlus,
   IconUsersGroup,
   IconX,
 } from '@tabler/icons-react';
-import { Avatar } from '@/components/ui/Avatar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { Button } from '@/components/ui/Button';
+import { FormError } from '@/components/ui/FormError';
+import { SearchField } from '@/components/ui/SearchField';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SectionHeading } from '@/components/ui/SectionHeading';
+import { UserRow } from '@/components/ui/UserRow';
+import { PanelSectionHeader } from '@/components/ui/PanelSectionHeader';
 import { NewGroupForm } from '@/components/chat/NewGroupForm';
 import { Conversation, FriendRequests, PublicUser } from '@/types';
 import { searchUsers, sendFriendRequest } from '@/services/user.service';
 import { fullName } from '@/lib/utils';
-import { t } from '@/i18n';
+import { useT } from '@/hooks/useT';
 
-/** People tab: user search, friend requests, friends list, group creation. */
+
 export function PeoplePanel({
   friends,
   requests,
@@ -37,14 +42,13 @@ export function PeoplePanel({
   onStartChat: (username: string) => Promise<string | null>;
   onConversationCreated: (conversation: Conversation) => void;
 }) {
+  const { t } = useT();
   const { confirm, confirmDialog } = useConfirm();
   const [groupMode, setGroupMode] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PublicUser[]>([]);
   const [error, setError] = useState('');
 
-  // Debounced search; the cancelled flag prevents an older response from
-  // clobbering a newer query's results (out-of-order race).
   useEffect(() => {
     const q = query.trim();
     if (!q) return;
@@ -83,120 +87,107 @@ export function PeoplePanel({
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      {error && <p className="mb-3 text-sm text-[var(--danger)]">{error}</p>}
+      {error && <FormError className="mb-3">{error}</FormError>}
 
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[var(--text-normal)]">
-          {groupMode ? t('sidebar.groupHeading') : t('sidebar.searchHeading')}
-        </h3>
-        <button
-          onClick={() => {
-            setGroupMode((v) => !v);
-            setError('');
-          }}
-          className="flex items-center gap-1 text-xs text-[var(--brand)] hover:underline"
-        >
-          <IconUsersGroup size={16} /> {groupMode ? t('sidebar.cancel') : t('sidebar.newGroup')}
-        </button>
-      </div>
+      <PanelSectionHeader
+        title={groupMode ? t('sidebar.groupHeading') : t('sidebar.searchHeading')}
+        action={
+          <Button
+            variant="linkXsIcon"
+            onClick={() => {
+              setGroupMode((v) => !v);
+              setError('');
+            }}
+          >
+            <IconUsersGroup size={16} /> {groupMode ? t('sidebar.cancel') : t('sidebar.newGroup')}
+          </Button>
+        }
+      />
 
       {groupMode ? (
         <NewGroupForm friends={friends} onCreated={onConversationCreated} />
       ) : (
         <>
-          <div className="mb-4 flex items-center gap-2 rounded-md bg-[var(--bg-elevated)] px-3 py-2">
-            <IconSearch size={16} className="text-[var(--text-muted)]" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('sidebar.searchUsername')}
-              className="w-full bg-transparent text-sm text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none"
-            />
-          </div>
+          <SearchField
+            wrapperClassName="mb-4"
+            value={query}
+            onChange={setQuery}
+            placeholder={t('sidebar.searchUsername')}
+          />
 
           {query.trim() && (
             <div className="mb-6">
-              {shownResults.length === 0 && <p className="text-xs text-[var(--text-muted)]">{t('sidebar.noUsersFound')}</p>}
+              {shownResults.length === 0 && (
+                <EmptyState size="xs">{t('sidebar.noUsersFound')}</EmptyState>
+              )}
               {shownResults.map((u) => (
-                <div key={u.username} className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <Avatar name={fullName(u)} size={32} />
-                    <div>
-                      <p className="text-sm text-[var(--text-normal)]">{fullName(u)}</p>
-                      <p className="text-xs text-[var(--text-muted)]">@{u.username}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleAddFriend(u.username)}
-                    className="rounded-full p-2 text-[var(--brand)] hover:bg-[var(--bg-hover)]"
-                    title={t('sidebar.addFriend')}
-                  >
-                    <IconUserPlus size={18} />
-                  </button>
-                </div>
+                <UserRow
+                  key={u.username}
+                  name={fullName(u)}
+                  username={u.username}
+                  actions={
+                    <Button
+                      variant="iconAccent"
+                      onClick={() => handleAddFriend(u.username)}
+                      title={t('sidebar.addFriend')}
+                      aria-label={t('sidebar.addFriend')}
+                    >
+                      <IconUserPlus size={18} />
+                    </Button>
+                  }
+                />
               ))}
             </div>
           )}
 
           {requests.received.length > 0 && (
             <div className="mb-6">
-              <h4 className="mb-2 text-xs font-semibold uppercase text-[var(--text-muted)]">{t('sidebar.friendRequests')}</h4>
+              <SectionHeading className="mb-2">{t('sidebar.friendRequests')}</SectionHeading>
               {requests.received.map((u) => (
-                <div key={u.username} className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <Avatar name={fullName(u)} size={32} />
-                    <div>
-                      <p className="text-sm text-[var(--text-normal)]">{fullName(u)}</p>
-                      <p className="text-xs text-[var(--text-muted)]">@{u.username}</p>
+                <UserRow
+                  key={u.username}
+                  name={fullName(u)}
+                  username={u.username}
+                  actions={
+                    <div className="flex gap-1">
+                      <Button variant="iconAccent" onClick={() => onAccept(u.username)} aria-label={t('common.confirm')}>
+                        <IconCheck size={18} />
+                      </Button>
+                      <Button variant="iconDanger" onClick={() => onDecline(u.username)} aria-label={t('common.cancel')}>
+                        <IconX size={18} />
+                      </Button>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => onAccept(u.username)}
-                      className="rounded-full p-2 text-[var(--brand)] hover:bg-[var(--bg-hover)]"
-                    >
-                      <IconCheck size={18} />
-                    </button>
-                    <button
-                      onClick={() => onDecline(u.username)}
-                      className="rounded-full p-2 text-[var(--danger)] hover:bg-[var(--bg-hover)]"
-                    >
-                      <IconX size={18} />
-                    </button>
-                  </div>
-                </div>
+                  }
+                />
               ))}
             </div>
           )}
 
           <div>
-            <h4 className="mb-2 text-xs font-semibold uppercase text-[var(--text-muted)]">{t('sidebar.friends')}</h4>
-            {friends.length === 0 && <p className="text-xs text-[var(--text-muted)]">{t('sidebar.noFriends')}</p>}
+            <SectionHeading className="mb-2">{t('sidebar.friends')}</SectionHeading>
+            {friends.length === 0 && <EmptyState size="xs">{t('sidebar.noFriends')}</EmptyState>}
             {friends.map((f) => (
-              <div key={f.username} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-2">
-                  <Avatar name={fullName(f)} isOnline={isUserOnline(f)} size={32} />
-                  <div>
-                    <p className="text-sm text-[var(--text-normal)]">{fullName(f)}</p>
-                    <p className="text-xs text-[var(--text-muted)]">@{f.username}</p>
+              <UserRow
+                key={f.username}
+                name={fullName(f)}
+                username={f.username}
+                isOnline={isUserOnline(f)}
+                actions={
+                  <div className="flex items-center gap-1">
+                    <Button variant="linkXs" onClick={() => handleStartChat(f.username)}>
+                      {t('sidebar.message')}
+                    </Button>
+                    <Button
+                      variant="iconDangerSm"
+                      onClick={() => handleUnfriend(f.username)}
+                      title={t('sidebar.unfriend')}
+                      aria-label={t('sidebar.unfriend')}
+                    >
+                      <IconUserMinus size={16} />
+                    </Button>
                   </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleStartChat(f.username)}
-                    className="text-xs text-[var(--brand)] hover:underline"
-                  >
-                    {t('sidebar.message')}
-                  </button>
-                  <button
-                    onClick={() => handleUnfriend(f.username)}
-                    title={t('sidebar.unfriend')}
-                    className="rounded-full p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--danger)]"
-                  >
-                    <IconUserMinus size={16} />
-                  </button>
-                </div>
-              </div>
+                }
+              />
             ))}
           </div>
         </>

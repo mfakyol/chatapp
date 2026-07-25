@@ -3,10 +3,15 @@
 import { useEffect } from 'react';
 import { t } from '@/i18n';
 
-/**
- * Last-resort boundary: replaces the root layout, so it must render its own
- * <html>/<body> and cannot rely on globals.css (inline styles only).
- */
+
+const tokens = {
+  bgChat: '#313338',
+  textNormal: '#dbdee1',
+  brand: '#5865f2',
+  brandText: '#ffffff',
+} as const;
+
+
 export default function GlobalError({
   error,
   reset,
@@ -29,8 +34,8 @@ export default function GlobalError({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 16,
-          background: '#313338',
-          color: '#dbdee1',
+          background: tokens.bgChat,
+          color: tokens.textNormal,
           fontFamily: 'system-ui, sans-serif',
         }}
       >
@@ -40,8 +45,8 @@ export default function GlobalError({
           style={{
             border: 'none',
             borderRadius: 6,
-            background: '#5865f2',
-            color: '#fff',
+            background: tokens.brand,
+            color: tokens.brandText,
             padding: '8px 16px',
             fontSize: 14,
             fontWeight: 500,

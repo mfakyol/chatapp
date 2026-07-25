@@ -10,11 +10,11 @@ function applyTheme(theme: Theme): void {
   try {
     localStorage.setItem(STORAGE_KEY, theme);
   } catch {
-    // ignore storage failures (private mode, etc.)
+    
   }
 }
 
-/** Read the theme the no-FOUC script already applied to <html>; default dark. */
+
 function initialTheme(): Theme {
   if (typeof document !== 'undefined') {
     const attr = document.documentElement.getAttribute('data-theme');

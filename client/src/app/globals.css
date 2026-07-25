@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Discord-inspired dark theme (default). */
 :root,
 :root[data-theme="dark"] {
   --bg-app: #1e1f22;
@@ -19,15 +18,21 @@
   --online: #23a55a;
   --danger: #f23f42;
   --tick: #53bdeb;
+  --header-scrolled: #313338;
+  --header-glass: rgba(49, 51, 56, 0.5);
+  --input-bg: var(--bg-elevated);
+  --input-border: #4e5058;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #4e5058;
+  --scrollbar-thumb-hover: #6d6f78;
 }
 
-/* Discord-inspired light theme. */
 :root[data-theme="light"] {
-  --bg-app: #e3e5e8;
+  --bg-app: #f1f5fa;
   --bg-chat: #ffffff;
   --bg-surface: #f2f3f5;
   --bg-elevated: #e3e5e8;
-  --bg-hover: #ebedef;
+  --bg-hover: #e8ebf0;
   --bubble-own: #5865f2;
   --bubble-own-text: #ffffff;
   --border: #d7d9dc;
@@ -39,6 +44,35 @@
   --online: #1a9c4c;
   --danger: #d83c3e;
   --tick: #1d9bd1;
+  --header-scrolled: #ffffff;
+  --header-glass: rgba(255, 255, 255, 0.5);
+  --input-bg: #ffffff;
+  --input-border: #d7d9dc;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #c4c9cf;
+  --scrollbar-thumb-hover: #a8adb4;
+}
+
+.home-header {
+  background-color: var(--header-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.home-cta-card {
+  color: var(--text-normal);
+}
+
+.auth-card {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .auth-card {
+    background: var(--bg-chat);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+  }
 }
 
 @theme inline {
@@ -50,4 +84,34 @@ body {
   background: var(--bg-app);
   color: var(--text-normal);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Theme-aware scrollbars (Firefox + WebKit) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
 }

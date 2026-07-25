@@ -1,7 +1,8 @@
 'use client';
 
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { t } from '@/i18n';
+import { useT } from '@/hooks/useT';
+import { Button } from '@/components/ui/Button';
 
 function ConfirmDialog({
   message,
@@ -12,6 +13,7 @@ function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onCancel();
@@ -28,35 +30,24 @@ function ConfirmDialog({
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-xs rounded-lg bg-[var(--bg-surface)] p-4 shadow-xl"
+        className="w-full max-w-xs rounded-lg bg-(--bg-surface) p-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-sm text-[var(--text-normal)]">{message}</p>
+        <p className="text-sm text-(--text-normal)">{message}</p>
         <div className="mt-4 flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="rounded-md px-3 py-1.5 text-sm text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
-          >
+          <Button variant="ghost" onClick={onCancel}>
             {t('common.cancel')}
-          </button>
-          <button
-            autoFocus
-            onClick={onConfirm}
-            className="rounded-md bg-[var(--danger)] px-3 py-1.5 text-sm font-medium text-white"
-          >
+          </Button>
+          <Button variant="danger" autoFocus onClick={onConfirm}>
             {t('common.confirm')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
   );
 }
 
-/**
- * Promise-based confirmation, replacing `window.confirm` (blocking, unthemed).
- * Usage: `const { confirm, confirmDialog } = useConfirm();` — render
- * `{confirmDialog}` once, then `if (!(await confirm('...'))) return;`.
- */
+
 export function useConfirm(): {
   confirm: (message: string) => Promise<boolean>;
   confirmDialog: ReactNode;

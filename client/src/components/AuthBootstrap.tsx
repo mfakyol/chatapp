@@ -1,19 +1,15 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth.store';
 import { usePresenceStore } from '@/stores/presence.store';
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { disconnectSocket } from '@/lib/socket';
 
-/**
- * Runs the session-restore once at app start, and reacts to `app:unauthorized`
- * (fired by the api layer on any 401): a logged-in user whose session expired
- * is signed out and sent to /login instead of staring at a broken app.
- */
+
 export default function AuthBootstrap() {
   const bootstrap = useAuthStore((s) => s.bootstrap);
-  const router = useRouter();
+  const router = useLocalizedRouter();
 
   useEffect(() => {
     bootstrap();
@@ -21,7 +17,7 @@ export default function AuthBootstrap() {
 
   useEffect(() => {
     function onUnauthorized() {
-      if (!useAuthStore.getState().user) return; // not logged in — nothing to do
+      if (!useAuthStore.getState().user) return;
       useAuthStore.setState({ user: null });
       disconnectSocket();
       usePresenceStore.getState().reset();

@@ -10,21 +10,20 @@ export type { RegisterPayload };
 interface AuthState {
   user: PublicUser | null;
   loading: boolean;
-  /** Restore the session (httpOnly cookie) on app start. */
+  
   bootstrap: () => Promise<void>;
   login: (identifier: string, password: string) => Promise<Result<void>>;
   register: (payload: RegisterPayload) => Promise<Result<void>>;
   logout: () => void;
 }
 
-// Navigation is intentionally left out of the store (it needs the router hook);
-// the `useAuth` hook wraps these actions and handles routing.
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
 
   bootstrap: async () => {
-    // The cookie is httpOnly (invisible to JS) — just ask the server who we are.
+    
     const res = await authService.me();
     if (res.success) {
       set({ user: res.data.user });
@@ -50,7 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    authService.logout(); // fire-and-forget: destroys the server-side session
+    authService.logout(); 
     set({ user: null });
     disconnectSocket();
     usePresenceStore.getState().reset();

@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import request from 'supertest';
 import type { Express } from 'express';
 import Conversation from '../src/models/Conversation';
 import ConversationMember from '../src/models/ConversationMember';
@@ -114,6 +113,28 @@ describe('messages', () => {
     const a = await registerUser(app);
     const res = await a.agent.get('/api/conversations/not-an-id/messages');
     expect(res.status).toBe(400);
+  });
+
+  it('rate-limits message sending per USER, not per IP', async () => {
+    const { a, b } = await makeFriends(app);
+    const convoId = await directConvo(a);
+    await b.agent.post('/api/conversations/direct').send({ username: 'alice' });
+
+    // Exhaust A's per-user bucket (15 / 5s) from the shared test IP.
+    let limited = 0;
+    for (let i = 0; i < 16; i++) {
+      const res = await a.agent
+        .post(`/api/conversations/${convoId}/messages`)
+        .send({ content: `spam ${i}` });
+      if (res.status === 429) limited++;
+    }
+    expect(limited).toBeGreaterThan(0);
+
+    // B shares the IP but has their own bucket — still allowed to send.
+    const other = await b.agent
+      .post(`/api/conversations/${convoId}/messages`)
+      .send({ content: 'from bob' });
+    expect(other.status).toBe(201);
   });
 
   it('marks read via lastReadAt pointer and reports unread counts', async () => {

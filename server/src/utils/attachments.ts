@@ -97,6 +97,23 @@ export function assertSafeFilename(filename: string): void {
 }
 
 /**
+ * Best-effort removal of the on-disk file behind an attachment URL. Called when
+ * the owning message (or its whole conversation) is deleted, so uploads never
+ * leak as orphans. Failures are swallowed — the DB delete must not roll back
+ * because a file was already gone.
+ */
+export async function removeAttachmentFileByUrl(url: string | undefined): Promise<void> {
+  if (!url) return;
+  const filename = path.posix.basename(url);
+  try {
+    assertSafeFilename(filename);
+    await fs.unlink(path.join(UPLOADS_DIR, filename));
+  } catch {
+    // already gone or unsafe name — nothing to clean up
+  }
+}
+
+/**
  * Verify on-disk bytes match an allowed type. Deletes the file and throws when
  * validation fails so callers can return 400 to the uploader.
  */

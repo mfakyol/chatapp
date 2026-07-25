@@ -15,7 +15,12 @@ export function t(key: string, params?: Params): string {
       return undefined;
     }, messages);
 
-  if (typeof resolved !== 'string') return key;
+  if (typeof resolved !== 'string') {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[i18n] missing message key: ${key}`);
+    }
+    return key;
+  }
   if (!params) return resolved;
 
   return Object.entries(params).reduce(

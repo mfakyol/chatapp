@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { Message } from '@/types';
 import { getSocket } from '@/lib/socket';
+import { useDraftStore } from '@/stores/draft.store';
 import { sendAttachment } from '@/services/conversation.service';
 import { messagePreview } from '@/lib/format';
 import { useDismiss } from '@/hooks/useDismiss';
@@ -43,7 +44,14 @@ export function Composer({
   /** Returns false when the send failed — the draft is restored. */
   onSend: (content: string, replyToId?: string) => Promise<boolean>;
 }) {
-  const [draft, setDraft] = useState('');
+  // Restore the parked draft for this chat (WhatsApp keeps per-chat drafts).
+  const [draft, setDraft] = useState(
+    () => useDraftStore.getState().drafts[conversationId] ?? ''
+  );
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
   const [showEmoji, setShowEmoji] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -66,9 +74,15 @@ export function Composer({
     }
   }
 
-  // Cut the typing signal when the composer unmounts (conversation switch).
+  // Cut the typing signal when the composer unmounts (conversation switch),
+  // and park the in-progress draft so it's restored when the chat is reopened.
   useEffect(() => {
-    return stopTyping;
+    return () => {
+      stopTyping();
+      const { setDraft: park, clearDraft } = useDraftStore.getState();
+      if (draftRef.current.trim()) park(conversationId, draftRef.current);
+      else clearDraft(conversationId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

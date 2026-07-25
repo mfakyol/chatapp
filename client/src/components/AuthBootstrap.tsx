@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth.store';
+import { usePresenceStore } from '@/stores/presence.store';
 import { disconnectSocket } from '@/lib/socket';
 
 /**
@@ -23,6 +24,7 @@ export default function AuthBootstrap() {
       if (!useAuthStore.getState().user) return; // not logged in — nothing to do
       useAuthStore.setState({ user: null });
       disconnectSocket();
+      usePresenceStore.getState().reset();
       router.replace('/login');
     }
     window.addEventListener('app:unauthorized', onUnauthorized);

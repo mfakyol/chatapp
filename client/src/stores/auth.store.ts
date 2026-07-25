@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Result } from '@/lib/api';
 import * as authService from '@/services/auth.service';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
+import { usePresenceStore } from '@/stores/presence.store';
 import { PublicUser, RegisterPayload } from '@/types';
 
 export type { RegisterPayload };
@@ -52,5 +53,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     authService.logout(); // fire-and-forget: destroys the server-side session
     set({ user: null });
     disconnectSocket();
+    usePresenceStore.getState().reset();
   },
 }));

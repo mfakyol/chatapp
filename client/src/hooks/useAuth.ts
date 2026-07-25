@@ -1,11 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useAuthStore, RegisterPayload } from '@/stores/auth.store';
+import { useAuthStore } from '@/stores/auth.store';
 
 /**
- * Auth hook backed by the zustand auth store, adding client-side navigation on
- * login/register/logout. Same shape the app used with the old AuthContext.
+ * Auth hook backed by the zustand auth store. Navigation after login/register
+ * is owned by the pages' redirect effects (they send a signed-in user to
+ * /chat), so success here doesn't navigate — no double router calls.
  */
 export function useAuth() {
   const router = useRouter();
@@ -18,16 +19,8 @@ export function useAuth() {
   return {
     user,
     loading,
-    login: async (identifier: string, password: string) => {
-      const res = await login(identifier, password);
-      if (res.success) router.push('/chat');
-      return res;
-    },
-    register: async (payload: RegisterPayload) => {
-      const res = await register(payload);
-      if (res.success) router.push('/chat');
-      return res;
-    },
+    login,
+    register,
     logout: () => {
       logout();
       router.push('/login');

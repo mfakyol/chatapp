@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { getSocket } from '@/lib/socket';
+import { connectSocket } from '@/lib/socket';
 import { usePresenceStore } from '@/stores/presence.store';
 
 /** Subscribes to presence:update socket events and mirrors them into the store. */
@@ -9,8 +9,8 @@ export default function PresenceListener() {
   const setPresence = usePresenceStore((s) => s.setPresence);
 
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
+    // Idempotent: never silently no-op because the socket wasn't created yet.
+    const socket = connectSocket();
 
     function handlePresence({
       userId,

@@ -5,12 +5,13 @@ import { ProfilePanel } from '@/components/chat/ProfilePanel';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ChatSearchBar } from '@/components/chat/ChatSearchBar';
 import { MessageList, MessageListHandle } from '@/components/chat/MessageList';
+import { MessageSkeleton } from '@/components/chat/MessageSkeleton';
 import { Composer } from '@/components/chat/Composer';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Conversation, Message, MessageSearchResult } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { usePresenceMap } from '@/hooks/usePresence';
-import { getSocket } from '@/lib/socket';
+import { connectSocket } from '@/lib/socket';
 import {
   getMessages,
   sendMessage,
@@ -46,6 +47,7 @@ export function ChatWindow({
   const presence = usePresenceMap();
   const { confirm, confirmDialog } = useConfirm();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   // After a jump-to-old-message the list shows a window around the target and
   // is "detached" from the live tail: incoming messages are NOT appended (they
@@ -66,9 +68,30 @@ export function ChatWindow({
     detachedRef.current = detached;
   }, [detached]);
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReadRef = useRef(false);
 
   const currentUserId = userId(user);
   const currentUsername = user?.username || '';
+
+  /**
+   * Debounced, visibility-aware read-marking. Debounce: in an active group
+   * every incoming message would otherwise trigger a POST + a broadcast to
+   * every member (O(n²) chatter). Visibility: a hidden tab must NOT send read
+   * receipts — the user hasn't seen anything; the pending mark is flushed when
+   * the tab becomes visible again.
+   */
+  function scheduleMarkRead() {
+    if (typeof document !== 'undefined' && document.hidden) {
+      pendingReadRef.current = true;
+      return;
+    }
+    if (markReadTimerRef.current) return;
+    markReadTimerRef.current = setTimeout(() => {
+      markReadTimerRef.current = null;
+      markRead(conversation._id);
+    }, 500);
+  }
 
   const memberReads = useMemo(() => {
     const map: Record<string, string> = {};
@@ -117,13 +140,28 @@ export function ChatWindow({
     const typingTimers = typingTimeoutsRef.current;
 
     getMessages(conversation._id, undefined, { signal: abort.signal }).then((res) => {
-      if (!active || !res.success) return;
+      if (!active) return;
+      setInitialLoading(false);
+      if (!res.success) return;
       setMessages(res.data.messages);
       if (res.data.messages.length < PAGE_SIZE) setHasMore(false);
     });
-    markRead(conversation._id);
+    scheduleMarkRead();
 
-    const socket = getSocket();
+    // Idempotent: never silently no-op because the socket wasn't created yet.
+    const socket = connectSocket();
+    // If the socket is still connecting at mount, its FIRST 'connect' is not a
+    // reconnect — the initial fetch above already covers it.
+    let everConnected = socket.connected;
+
+    // Flush a read-mark that was deferred while the tab was hidden.
+    function handleVisibility() {
+      if (!document.hidden && pendingReadRef.current) {
+        pendingReadRef.current = false;
+        scheduleMarkRead();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
 
     function handleNewMessage({ message }: { message: Message }) {
       if (message.conversation !== conversation._id) return;
@@ -132,7 +170,7 @@ export function ChatWindow({
         setMessages((prev) => upsertMessage(prev, message));
       }
       if (message.sender.username !== currentUsername) {
-        markRead(conversation._id);
+        scheduleMarkRead();
       }
     }
 
@@ -207,46 +245,55 @@ export function ChatWindow({
     // Reconnect resync: refetch the thread so nothing broadcast during the
     // disconnect gap stays missing.
     function handleReconnect() {
+      if (!everConnected) {
+        everConnected = true;
+        return;
+      }
       getMessages(conversation._id).then((res) => {
         if (!active || !res.success) return;
         setMessages(res.data.messages);
         setHasMore(res.data.messages.length >= PAGE_SIZE);
         setDetached(false);
       });
-      markRead(conversation._id);
+      scheduleMarkRead();
     }
 
-    socket?.on('connect', handleReconnect);
-    socket?.on('message:new', handleNewMessage);
-    socket?.on('message:updated', handleEdited);
-    socket?.on('message:deleted', handleDeleted);
-    socket?.on('conversation:read', handleConversationRead);
-    socket?.on('message:reaction', handleReaction);
-    socket?.on('typing:start', handleTypingStart);
-    socket?.on('typing:stop', handleTypingStop);
+    socket.on('connect', handleReconnect);
+    socket.on('message:new', handleNewMessage);
+    socket.on('message:updated', handleEdited);
+    socket.on('message:deleted', handleDeleted);
+    socket.on('conversation:read', handleConversationRead);
+    socket.on('message:reaction', handleReaction);
+    socket.on('typing:start', handleTypingStart);
+    socket.on('typing:stop', handleTypingStop);
     return () => {
       active = false;
       abort.abort();
-      socket?.off('connect', handleReconnect);
-      socket?.off('message:new', handleNewMessage);
-      socket?.off('message:updated', handleEdited);
-      socket?.off('message:deleted', handleDeleted);
-      socket?.off('conversation:read', handleConversationRead);
-      socket?.off('message:reaction', handleReaction);
-      socket?.off('typing:start', handleTypingStart);
-      socket?.off('typing:stop', handleTypingStop);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('connect', handleReconnect);
+      socket.off('message:new', handleNewMessage);
+      socket.off('message:updated', handleEdited);
+      socket.off('message:deleted', handleDeleted);
+      socket.off('conversation:read', handleConversationRead);
+      socket.off('message:reaction', handleReaction);
+      socket.off('typing:start', handleTypingStart);
+      socket.off('typing:stop', handleTypingStop);
       typingTimers.forEach((timer) => clearTimeout(timer));
       typingTimers.clear();
+      if (markReadTimerRef.current) {
+        clearTimeout(markReadTimerRef.current);
+        markReadTimerRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation._id]);
 
-  // Sidebar search result → jump into the thread.
+  // Sidebar search result → jump into the thread. Waits out the skeleton:
+  // while initialLoading the list isn't mounted, so listRef is still null.
   useEffect(() => {
-    if (focusMessageId) {
-      listRef.current?.jumpToMessage(focusMessageId).then(() => onFocused?.());
-    }
-  }, [focusMessageId, onFocused]);
+    if (initialLoading || !focusMessageId) return;
+    listRef.current?.jumpToMessage(focusMessageId).then(() => onFocused?.());
+  }, [focusMessageId, onFocused, initialLoading]);
 
   // Debounced in-conversation search. The cancelled flag prevents an older
   // response from clobbering a newer query's results (out-of-order race).
@@ -268,6 +315,12 @@ export function ChatWindow({
 
   /** Optimistic send; returns false so the composer can restore the draft. */
   async function handleSend(content: string, replyToId?: string): Promise<boolean> {
+    // First send is a user gesture — the right moment to ask for notification
+    // permission (prompting on page load gets muted by modern browsers).
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     // Sending while detached first re-attaches to the tail (WhatsApp behavior).
     if (detachedRef.current) await returnToLatest();
 
@@ -356,26 +409,30 @@ export function ChatWindow({
           />
         )}
 
-        <MessageList
-          ref={listRef}
-          conversationId={conversation._id}
-          messages={messages}
-          currentUsername={currentUsername}
-          currentUserId={currentUserId}
-          isGroup={conversation.isGroup}
-          participants={conversation.participants}
-          memberReads={memberReads}
-          hasMore={hasMore}
-          detached={detached}
-          onExhausted={() => setHasMore(false)}
-          onPrepend={(older) => setMessages((prev) => [...older, ...prev])}
-          onJumpReplace={handleJumpReplace}
-          onReturnToLatest={returnToLatest}
-          onSaveEdit={handleSaveEdit}
-          onDelete={handleDelete}
-          onReact={handleReact}
-          onReply={setReplyingTo}
-        />
+        {initialLoading ? (
+          <MessageSkeleton />
+        ) : (
+          <MessageList
+            ref={listRef}
+            conversationId={conversation._id}
+            messages={messages}
+            currentUsername={currentUsername}
+            currentUserId={currentUserId}
+            isGroup={conversation.isGroup}
+            participants={conversation.participants}
+            memberReads={memberReads}
+            hasMore={hasMore}
+            detached={detached}
+            onExhausted={() => setHasMore(false)}
+            onPrepend={(older) => setMessages((prev) => [...older, ...prev])}
+            onJumpReplace={handleJumpReplace}
+            onReturnToLatest={returnToLatest}
+            onSaveEdit={handleSaveEdit}
+            onDelete={handleDelete}
+            onReact={handleReact}
+            onReply={setReplyingTo}
+          />
+        )}
 
         <Composer
           conversationId={conversation._id}

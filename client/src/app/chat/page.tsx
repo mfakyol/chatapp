@@ -41,11 +41,6 @@ export default function ChatPage() {
   }, [user]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission === 'default') Notification.requestPermission();
-  }, []);
-
-  useEffect(() => {
     if (!user) return;
 
     return subscribeChatSocket({

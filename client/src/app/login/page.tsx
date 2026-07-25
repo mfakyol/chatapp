@@ -1,17 +1,24 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { t } from '@/i18n';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
+  const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Already signed in — this page has nothing to offer.
+  useEffect(() => {
+    if (!loading && user) router.replace('/chat');
+  }, [loading, user, router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -31,6 +38,8 @@ export default function LoginPage() {
           <input
             className="rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
             placeholder={t('login.identifier')}
+            name="username"
+            autoComplete="username"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             required
@@ -39,6 +48,8 @@ export default function LoginPage() {
             className="rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
             placeholder={t('login.password')}
             type="password"
+            name="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

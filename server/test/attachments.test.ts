@@ -85,3 +85,40 @@ describe('GET /api/attachments/:filename', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('attachment file cleanup', () => {
+  async function uploadPng(agent: Awaited<ReturnType<typeof makeFriends>>['a']['agent'], convoId: string) {
+    const res = await agent
+      .post(`/api/conversations/${convoId}/attachments`)
+      .attach('file', PNG_BYTES, { filename: 'photo.png', contentType: 'image/png' });
+    expect(res.status).toBe(201);
+    const filename = path.basename(res.body.message.attachment.url);
+    return { messageId: res.body.message._id as string, filePath: path.join(UPLOADS_DIR, filename) };
+  }
+
+  it('deleting a message removes its file from disk', async () => {
+    const { a } = await makeFriends(app);
+    const convoId = await directConvo(a);
+    const { messageId, filePath } = await uploadPng(a.agent, convoId);
+
+    await expect(fs.access(filePath)).resolves.toBeUndefined();
+
+    const del = await a.agent.delete(`/api/conversations/${convoId}/messages/${messageId}`);
+    expect(del.status).toBe(200);
+
+    await expect(fs.access(filePath)).rejects.toThrow();
+  });
+
+  it('deleting a conversation removes all its files from disk', async () => {
+    const { a } = await makeFriends(app);
+    const convoId = await directConvo(a);
+    const first = await uploadPng(a.agent, convoId);
+    const second = await uploadPng(a.agent, convoId);
+
+    const del = await a.agent.delete(`/api/conversations/${convoId}`);
+    expect(del.status).toBe(200);
+
+    await expect(fs.access(first.filePath)).rejects.toThrow();
+    await expect(fs.access(second.filePath)).rejects.toThrow();
+  });
+});

@@ -5,6 +5,7 @@ import { IconSearch } from '@tabler/icons-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Conversation, MessageSearchResult, PublicUser } from '@/types';
 import { searchMessages } from '@/services/conversation.service';
+import { useDraftStore } from '@/stores/draft.store';
 import { conversationName, fullName, otherParticipant } from '@/lib/utils';
 import { t } from '@/i18n';
 
@@ -27,6 +28,9 @@ export function ChatsPanel({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MessageSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  // Parked composer drafts (written when a chat is switched away from). The
+  // open chat's live draft lives in its Composer, so it's not shown here.
+  const drafts = useDraftStore((s) => s.drafts);
 
   // Debounced search; the cancelled flag prevents an older response from
   // clobbering a newer query's results (out-of-order race).
@@ -62,7 +66,7 @@ export function ChatsPanel({
   }
 
   function lastMessagePreview(c: Conversation): string {
-    if (!c.lastMessage) return 'No messages yet';
+    if (!c.lastMessage) return t('sidebar.noMessagesYet');
     if (c.lastMessage.attachment) return `📎 ${c.lastMessage.attachment.fileName}`;
     return c.lastMessage.content;
   }
@@ -116,6 +120,7 @@ export function ChatsPanel({
           )}
           {conversations.map((c) => {
             const other = !c.isGroup ? otherParticipant(c, currentUsername) : undefined;
+            const draft = c._id !== activeConversationId ? drafts[c._id]?.trim() : undefined;
             return (
               <button
                 key={c._id}
@@ -132,7 +137,16 @@ export function ChatsPanel({
                   <p className="truncate text-sm font-medium text-[var(--text-normal)]">
                     {conversationName(c, currentUsername)}
                   </p>
-                  <p className="truncate text-xs text-[var(--text-muted)]">{lastMessagePreview(c)}</p>
+                  <p className="truncate text-xs text-[var(--text-muted)]">
+                    {draft ? (
+                      <>
+                        <span className="font-medium text-[var(--brand)]">{t('sidebar.draft')}</span>{' '}
+                        {draft}
+                      </>
+                    ) : (
+                      lastMessagePreview(c)
+                    )}
+                  </p>
                 </div>
                 {!!c.unreadCount && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand)] px-1.5 text-xs font-medium text-[var(--brand-text)]">

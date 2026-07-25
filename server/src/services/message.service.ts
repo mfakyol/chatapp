@@ -7,6 +7,7 @@ import type { UserDocument } from '../models/User';
 import { badRequest, forbidden, notFound } from '../errors/AppError';
 import { requireMembership } from './conversation.service';
 import { broadcastToConversation } from './fanout';
+import { removeAttachmentFileByUrl } from '../utils/attachments';
 
 const REPLY_POPULATE: PopulateOptions = {
   path: 'replyTo',
@@ -42,14 +43,29 @@ export async function getMessages(
     const target = await Message.findOne({ _id: opts.around, conversation: conversationId });
     if (!target) throw notFound('Message not found');
 
+    // (createdAt, _id) is the cursor, not createdAt alone: messages sharing a
+    // timestamp (bulk inserts, seeds) would otherwise be duplicated or dropped
+    // at the window split.
     const half = Math.floor(limit / 2);
     const [before, after] = await Promise.all([
-      Message.find({ conversation: conversationId, createdAt: { $lt: target.createdAt } })
-        .sort({ createdAt: -1 })
+      Message.find({
+        conversation: conversationId,
+        $or: [
+          { createdAt: { $lt: target.createdAt } },
+          { createdAt: target.createdAt, _id: { $lt: target._id } },
+        ],
+      })
+        .sort({ createdAt: -1, _id: -1 })
         .limit(half)
         .populate(MESSAGE_POPULATE),
-      Message.find({ conversation: conversationId, createdAt: { $gte: target.createdAt } })
-        .sort({ createdAt: 1 })
+      Message.find({
+        conversation: conversationId,
+        $or: [
+          { createdAt: { $gt: target.createdAt } },
+          { createdAt: target.createdAt, _id: { $gte: target._id } },
+        ],
+      })
+        .sort({ createdAt: 1, _id: 1 })
         .limit(half + 1)
         .populate(MESSAGE_POPULATE),
     ]);
@@ -61,7 +77,7 @@ export async function getMessages(
   if (opts.before) filter.createdAt = { $lt: new Date(opts.before) };
 
   const messages = await Message.find(filter)
-    .sort({ createdAt: -1 })
+    .sort({ createdAt: -1, _id: -1 })
     .limit(limit)
     .populate(MESSAGE_POPULATE);
 
@@ -185,6 +201,8 @@ export async function deleteMessage(
   const message = await Message.findOne({ _id: messageId, conversation: conversationId });
   if (!message) throw notFound('Message not found');
   if (!message.sender.equals(user._id)) throw forbidden('You can only delete your own messages');
+
+  await removeAttachmentFileByUrl(message.attachment?.url);
 
   message.content = '';
   message.attachment = undefined;

@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { USERNAME_REGEX, MIN_PASSWORD_LENGTH } from '@/lib/validation';
 import { t } from '@/i18n';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
-const USERNAME_REGEX = /^[a-z0-9_-]{3,20}$/;
-
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { user, loading, register } = useAuth();
+  const router = useRouter();
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -19,6 +20,11 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Already signed in — this page has nothing to offer.
+  useEffect(() => {
+    if (!loading && user) router.replace('/chat');
+  }, [loading, user, router]);
 
   function update(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -33,7 +39,7 @@ export default function RegisterPage() {
       setError(t('register.errBadUsername'));
       return;
     }
-    if (form.password.length < 6) {
+    if (form.password.length < MIN_PASSWORD_LENGTH) {
       setError(t('register.errShortPassword'));
       return;
     }
@@ -54,6 +60,8 @@ export default function RegisterPage() {
             <input
               className="w-1/2 rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
               placeholder={t('register.firstName')}
+              name="firstName"
+              autoComplete="given-name"
               value={form.firstName}
               onChange={(e) => update('firstName', e.target.value)}
               required
@@ -61,6 +69,8 @@ export default function RegisterPage() {
             <input
               className="w-1/2 rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
               placeholder={t('register.lastName')}
+              name="lastName"
+              autoComplete="family-name"
               value={form.lastName}
               onChange={(e) => update('lastName', e.target.value)}
               required
@@ -69,6 +79,8 @@ export default function RegisterPage() {
           <input
             className="rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
             placeholder={t('register.username')}
+            name="username"
+            autoComplete="username"
             value={form.username}
             onChange={(e) => update('username', e.target.value)}
             required
@@ -77,6 +89,8 @@ export default function RegisterPage() {
             className="rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
             placeholder={t('register.email')}
             type="email"
+            name="email"
+            autoComplete="email"
             value={form.email}
             onChange={(e) => update('email', e.target.value)}
             required
@@ -85,6 +99,8 @@ export default function RegisterPage() {
             className="rounded-md bg-[var(--bg-elevated)] px-4 py-2.5 text-[var(--text-normal)] placeholder-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--brand)]"
             placeholder={t('register.password')}
             type="password"
+            name="password"
+            autoComplete="new-password"
             value={form.password}
             onChange={(e) => update('password', e.target.value)}
             required

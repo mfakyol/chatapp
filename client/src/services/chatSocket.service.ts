@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from 'react';
-import { getSocket } from '@/lib/socket';
+import { connectSocket } from '@/lib/socket';
 import { fullName, playNotificationSound } from '@/lib/utils';
 import { Conversation, Message } from '@/types';
 import { getConversations } from '@/services/conversation.service';
@@ -12,6 +12,18 @@ export interface ChatSocketContext {
   setActive: Dispatch<SetStateAction<Conversation | null>>;
 }
 
+// Monotonic sequence so an older refetch response can never clobber a newer
+// one (or one from a previous subscription).
+let refetchSeq = 0;
+
+function refetchConversations(ctx: ChatSocketContext): void {
+  const seq = ++refetchSeq;
+  getConversations().then((res) => {
+    if (seq !== refetchSeq) return; // superseded
+    if (res.success) ctx.setConversations(res.data.conversations);
+  });
+}
+
 function handleNewMessage(
   { message }: { message: Message },
   ctx: ChatSocketContext
@@ -19,27 +31,27 @@ function handleNewMessage(
   const isActive = message.conversation === ctx.getActiveConversationId();
   const fromSelf = message.sender.username === ctx.currentUsername;
 
-  ctx.setConversations((prev) => {
-    const exists = prev.some((c) => c._id === message.conversation);
-    if (!exists) {
-      getConversations().then((res) => {
-        if (res.success) ctx.setConversations(res.data.conversations);
-      });
-      return prev;
-    }
-
-    const updated = prev.map((c) =>
-      c._id === message.conversation
-        ? {
-            ...c,
-            lastMessage: message,
-            unreadCount: isActive ? 0 : (c.unreadCount || 0) + (fromSelf ? 0 : 1),
-          }
-        : c
-    );
-    const target = updated.find((c) => c._id === message.conversation)!;
-    return [target, ...updated.filter((c) => c._id !== message.conversation)];
-  });
+  // Side effects stay OUTSIDE the state updater — updaters must be pure
+  // (StrictMode runs them twice, which would double the refetch).
+  const known = ctx.getConversations().some((c) => c._id === message.conversation);
+  if (!known) {
+    refetchConversations(ctx);
+  } else {
+    ctx.setConversations((prev) => {
+      const updated = prev.map((c) =>
+        c._id === message.conversation
+          ? {
+              ...c,
+              lastMessage: message,
+              unreadCount: isActive ? 0 : (c.unreadCount || 0) + (fromSelf ? 0 : 1),
+            }
+          : c
+      );
+      const target = updated.find((c) => c._id === message.conversation);
+      if (!target) return prev;
+      return [target, ...updated.filter((c) => c._id !== message.conversation)];
+    });
+  }
 
   if (fromSelf) return;
 
@@ -92,16 +104,24 @@ function handleConversationNew(
   );
 }
 
-function handleReconnect(ctx: ChatSocketContext) {
-  getConversations().then((res) => {
-    if (res.success) ctx.setConversations(res.data.conversations);
-  });
-}
-
-/** Subscribes to conversation-level socket events. Returns an unsubscribe function. */
+/**
+ * Subscribes to conversation-level socket events. Returns an unsubscribe
+ * function. Uses connectSocket() (idempotent) so subscribing can never
+ * silently no-op because the socket wasn't created yet.
+ */
 export function subscribeChatSocket(ctx: ChatSocketContext): () => void {
-  const socket = getSocket();
-  if (!socket) return () => {};
+  const socket = connectSocket();
+
+  // The FIRST 'connect' of a fresh socket is not a reconnect — the page's own
+  // initial fetch already covers it. Only later connects resync.
+  let everConnected = socket.connected;
+  const onReconnect = () => {
+    if (!everConnected) {
+      everConnected = true;
+      return;
+    }
+    refetchConversations(ctx);
+  };
 
   const onNewMessage = (payload: { message: Message }) => handleNewMessage(payload, ctx);
   const onConversationUpdated = (payload: { conversation: Conversation }) =>
@@ -110,7 +130,6 @@ export function subscribeChatSocket(ctx: ChatSocketContext): () => void {
     handleConversationGone(payload, ctx);
   const onConversationNew = (payload: { conversation: Conversation }) =>
     handleConversationNew(payload, ctx);
-  const onReconnect = () => handleReconnect(ctx);
 
   socket.on('connect', onReconnect);
   socket.on('message:new', onNewMessage);
@@ -119,6 +138,7 @@ export function subscribeChatSocket(ctx: ChatSocketContext): () => void {
   socket.on('conversation:deleted', onConversationGone);
 
   return () => {
+    refetchSeq++; // invalidate any in-flight refetch for this subscription
     socket.off('connect', onReconnect);
     socket.off('message:new', onNewMessage);
     socket.off('conversation:new', onConversationNew);

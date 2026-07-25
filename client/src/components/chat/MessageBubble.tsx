@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import {
   IconFile,
   IconDownload,
@@ -19,6 +20,25 @@ import { t } from '@/i18n';
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
+/**
+ * Row callbacks as ONE stable object (identity never changes): the parent
+ * delegates through a ref to the latest handlers, so memoized bubbles neither
+ * re-render for handler identity nor call stale closures.
+ */
+export interface BubbleActions {
+  toggleMenu(id: string): void;
+  togglePicker(id: string): void;
+  toggleDetail(id: string): void;
+  startEdit(message: Message): void;
+  cancelEdit(): void;
+  setEditDraft(value: string): void;
+  saveEdit(id: string): void;
+  remove(id: string): void;
+  react(id: string, emoji: string): void;
+  reply(message: Message): void;
+  jump(id: string): void;
+}
+
 interface MessageBubbleProps {
   message: Message;
   mine: boolean;
@@ -33,23 +53,16 @@ interface MessageBubbleProps {
   detailOpen: boolean;
   editing: boolean;
   editDraft: string;
-  /** Registers the bubble root for the scroll/observer machinery of the list. */
-  innerRef: (el: HTMLDivElement | null) => void;
-  onToggleMenu: () => void;
-  onTogglePicker: () => void;
-  onToggleDetail: () => void;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
-  onEditDraftChange: (value: string) => void;
-  onSaveEdit: () => void;
-  onDelete: () => void;
-  onReact: (emoji: string) => void;
-  onReply: () => void;
-  onJump: (messageId: string) => void;
+  /** Stable registrar for the scroll/observer machinery of the list. */
+  registerRef: (id: string, el: HTMLDivElement | null) => void;
+  actions: BubbleActions;
 }
 
-/** One chat message: hover actions, bubble content, ticks, reactions, info. */
-export function MessageBubble({
+/**
+ * One chat message. memo'd: parent re-renders (chip updates, other rows'
+ * menus, incoming messages) bail out here unless a prop of THIS row changed.
+ */
+export const MessageBubble = memo(function MessageBubble({
   message: m,
   mine,
   isGroup,
@@ -63,31 +76,21 @@ export function MessageBubble({
   detailOpen,
   editing,
   editDraft,
-  innerRef,
-  onToggleMenu,
-  onTogglePicker,
-  onToggleDetail,
-  onStartEdit,
-  onCancelEdit,
-  onEditDraftChange,
-  onSaveEdit,
-  onDelete,
-  onReact,
-  onReply,
-  onJump,
+  registerRef,
+  actions,
 }: MessageBubbleProps) {
   const deleted = !!m.deletedAt;
 
   return (
     <div className={`group mb-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
-      <div className="relative max-w-xs" data-mid={m._id} ref={innerRef}>
+      <div className="relative max-w-xs" data-mid={m._id} ref={(el) => registerRef(m._id, el)}>
         {mine && !deleted && (
           <div
             data-dismiss-root
             className="absolute -top-2 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100"
           >
             <button
-              onClick={onToggleMenu}
+              onClick={() => actions.toggleMenu(m._id)}
               aria-label={t('chat.messageMenu')}
               className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
             >
@@ -96,21 +99,21 @@ export function MessageBubble({
             {menuOpen && (
               <div className="absolute right-0 top-6 z-20 w-40 rounded-md bg-[var(--bg-surface)] py-1 text-sm shadow-lg">
                 <button
-                  onClick={onToggleDetail}
+                  onClick={() => actions.toggleDetail(m._id)}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--text-normal)] hover:bg-[var(--bg-hover)]"
                 >
                   <IconInfoCircle size={16} /> {t('chat.info')}
                 </button>
                 {!m.attachment && (
                   <button
-                    onClick={onStartEdit}
+                    onClick={() => actions.startEdit(m)}
                     className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--text-normal)] hover:bg-[var(--bg-hover)]"
                   >
                     <IconPencil size={16} /> {t('chat.edit')}
                   </button>
                 )}
                 <button
-                  onClick={onDelete}
+                  onClick={() => actions.remove(m._id)}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-[var(--danger)] hover:bg-[var(--bg-hover)]"
                 >
                   <IconTrash size={16} /> {t('chat.delete')}
@@ -126,15 +129,17 @@ export function MessageBubble({
             className={`absolute -top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${mine ? 'left-1' : 'right-1'}`}
           >
             <button
-              onClick={onTogglePicker}
+              onClick={() => actions.togglePicker(m._id)}
               title={t('chat.react')}
+              aria-label={t('chat.react')}
               className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
             >
               <IconMoodPlus size={14} />
             </button>
             <button
-              onClick={onReply}
+              onClick={() => actions.reply(m)}
               title={t('chat.reply')}
+              aria-label={t('chat.reply')}
               className="rounded-full bg-[var(--bg-elevated)] p-1 text-[var(--text-normal)] shadow"
             >
               <IconArrowBackUp size={14} />
@@ -146,7 +151,7 @@ export function MessageBubble({
                 {QUICK_REACTIONS.map((emoji) => (
                   <button
                     key={emoji}
-                    onClick={() => onReact(emoji)}
+                    onClick={() => actions.react(m._id, emoji)}
                     className="rounded-full p-0.5 text-base leading-none hover:bg-[var(--bg-hover)]"
                   >
                     {emoji}
@@ -173,15 +178,15 @@ export function MessageBubble({
               <input
                 autoFocus
                 value={editDraft}
-                onChange={(e) => onEditDraftChange(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && onSaveEdit()}
+                onChange={(e) => actions.setEditDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && actions.saveEdit(m._id)}
                 className="rounded bg-black/20 px-2 py-1 text-sm text-[var(--text-normal)] outline-none"
               />
               <div className="flex justify-end gap-2 text-xs">
-                <button onClick={onCancelEdit} className="text-[var(--text-muted)]">
+                <button onClick={() => actions.cancelEdit()} className="text-[var(--text-muted)]">
                   {t('common.cancel')}
                 </button>
-                <button onClick={onSaveEdit} className="text-[var(--brand)]">
+                <button onClick={() => actions.saveEdit(m._id)} className="text-[var(--brand)]">
                   {t('common.save')}
                 </button>
               </div>
@@ -190,7 +195,7 @@ export function MessageBubble({
             <>
               {m.replyTo && (
                 <button
-                  onClick={() => m.replyTo && onJump(m.replyTo._id)}
+                  onClick={() => m.replyTo && actions.jump(m.replyTo._id)}
                   className="mb-1 flex w-full flex-col items-start rounded border-l-2 border-[var(--brand)] bg-black/10 px-2 py-1 text-left"
                 >
                   <span className="text-xs font-semibold text-[var(--brand)]">
@@ -206,7 +211,6 @@ export function MessageBubble({
                 <img
                   src={fileUrl(m.attachment.url)}
                   alt={m.attachment.fileName}
-                  crossOrigin="use-credentials"
                   className="mb-1 max-h-60 w-full rounded object-cover"
                 />
               )}
@@ -246,7 +250,7 @@ export function MessageBubble({
               return (
                 <button
                   key={r.emoji}
-                  onClick={() => onReact(r.emoji)}
+                  onClick={() => actions.react(m._id, r.emoji)}
                   className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs ${
                     reacted
                       ? 'border-[var(--brand)] bg-[var(--brand)]/20 text-[var(--text-normal)]'
@@ -275,4 +279,4 @@ export function MessageBubble({
       </div>
     </div>
   );
-}
+});

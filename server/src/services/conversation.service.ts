@@ -109,10 +109,13 @@ async function requireGroupAdmin(user: UserDocument, conversationId: string, err
 
 export async function listConversations(user: UserDocument) {
   const memberships = await ConversationMember.find({ user: user._id });
+  if (memberships.length === 0) return [];
   const convIds = memberships.map((m) => m.conversation);
-  const lastReadByConv = new Map(memberships.map((m) => [m.conversation.toString(), m.lastReadAt]));
 
-  const [conversations, allMembers] = await Promise.all([
+  // ONE unread query for all conversations (instead of a countDocuments per
+  // conversation): each $or branch is (conversation, createdAt > lastReadAt),
+  // which the {conversation, createdAt} index serves per branch.
+  const [conversations, allMembers, unreadAgg] = await Promise.all([
     Conversation.find({ _id: { $in: convIds } })
       .populate(LAST_MESSAGE_POPULATE)
       .sort({ updatedAt: -1 }),
@@ -120,6 +123,19 @@ export async function listConversations(user: UserDocument) {
       'user',
       MEMBER_USER_SELECT
     ),
+    Message.aggregate<{ _id: Types.ObjectId; count: number }>([
+      {
+        $match: {
+          sender: { $ne: user._id },
+          deletedAt: null,
+          $or: memberships.map((m) => ({
+            conversation: m.conversation,
+            createdAt: { $gt: m.lastReadAt ?? new Date(0) },
+          })),
+        },
+      },
+      { $group: { _id: '$conversation', count: { $sum: 1 } } },
+    ]),
   ]);
 
   const membersByConv = new Map<string, PopulatedMember[]>();
@@ -131,20 +147,11 @@ export async function listConversations(user: UserDocument) {
     membersByConv.get(key)!.push(m);
   }
 
-  const unreadCounts = await Promise.all(
-    conversations.map((c) =>
-      Message.countDocuments({
-        conversation: c._id,
-        sender: { $ne: user._id },
-        createdAt: { $gt: lastReadByConv.get(c._id.toString()) ?? new Date(0) },
-        deletedAt: null,
-      })
-    )
-  );
+  const unreadByConv = new Map(unreadAgg.map((u) => [u._id.toString(), u.count]));
 
-  return conversations.map((c, i) => ({
+  return conversations.map((c) => ({
     ...assemble(c, membersByConv.get(c._id.toString()) ?? []),
-    unreadCount: unreadCounts[i],
+    unreadCount: unreadByConv.get(c._id.toString()) ?? 0,
   }));
 }
 
@@ -187,9 +194,20 @@ export async function createGroupConversation(
   usernames: string[],
   io: Server
 ): Promise<AssembledConversation> {
-  const members = await User.find({ username: { $in: usernames.map((u) => u.toLowerCase()) } });
+  // Dedupe and drop the creator's own name: duplicates (or self) would violate
+  // the unique (conversation, user) membership index mid-insert and leave a
+  // half-created group behind.
+  const wanted = [...new Set(usernames.map((u) => u.toLowerCase()))].filter(
+    (u) => u !== user.username
+  );
+  if (wanted.length < 2) throw badRequest('At least 2 other members are required');
+
+  const members = await User.find({ username: { $in: wanted } });
+  if (members.length !== wanted.length) {
+    throw notFound('Some users were not found');
+  }
   const friendChecks = await Promise.all(members.map((m) => areFriends(user._id, m._id)));
-  if (members.length === 0 || friendChecks.some((ok) => !ok)) {
+  if (friendChecks.some((ok) => !ok)) {
     throw forbidden('You can only add friends to a group');
   }
 

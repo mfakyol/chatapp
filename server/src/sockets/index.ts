@@ -2,6 +2,7 @@ import type { Server } from 'socket.io';
 import type { SessionData } from 'express-session';
 import User from '../models/User';
 import ConversationMember from '../models/ConversationMember';
+import { loadUser } from '../utils/userCache';
 import { userRoom, userRooms } from '../utils/rooms';
 import { presence } from '../utils/presence';
 import { friendIds } from '../services/friendship.service';
@@ -24,7 +25,7 @@ export function registerSocketHandlers(io: Server): void {
       const userId = session?.userId;
       if (!userId) return next(new Error('Unauthorized'));
 
-      const user = await User.findById(userId);
+      const user = await loadUser(userId);
       if (!user) return next(new Error('Unauthorized'));
 
       socket.user = user;

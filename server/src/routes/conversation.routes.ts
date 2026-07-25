@@ -30,6 +30,7 @@ import {
   editMessage,
   deleteMessage,
   sendAttachment,
+  ensureMembership,
   renameConversation,
   addMember,
   removeMember,
@@ -56,12 +57,15 @@ router.post(
 );
 router.patch('/:conversationId/messages/:messageId', validate(editMessageSchema), editMessage);
 router.delete('/:conversationId/messages/:messageId', validate(messageParamsSchema), deleteMessage);
+// Order matters: param validation + membership run BEFORE multer touches disk,
+// so outsiders can't write files; validateUpload then checks the actual bytes.
 router.post(
   '/:conversationId/attachments',
   uploadLimiter,
+  validate(conversationIdParamSchema),
+  ensureMembership,
   upload.single('file'),
   validateUpload,
-  validate(conversationIdParamSchema),
   sendAttachment
 );
 

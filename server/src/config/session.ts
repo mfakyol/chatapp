@@ -27,6 +27,9 @@ export function createSessionMiddleware() {
     store: MongoStore.create({
       client: mongoose.connection.getClient(),
       ttl: env.sessionTtlMs / 1000,
+      // Throttle session writes: with rolling cookies every request would
+      // otherwise re-save the session document on each API call.
+      touchAfter: 24 * 3600,
     }),
     cookie: {
       httpOnly: true,

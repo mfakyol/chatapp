@@ -1,4 +1,5 @@
 import mongoose, { Schema, Types, HydratedDocument, Model } from 'mongoose';
+import { removeAttachmentFileByUrl } from '../utils/attachments';
 
 /**
  * The conversation itself — membership lives in ConversationMember. For direct
@@ -37,22 +38,31 @@ export function directKeyFor(a: Types.ObjectId, b: Types.ObjectId): string {
   return [a.toString(), b.toString()].sort().join(':');
 }
 
-// Cascade: deleting a conversation removes its messages and memberships.
-conversationSchema.pre('deleteOne', { document: true, query: false }, async function cascade() {
+// Cascade: deleting a conversation removes its messages, memberships AND the
+// uploaded files its messages referenced (no orphans left on disk).
+async function cascadeDelete(conversationId: Types.ObjectId): Promise<void> {
+  const withFiles = await mongoose
+    .model('Message')
+    .find({ conversation: conversationId, 'attachment.url': { $exists: true } })
+    .select('attachment.url');
+  await Promise.all(
+    withFiles.map((m) =>
+      removeAttachmentFileByUrl((m as { attachment?: { url?: string } }).attachment?.url)
+    )
+  );
   await Promise.all([
-    mongoose.model('Message').deleteMany({ conversation: this._id }),
-    mongoose.model('ConversationMember').deleteMany({ conversation: this._id }),
+    mongoose.model('Message').deleteMany({ conversation: conversationId }),
+    mongoose.model('ConversationMember').deleteMany({ conversation: conversationId }),
   ]);
+}
+
+conversationSchema.pre('deleteOne', { document: true, query: false }, async function cascade() {
+  await cascadeDelete(this._id);
 });
 
 conversationSchema.pre('findOneAndDelete', async function cascade() {
   const doc = await this.model.findOne(this.getFilter()).select('_id');
-  if (doc) {
-    await Promise.all([
-      mongoose.model('Message').deleteMany({ conversation: doc._id }),
-      mongoose.model('ConversationMember').deleteMany({ conversation: doc._id }),
-    ]);
-  }
+  if (doc) await cascadeDelete(doc._id);
 });
 
 const Conversation = mongoose.model<IConversation, ConversationModel>(

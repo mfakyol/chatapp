@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { request } from '@/lib/api';
+import { request, notifyUnauthorized, UNAUTHORIZED_EVENT } from '@/lib/api';
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
@@ -32,5 +32,25 @@ describe('request()', () => {
     const res = await request('/thing');
     expect(res.success).toBe(false);
     if (!res.success) expect(res.error).toBe('network down');
+  });
+
+  it('dispatches unauthorized event on 401', async () => {
+    const handler = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, handler);
+    vi.stubGlobal('fetch', mockFetch(401, { message: 'Unauthorized' }));
+    const res = await request('/thing');
+    expect(res.success).toBe(false);
+    expect(handler).toHaveBeenCalledTimes(1);
+    window.removeEventListener(UNAUTHORIZED_EVENT, handler);
+  });
+});
+
+describe('notifyUnauthorized()', () => {
+  it('dispatches app:unauthorized', () => {
+    const handler = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, handler);
+    notifyUnauthorized();
+    expect(handler).toHaveBeenCalledTimes(1);
+    window.removeEventListener(UNAUTHORIZED_EVENT, handler);
   });
 });

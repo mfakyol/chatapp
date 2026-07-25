@@ -1,36 +1,32 @@
 'use client';
 
-import { MessageSearchResult } from '@/types';
 import { useT } from '@/hooks/useT';
+import { closeSearch, jumpToMessage, setSearchQuery } from '@/services/chatWindow.service';
+import { useChatWindowStore } from '@/stores/chatWindow.store';
 import { SearchField } from '@/components/ui/SearchField';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ListRowButton } from '@/components/ui/ListRowButton';
 
-
-export function ChatSearchBar({
-  query,
-  results,
-  onQueryChange,
-  onClose,
-  onPick,
-}: {
-  query: string;
-  results: MessageSearchResult[];
-  onQueryChange: (value: string) => void;
-  onClose: () => void;
-  onPick: (messageId: string) => void;
-}) {
+export function ChatSearchBar() {
   const { t } = useT();
+  const showSearch = useChatWindowStore((s) => s.showSearch);
+  const searchQuery = useChatWindowStore((s) => s.searchQuery);
+  const searchResults = useChatWindowStore((s) => s.searchResults);
+
+  if (!showSearch) return null;
+
+  const results = searchQuery.trim() ? searchResults : [];
+
   return (
     <div className="border-b border-(--border) bg-(--bg-app) p-3">
       <SearchField
         autoFocus
-        value={query}
-        onChange={onQueryChange}
-        onClear={onClose}
+        value={searchQuery}
+        onChange={setSearchQuery}
+        onClear={closeSearch}
         placeholder={t('chat.searchPlaceholder')}
       />
-      {query.trim() && (
+      {searchQuery.trim() && (
         <div className="mt-2 max-h-48 overflow-y-auto">
           {results.length === 0 && (
             <EmptyState size="xs" className="p-2">
@@ -42,7 +38,7 @@ export function ChatSearchBar({
               key={m._id}
               align="start"
               className="flex-col items-start gap-0 rounded px-2 py-2"
-              onClick={() => onPick(m._id)}
+              onClick={() => jumpToMessage(m._id)}
             >
               <span className="text-xs font-medium text-(--brand)">{m.sender.firstName}</span>
               <span className="truncate text-sm text-(--text-normal)">

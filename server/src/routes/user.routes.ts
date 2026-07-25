@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../middleware/validate';
-import { searchUsersSchema, usernameParamSchema } from '../schemas/user.schema';
+import { avatarUpload } from '../middleware/avatarUpload';
+import { uploadLimiter } from '../middleware/rateLimit';
+import { searchUsersSchema, usernameParamSchema, userIdParamSchema } from '../schemas/user.schema';
 import {
   searchUsers,
   sendFriendRequest,
@@ -10,6 +12,8 @@ import {
   removeFriend,
   getFriends,
   getFriendRequests,
+  uploadAvatar,
+  serveAvatar,
 } from '../controllers/user.controller';
 
 const router = Router();
@@ -19,6 +23,8 @@ router.use(requireAuth);
 router.get('/search', validate(searchUsersSchema), searchUsers);
 router.get('/friends', getFriends);
 router.get('/friend-requests', getFriendRequests);
+router.post('/me/avatar', uploadLimiter, avatarUpload.single('avatar'), uploadAvatar);
+router.get('/:userId/avatar', validate(userIdParamSchema), serveAvatar);
 router.post('/friend-requests/:username', validate(usernameParamSchema), sendFriendRequest);
 router.post(
   '/friend-requests/:username/accept',

@@ -26,3 +26,18 @@ export function messagePreview(m: Message): string {
   if (m.attachment) return `📎 ${m.attachment.fileName}`;
   return m.content;
 }
+
+export function formatLastSeen(lastSeen?: string): string {
+  if (!lastSeen) return "";
+  const date = new Date(lastSeen);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  const dateLocale = getLocaleDefinition(getLocale()).dateLocale;
+  const time = date.toLocaleTimeString(dateLocale, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  if (sameDay) return t("chat.lastSeenToday", { time });
+  const dateStr = date.toLocaleDateString(dateLocale);
+  return t("chat.lastSeenDate", { date: dateStr, time });
+}

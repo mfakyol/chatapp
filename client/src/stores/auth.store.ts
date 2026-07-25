@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Result } from '@/lib/api';
 import * as authService from '@/services/auth.service';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
-import { usePresenceStore } from '@/stores/presence.store';
+import { clearSessionState } from '@/lib/session';
 import { PublicUser, RegisterPayload } from '@/types';
 
 export type { RegisterPayload };
@@ -10,6 +10,7 @@ export type { RegisterPayload };
 interface AuthState {
   user: PublicUser | null;
   loading: boolean;
+  setUser: (user: PublicUser) => void;
   
   bootstrap: () => Promise<void>;
   login: (identifier: string, password: string) => Promise<Result<void>>;
@@ -21,6 +22,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
+  setUser: (user) => set({ user }),
 
   bootstrap: async () => {
     
@@ -49,9 +51,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    authService.logout(); 
-    set({ user: null });
+    authService.logout();
     disconnectSocket();
-    usePresenceStore.getState().reset();
+    clearSessionState();
+    set({ user: null });
   },
 }));

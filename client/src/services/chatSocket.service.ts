@@ -1,43 +1,33 @@
-import { Dispatch, SetStateAction } from 'react';
 import { connectSocket } from '@/lib/socket';
 import { fullName, playNotificationSound } from '@/lib/utils';
 import { Conversation, Message } from '@/types';
 import { getConversations } from '@/services/conversation.service';
-
-export interface ChatSocketContext {
-  getActiveConversationId: () => string | null;
-  getConversations: () => Conversation[];
-  currentUsername: string | undefined;
-  setConversations: Dispatch<SetStateAction<Conversation[]>>;
-  setActive: Dispatch<SetStateAction<Conversation | null>>;
-}
-
-
+import { selectConversation } from '@/services/chat.service';
+import { useChatStore } from '@/stores/chat.store';
 
 let refetchSeq = 0;
 
-function refetchConversations(ctx: ChatSocketContext): void {
+function store() {
+  return useChatStore.getState();
+}
+
+function refetchConversations(): void {
   const seq = ++refetchSeq;
   getConversations().then((res) => {
-    if (seq !== refetchSeq) return; 
-    if (res.success) ctx.setConversations(res.data.conversations);
+    if (seq !== refetchSeq) return;
+    if (res.success) store().setConversations(res.data.conversations);
   });
 }
 
-function handleNewMessage(
-  { message }: { message: Message },
-  ctx: ChatSocketContext
-) {
-  const isActive = message.conversation === ctx.getActiveConversationId();
-  const fromSelf = message.sender.username === ctx.currentUsername;
+function handleNewMessage({ message }: { message: Message }, currentUsername: string) {
+  const isActive = message.conversation === store().activeId;
+  const fromSelf = message.sender.username === currentUsername;
 
-  
-  
-  const known = ctx.getConversations().some((c) => c._id === message.conversation);
+  const known = store().conversations.some((c) => c._id === message.conversation);
   if (!known) {
-    refetchConversations(ctx);
+    refetchConversations();
   } else {
-    ctx.setConversations((prev) => {
+    store().patchConversations((prev) => {
       const updated = prev.map((c) =>
         c._id === message.conversation
           ? {
@@ -69,63 +59,49 @@ function handleNewMessage(
     const notification = new Notification(fullName(message.sender), { body });
     notification.onclick = () => {
       window.focus();
-      const conv = ctx.getConversations().find((c) => c._id === message.conversation);
-      if (conv) ctx.setActive(conv);
+      const conv = store().conversations.find((c) => c._id === message.conversation);
+      if (conv) selectConversation(conv);
     };
   }
 }
 
-function handleConversationUpdated(
-  { conversation }: { conversation: Conversation },
-  ctx: ChatSocketContext
-) {
-  ctx.setConversations((prev) =>
+function handleConversationUpdated({ conversation }: { conversation: Conversation }) {
+  store().patchConversations((prev) =>
     prev.map((c) => (c._id === conversation._id ? { ...c, ...conversation } : c))
   );
-  ctx.setActive((prev) =>
-    prev && prev._id === conversation._id ? { ...prev, ...conversation } : prev
-  );
 }
 
-function handleConversationGone(
-  { conversationId }: { conversationId: string },
-  ctx: ChatSocketContext
-) {
-  ctx.setConversations((prev) => prev.filter((c) => c._id !== conversationId));
-  ctx.setActive((prev) => (prev && prev._id === conversationId ? null : prev));
+function handleConversationGone({ conversationId }: { conversationId: string }) {
+  store().patchConversations((prev) => prev.filter((c) => c._id !== conversationId));
+  if (store().activeId === conversationId) store().setActiveId(null);
 }
 
-function handleConversationNew(
-  { conversation }: { conversation: Conversation },
-  ctx: ChatSocketContext
-) {
-  ctx.setConversations((prev) =>
+function handleConversationNew({ conversation }: { conversation: Conversation }) {
+  store().patchConversations((prev) =>
     prev.some((c) => c._id === conversation._id) ? prev : [conversation, ...prev]
   );
 }
 
-
-export function subscribeChatSocket(ctx: ChatSocketContext): () => void {
+export function subscribeChatSocket(currentUsername: string): () => void {
   const socket = connectSocket();
 
-  
-  
   let everConnected = socket.connected;
   const onReconnect = () => {
     if (!everConnected) {
       everConnected = true;
       return;
     }
-    refetchConversations(ctx);
+    refetchConversations();
   };
 
-  const onNewMessage = (payload: { message: Message }) => handleNewMessage(payload, ctx);
+  const onNewMessage = (payload: { message: Message }) =>
+    handleNewMessage(payload, currentUsername);
   const onConversationUpdated = (payload: { conversation: Conversation }) =>
-    handleConversationUpdated(payload, ctx);
+    handleConversationUpdated(payload);
   const onConversationGone = (payload: { conversationId: string }) =>
-    handleConversationGone(payload, ctx);
+    handleConversationGone(payload);
   const onConversationNew = (payload: { conversation: Conversation }) =>
-    handleConversationNew(payload, ctx);
+    handleConversationNew(payload);
 
   socket.on('connect', onReconnect);
   socket.on('message:new', onNewMessage);
@@ -134,7 +110,7 @@ export function subscribeChatSocket(ctx: ChatSocketContext): () => void {
   socket.on('conversation:deleted', onConversationGone);
 
   return () => {
-    refetchSeq++; 
+    refetchSeq++;
     socket.off('connect', onReconnect);
     socket.off('message:new', onNewMessage);
     socket.off('conversation:new', onConversationNew);

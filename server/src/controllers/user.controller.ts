@@ -1,6 +1,8 @@
 import type { RequestHandler } from 'express';
+import fs from 'fs';
 import { currentUser } from '../middleware/auth';
 import { getIo } from '../utils/io';
+import { badRequest } from '../errors/AppError';
 import * as userService from '../services/user.service';
 import * as friendshipService from '../services/friendship.service';
 
@@ -67,6 +69,31 @@ export const getFriendRequests: RequestHandler = async (req, res, next) => {
   try {
     const result = await friendshipService.listFriendRequests(currentUser(req));
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const uploadAvatar: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.file) throw badRequest('No file uploaded');
+    const user = await userService.setAvatar(
+      currentUser(req),
+      req.file.path,
+      req.file.mimetype
+    );
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const serveAvatar: RequestHandler = async (req, res, next) => {
+  try {
+    const { filePath, mimeType } = await userService.resolveAvatar(req.params.userId);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    fs.createReadStream(filePath).pipe(res);
   } catch (err) {
     next(err);
   }

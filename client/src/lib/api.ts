@@ -8,9 +8,11 @@ export function apiUrl(path: string): string {
   return `${API_URL}${path}`;
 }
 
+export const UNAUTHORIZED_EVENT = "app:unauthorized";
+
 export function notifyUnauthorized(): void {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(""));
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
 }
 

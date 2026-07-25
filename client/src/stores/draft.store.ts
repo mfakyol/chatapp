@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 
 interface DraftState {
-  
   drafts: Record<string, string>;
   setDraft: (conversationId: string, draft: string) => void;
   clearDraft: (conversationId: string) => void;
+  reset: () => void;
 }
 
 
@@ -19,4 +19,5 @@ export const useDraftStore = create<DraftState>((set) => ({
       delete next[conversationId];
       return { drafts: next };
     }),
+  reset: () => set({ drafts: {} }),
 }));

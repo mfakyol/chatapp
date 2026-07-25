@@ -10,8 +10,9 @@ import { Button } from '@/components/ui/Button';
 import { TabBar, Tab } from '@/components/ui/TabBar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ChatsPanel } from '@/components/chat/ChatsPanel';
+import { MyProfilePanel } from '@/components/chat/MyProfilePanel';
 import { PeoplePanel } from '@/components/chat/PeoplePanel';
-import { Conversation, FriendRequests, PublicUser } from '@/types';
+import { FriendRequests, PublicUser } from '@/types';
 import {
   acceptFriendRequest,
   declineFriendRequest,
@@ -20,30 +21,14 @@ import {
   removeFriend,
 } from '@/services/user.service';
 import { createDirectConversation } from '@/services/conversation.service';
+import { addConversation } from '@/services/chat.service';
 import { fullName, userId } from '@/lib/utils';
 import { subscribeFriendSocket } from '@/services/friendSocket.service';
 import { useToastStore } from '@/stores/toast.store';
 import { ToastStack } from '@/components/ui/ToastStack';
 import { useT } from '@/hooks/useT';
 
-interface SidebarProps {
-  conversations: Conversation[];
-  activeConversationId: string | null;
-  onSelectConversation: (conversation: Conversation) => void;
-  onConversationCreated: (conversation: Conversation) => void;
-  onOpenSearchResult: (conversationId: string, messageId: string) => void;
-  hidden?: boolean;
-}
-
-
-export function Sidebar({
-  conversations,
-  activeConversationId,
-  onSelectConversation,
-  onConversationCreated,
-  onOpenSearchResult,
-  hidden,
-}: SidebarProps) {
+export function Sidebar({ hidden }: { hidden?: boolean }) {
   const { t } = useT();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -51,6 +36,7 @@ export function Sidebar({
   const presence = usePresenceMap();
 
   const [tab, setTab] = useState<'chats' | 'people'>('chats');
+  const [showMyProfile, setShowMyProfile] = useState(false);
   const [friends, setFriends] = useState<PublicUser[]>([]);
   const [requests, setRequests] = useState<FriendRequests>({ received: [], sent: [] });
 
@@ -120,7 +106,7 @@ export function Sidebar({
   async function handleStartChat(username: string): Promise<string | null> {
     const res = await createDirectConversation(username);
     if (!res.success) return res.error;
-    onConversationCreated(res.data.conversation);
+    addConversation(res.data.conversation);
     setTab('chats');
     return null;
   }
@@ -132,13 +118,17 @@ export function Sidebar({
       <ToastStack />
 
       <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Avatar name={user ? fullName(user) : '?'} size={40} />
-          <div>
+        <Button
+          variant="unstyled"
+          onClick={() => setShowMyProfile(true)}
+          className="flex min-w-0 items-center gap-3 text-left"
+        >
+          <Avatar name={user ? fullName(user) : '?'} size={40} user={user ?? undefined} />
+          <div className="min-w-0">
             <p className="text-sm font-medium text-(--text-normal)">{user ? fullName(user) : ''}</p>
             <p className="text-xs text-(--text-muted)">@{user?.username}</p>
           </div>
-        </div>
+        </Button>
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <Button
@@ -155,40 +145,37 @@ export function Sidebar({
         </div>
       </div>
 
-      <TabBar>
-        <Tab active={tab === 'chats'} onClick={() => setTab('chats')}>
-          <IconMessageCircle2 size={18} /> {t('sidebar.chats')}
-        </Tab>
-        <Tab active={tab === 'people'} onClick={() => setTab('people')} badge={requests.received.length}>
-          <IconUsers size={18} /> {t('sidebar.people')}
-        </Tab>
-      </TabBar>
+      {showMyProfile ? (
+        <MyProfilePanel onClose={() => setShowMyProfile(false)} />
+      ) : (
+        <>
+          <TabBar>
+            <Tab active={tab === 'chats'} onClick={() => setTab('chats')}>
+              <IconMessageCircle2 size={18} /> {t('sidebar.chats')}
+            </Tab>
+            <Tab active={tab === 'people'} onClick={() => setTab('people')} badge={requests.received.length}>
+              <IconUsers size={18} /> {t('sidebar.people')}
+            </Tab>
+          </TabBar>
 
-      {tab === 'chats' && (
-        <ChatsPanel
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          currentUsername={user?.username || ''}
-          isUserOnline={isUserOnline}
-          onSelect={onSelectConversation}
-          onOpenSearchResult={onOpenSearchResult}
-        />
-      )}
+          {tab === 'chats' && <ChatsPanel isUserOnline={isUserOnline} />}
 
-      {tab === 'people' && (
-        <PeoplePanel
-          friends={friends}
-          requests={requests}
-          isUserOnline={isUserOnline}
-          onAccept={handleAccept}
-          onDecline={handleDecline}
-          onUnfriend={handleUnfriend}
-          onStartChat={handleStartChat}
-          onConversationCreated={(conversation) => {
-            onConversationCreated(conversation);
-            setTab('chats');
-          }}
-        />
+          {tab === 'people' && (
+            <PeoplePanel
+              friends={friends}
+              requests={requests}
+              isUserOnline={isUserOnline}
+              onAccept={handleAccept}
+              onDecline={handleDecline}
+              onUnfriend={handleUnfriend}
+              onStartChat={handleStartChat}
+              onConversationCreated={(conversation) => {
+                addConversation(conversation);
+                setTab('chats');
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );

@@ -2,41 +2,33 @@
 
 import { useEffect, useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
-import { Conversation, MessageSearchResult, PublicUser } from '@/types';
 import { searchMessages } from '@/services/conversation.service';
+import { openSearchResult, selectConversation } from '@/services/chat.service';
 import { useDraftStore } from '@/stores/draft.store';
+import { useChatStore } from '@/stores/chat.store';
+import type { PublicUser } from '@/types';
 import { conversationName, fullName, otherParticipant } from '@/lib/utils';
 import { useT } from '@/hooks/useT';
 import { SearchField } from '@/components/ui/SearchField';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ListRowButton } from '@/components/ui/ListRowButton';
-
+import type { MessageSearchResult } from '@/types';
+import { useAuthStore } from '@/stores/auth.store';
 
 export function ChatsPanel({
-  conversations,
-  activeConversationId,
-  currentUsername,
   isUserOnline,
-  onSelect,
-  onOpenSearchResult,
 }: {
-  conversations: Conversation[];
-  activeConversationId: string | null;
-  currentUsername: string;
   isUserOnline: (user: PublicUser) => boolean;
-  onSelect: (conversation: Conversation) => void;
-  onOpenSearchResult: (conversationId: string, messageId: string) => void;
 }) {
   const { t } = useT();
+  const currentUsername = useAuthStore((s) => s.user?.username || '');
+  const conversations = useChatStore((s) => s.conversations);
+  const activeId = useChatStore((s) => s.activeId);
+  const drafts = useDraftStore((s) => s.drafts);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MessageSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
-  
-  
-  const drafts = useDraftStore((s) => s.drafts);
 
-  
-  
   useEffect(() => {
     const q = query.trim();
     if (!q) return;
@@ -53,6 +45,7 @@ export function ChatsPanel({
       clearTimeout(timeout);
     };
   }, [query]);
+
   const shownResults = query.trim() ? results : [];
 
   function snippet(m: MessageSearchResult): string {
@@ -61,14 +54,12 @@ export function ChatsPanel({
   }
 
   function resultConversationName(m: MessageSearchResult): string {
-    
-    
     const convo = conversations.find((c) => c._id === m.conversation._id);
     if (convo) return conversationName(convo, currentUsername);
     return m.conversation.name || fullName(m.sender);
   }
 
-  function lastMessagePreview(c: Conversation): string {
+  function lastMessagePreview(c: (typeof conversations)[number]): string {
     if (!c.lastMessage) return t('sidebar.noMessagesYet');
     if (c.lastMessage.attachment) return `📎 ${c.lastMessage.attachment.fileName}`;
     return c.lastMessage.content;
@@ -94,7 +85,7 @@ export function ChatsPanel({
             <ListRowButton
               key={m._id}
               align="start"
-              onClick={() => onOpenSearchResult(m.conversation._id, m._id)}
+              onClick={() => openSearchResult(m.conversation._id, m._id)}
             >
               <Avatar name={resultConversationName(m)} size={36} />
               <div className="min-w-0 flex-1">
@@ -119,16 +110,17 @@ export function ChatsPanel({
           {conversations.length === 0 && <EmptyState>{t('sidebar.noConversations')}</EmptyState>}
           {conversations.map((c) => {
             const other = !c.isGroup ? otherParticipant(c, currentUsername) : undefined;
-            const draft = c._id !== activeConversationId ? drafts[c._id]?.trim() : undefined;
+            const draft = c._id !== activeId ? drafts[c._id]?.trim() : undefined;
             return (
               <ListRowButton
                 key={c._id}
-                active={activeConversationId === c._id}
-                onClick={() => onSelect(c)}
+                active={activeId === c._id}
+                onClick={() => selectConversation(c)}
               >
                 <Avatar
                   name={conversationName(c, currentUsername)}
                   isOnline={!c.isGroup && !!other && isUserOnline(other)}
+                  user={other}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-(--text-normal)">
@@ -137,8 +129,7 @@ export function ChatsPanel({
                   <p className="truncate text-xs text-(--text-muted)">
                     {draft ? (
                       <>
-                        <span className="font-medium text-(--brand)">{t('sidebar.draft')}</span>{' '}
-                        {draft}
+                        <span className="font-medium text-(--brand)">{t('sidebar.draft')}</span> {draft}
                       </>
                     ) : (
                       lastMessagePreview(c)

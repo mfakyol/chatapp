@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
+import { UNAUTHORIZED_EVENT } from '@/lib/api';
+import { clearSessionState } from '@/lib/session';
 import { useAuthStore } from '@/stores/auth.store';
-import { usePresenceStore } from '@/stores/presence.store';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { disconnectSocket } from '@/lib/socket';
 
@@ -18,13 +19,13 @@ export default function AuthBootstrap() {
   useEffect(() => {
     function onUnauthorized() {
       if (!useAuthStore.getState().user) return;
-      useAuthStore.setState({ user: null });
       disconnectSocket();
-      usePresenceStore.getState().reset();
+      clearSessionState();
+      useAuthStore.setState({ user: null });
       router.replace('/login');
     }
-    window.addEventListener('app:unauthorized', onUnauthorized);
-    return () => window.removeEventListener('app:unauthorized', onUnauthorized);
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, [router]);
 
   return null;

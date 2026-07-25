@@ -19,7 +19,8 @@ import { FormError } from '@/components/ui/FormError';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Conversation, PublicUser } from '@/types';
-import { fullName, otherParticipant, formatLastSeen, userId } from '@/lib/utils';
+import { formatLastSeen } from '@/lib/format';
+import { fullName, otherParticipant, userId } from '@/lib/utils';
 import { useT } from '@/hooks/useT';
 import { usePresenceMap } from '@/hooks/usePresence';
 import { useAuthStore } from '@/stores/auth.store';
@@ -127,6 +128,7 @@ export function ProfilePanel({
           name={conversation.isGroup ? conversation.name : other ? fullName(other) : '?'}
           isOnline={!conversation.isGroup && otherStatus?.isOnline}
           size={96}
+          user={other}
         />
         {conversation.isGroup ? (
           renaming ? (
@@ -202,7 +204,7 @@ export function ProfilePanel({
                     variant="rowItem"
                     onClick={() => handleAddMember(f.username)}
                   >
-                    <Avatar name={fullName(f)} size={24} />
+                    <Avatar name={fullName(f)} size={24} user={f} />
                     {fullName(f)}
                   </Button>
                 ))}
@@ -213,7 +215,7 @@ export function ProfilePanel({
               const status = liveStatus(userId(p), p.isOnline, p.lastSeen);
               return (
                 <div key={p.username} className="flex items-center gap-3 py-2">
-                  <Avatar name={fullName(p)} isOnline={status.isOnline} size={36} />
+                  <Avatar name={fullName(p)} isOnline={status.isOnline} size={36} user={p} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-(--text-normal)">
                       {fullName(p)}{' '}

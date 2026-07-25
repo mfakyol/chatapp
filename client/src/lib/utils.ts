@@ -42,24 +42,15 @@ export function fileUrl(path: string): string {
   return `${SERVER_ORIGIN}${path}`;
 }
 
+export function userAvatarUrl(id: string, avatarUrl?: string): string {
+  const base = fileUrl(`/api/users/${id}/avatar`);
+  return avatarUrl ? `${base}?v=${encodeURIComponent(avatarUrl)}` : base;
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-export function formatLastSeen(lastSeen?: string): string {
-  if (!lastSeen) return "";
-  const date = new Date(lastSeen);
-  const now = new Date();
-  const sameDay = date.toDateString() === now.toDateString();
-  const time = date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return sameDay
-    ? `last seen today at ${time}`
-    : `last seen ${date.toLocaleDateString()} ${time}`;
 }
 
 export function playNotificationSound() {

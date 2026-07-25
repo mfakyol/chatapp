@@ -8,9 +8,11 @@ import {
   IconSend,
   IconX,
 } from '@tabler/icons-react';
-import { Message } from '@/types';
 import { getSocket } from '@/lib/socket';
 import { useDraftStore } from '@/stores/draft.store';
+import { useChatWindowStore } from '@/stores/chatWindow.store';
+import { useChatStore } from '@/stores/chat.store';
+import { cancelReply, sendChatMessage } from '@/services/chatWindow.service';
 import { sendAttachment } from '@/services/conversation.service';
 import { messagePreview } from '@/lib/format';
 import { useDismiss } from '@/hooks/useDismiss';
@@ -32,22 +34,13 @@ const ACCEPTED_FILES =
   'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z';
 
 
-export function Composer({
-  conversationId,
-  replyingTo,
-  onCancelReply,
-  onSend,
-}: {
-  conversationId: string;
-  replyingTo: Message | null;
-  onCancelReply: () => void;
-  
-  onSend: (content: string, replyToId?: string) => Promise<boolean>;
-}) {
+export function Composer() {
   const { t } = useT();
-  
+  const conversationId = useChatStore((s) => s.activeId);
+  const replyingTo = useChatWindowStore((s) => s.replyingTo);
+
   const [draft, setDraft] = useState(
-    () => useDraftStore.getState().drafts[conversationId] ?? ''
+    () => (conversationId ? useDraftStore.getState().drafts[conversationId] ?? '' : '')
   );
   const draftRef = useRef(draft);
   useEffect(() => {
@@ -78,19 +71,25 @@ export function Composer({
   
   
   useEffect(() => {
+    if (!conversationId) return;
     return () => {
       stopTyping();
       const { setDraft: park, clearDraft } = useDraftStore.getState();
       if (draftRef.current.trim()) park(conversationId, draftRef.current);
       else clearDraft(conversationId);
     };
-    
-  }, []);
+  }, [conversationId]);
 
-  
+  useEffect(() => {
+    if (!conversationId) return;
+    setDraft(useDraftStore.getState().drafts[conversationId] ?? '');
+  }, [conversationId]);
+
   useEffect(() => {
     if (replyingTo) inputRef.current?.focus();
   }, [replyingTo]);
+
+  if (!conversationId) return null;
 
   function handleDraftChange(value: string) {
     setDraft(value);
@@ -107,7 +106,7 @@ export function Composer({
     if (!content) return;
     stopTyping();
     setDraft('');
-    const ok = await onSend(content, replyingTo?._id);
+    const ok = await sendChatMessage(content, replyingTo?._id);
     if (!ok) setDraft(content);
   }
 
@@ -124,6 +123,7 @@ export function Composer({
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!conversationId) return;
     const file = e.target.files?.[0];
     if (!file) return;
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -155,7 +155,7 @@ export function Composer({
           </div>
           <Button
             variant="iconSm"
-            onClick={onCancelReply}
+            onClick={cancelReply}
             title={t('common.cancel')}
             aria-label={t('common.cancel')}
           >
@@ -208,7 +208,7 @@ export function Composer({
           onChange={(e) => handleDraftChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSend();
-            if (e.key === 'Escape' && replyingTo) onCancelReply();
+            if (e.key === 'Escape' && replyingTo) cancelReply();
           }}
           placeholder={uploading ? t('chat.uploading') : t('chat.typeMessage')}
         />

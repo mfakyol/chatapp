@@ -1,32 +1,16 @@
-import { messages } from '@/i18n/messages';
+import type { Locale, Messages } from '@/i18n/locales';
+import { getActiveMessages } from '@/contexts/LocaleContext';
+import { translate } from '@/i18n/translate';
 
 type Params = Record<string, string | number>;
 
-/**
- * Resolve a dotted message key (e.g. `sidebar.friends`) and interpolate any
- * `{param}` placeholders. Returns the key itself if it can't be resolved, so a
- * missing string is visible rather than silently blank.
- */
+export { translate } from '@/i18n/translate';
+export { useT } from '@/hooks/useT';
+
+
 export function t(key: string, params?: Params): string {
-  const resolved = key
-    .split('.')
-    .reduce<unknown>((node, part) => {
-      if (node && typeof node === 'object') return (node as Record<string, unknown>)[part];
-      return undefined;
-    }, messages);
-
-  if (typeof resolved !== 'string') {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(`[i18n] missing message key: ${key}`);
-    }
-    return key;
-  }
-  if (!params) return resolved;
-
-  return Object.entries(params).reduce(
-    (str, [name, value]) => str.replaceAll(`{${name}}`, String(value)),
-    resolved
-  );
+  return translate(getActiveMessages(), key, params);
 }
 
-export { messages };
+export { loadCatalog } from '@/i18n/loadCatalog';
+export type { Locale, Messages };

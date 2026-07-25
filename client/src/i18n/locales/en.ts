@@ -1,6 +1,4 @@
-// All user-facing copy lives here. Single locale (en) for now; the `t()` accessor
-// in ./index resolves dotted keys and interpolates {params}.
-export const messages = {
+export const en = {
   common: {
     brand: 'ChatApp',
     loading: 'Loading...',
@@ -12,6 +10,45 @@ export const messages = {
     retry: 'Try again',
     themeLight: 'Switch to light theme',
     themeDark: 'Switch to dark theme',
+    language: 'Language',
+    locales: {
+      en: 'English',
+      tr: 'Turkish',
+    },
+  },
+  meta: {
+    home: {
+      title: 'ChatApp — Realtime Messaging in Your Browser',
+      description:
+        'Fast, familiar chat with direct and group messaging, online presence, read receipts, and file sharing. Create a free account and start chatting instantly.',
+      keywords: [
+        'chat app',
+        'messaging',
+        'realtime chat',
+        'group chat',
+        'websocket',
+        'online chat',
+        'ChatApp',
+      ],
+    },
+    login: {
+      title: 'Sign in — ChatApp',
+      description:
+        'Sign in to ChatApp to access your conversations, friends, and group chats in real time.',
+      keywords: ['login', 'sign in', 'chat app', 'messaging', 'ChatApp'],
+    },
+    register: {
+      title: 'Create account — ChatApp',
+      description:
+        'Create your free ChatApp account and start messaging with friends in real time. Group chats, media sharing, and read receipts included.',
+      keywords: ['register', 'sign up', 'create account', 'chat app', 'ChatApp'],
+    },
+    chat: {
+      title: 'Messages — ChatApp',
+      description:
+        'Your ChatApp inbox — direct and group conversations, realtime messaging, and read receipts.',
+      keywords: ['messages', 'inbox', 'chat', 'conversations', 'ChatApp'],
+    },
   },
   home: {
     navLogIn: 'Log in',
@@ -28,6 +65,11 @@ export const messages = {
     ctaTitle: 'Ready to start chatting?',
     ctaSubtitle: 'Create your account and message anyone in real time.',
     footerTagline: 'Realtime messaging · built with Next.js & Socket.IO',
+    mockupContactName: 'Ayşe',
+    mockupContactInitials: 'AY',
+    mockupMsg1: 'Hey! Are we still on for tonight?',
+    mockupMsg2: 'Absolutely 🎉 see you at 8.',
+    mockupMsg3: 'Sending the address now 📍',
     features: [
       { title: 'Realtime messaging', desc: 'Messages arrive instantly over WebSockets — no refresh, no waiting.' },
       { title: 'Presence & last seen', desc: 'See who is online right now and when your contacts were last active.' },
@@ -45,6 +87,8 @@ export const messages = {
     submitting: 'Signing in...',
     noAccount: "Don't have an account?",
     registerLink: 'Register',
+    errEmptyIdentifier: 'Enter your username or email',
+    errEmptyPassword: 'Enter your password',
   },
   register: {
     title: 'Create account',
@@ -58,7 +102,9 @@ export const messages = {
     haveAccount: 'Already have an account?',
     signInLink: 'Sign in',
     errBadUsername: 'Username must be 3-20 chars: lowercase letters, numbers, - and _ only',
+    errBadEmail: 'Enter a valid email',
     errShortPassword: 'Password must be at least 6 characters',
+    errRequired: 'This field is required',
   },
   sidebar: {
     chats: 'Chats',
@@ -144,5 +190,3 @@ export const messages = {
     confirmDelete: 'Delete this conversation for everyone? This removes all its messages.',
   },
 } as const;
-
-export type Messages = typeof messages;

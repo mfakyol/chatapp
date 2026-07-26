@@ -4,6 +4,8 @@ A production-ready messaging platform with direct and group chats, friend manage
 
 **Live demo:** [chat.fatihakyol.com](https://chat.fatihakyol.com)
 
+![Chat App screenshot](assets/screenshot.png)
+
 ---
 
 ## Overview

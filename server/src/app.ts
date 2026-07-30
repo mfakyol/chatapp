@@ -21,7 +21,7 @@ export function createApp(sessionMiddleware: SessionMiddleware = createSessionMi
   app.use(pinoHttp({ logger }));
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-  app.use(cors({ origin: env.clientUrl, credentials: true }));
+  app.use(cors({ origin: env.isProd ? env.clientUrl : true, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(sessionMiddleware);
   app.use(passport.initialize());

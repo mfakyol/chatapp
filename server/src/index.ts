@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   const server = http.createServer(app);
 
   const io = new Server(server, {
-    cors: { origin: env.clientUrl, credentials: true },
+    cors: { origin: env.isProd ? env.clientUrl : true, credentials: true },
   });
   io.engine.use(sessionMiddleware as unknown as Parameters<typeof io.engine.use>[0]);
 

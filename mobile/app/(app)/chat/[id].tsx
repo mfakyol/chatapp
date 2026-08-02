@@ -668,12 +668,18 @@ export default function ChatScreen() {
               showsHorizontalScrollIndicator={false}
               initialScrollIndex={viewerIndex ?? 0}
               getItemLayout={(_, index) => ({
-                length: 64,
-                offset: 64 * index,
+                length: 66,
+                offset: 66 * index,
                 index,
               })}
               renderItem={({ item: g, index }) => (
-                <Pressable onPress={() => setViewerIndex(index)}>
+                <Pressable
+                  onPress={() => setViewerIndex(index)}
+                  style={[
+                    styles.thumbWrap,
+                    index === viewerIndex && styles.thumbWrapActive,
+                  ]}
+                >
                   <Image
                     source={{ uri: g.uri }}
                     style={[styles.thumb, index === viewerIndex && styles.thumbActive]}
@@ -736,8 +742,6 @@ const styles = StyleSheet.create({
   },
   attachmentImageWrap: {
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(128,128,128,0.5)',
     overflow: 'hidden',
   },
   attachmentImage: {
@@ -752,8 +756,6 @@ const styles = StyleSheet.create({
   },
   gridImageWrap: {
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(128,128,128,0.5)',
     overflow: 'hidden',
   },
   gridImage: {
@@ -986,8 +988,6 @@ const styles = StyleSheet.create({
   },
   previewImageWrap: {
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(128,128,128,0.5)',
     overflow: 'hidden',
   },
   previewImage: {
@@ -1034,15 +1034,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 8,
   },
-  thumb: {
-    width: 56,
-    height: 56,
+  thumbWrap: {
+    width: 58,
+    height: 58,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    overflow: 'hidden',
+  },
+  thumbWrapActive: {
+    borderWidth: 2,
+    borderColor: '#2563EB',
+  },
+  thumb: {
+    flex: 1,
     opacity: 0.6,
   },
   thumbActive: {
     opacity: 1,
-    borderWidth: 2,
-    borderColor: '#2563EB',
   },
 });

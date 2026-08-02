@@ -1,4 +1,3 @@
-import { useHeaderHeight } from '@react-navigation/elements';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +25,7 @@ import { emitTyping } from '@/services/chatSocket.service';
 import {
   conversationTitle,
   fileUrl,
+  formatListTime,
   formatMessageTime,
   fullName,
   isImageAttachment,
@@ -44,7 +44,6 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const headerHeight = useHeaderHeight();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -269,54 +268,73 @@ export default function ChatScreen() {
     );
   };
 
+  const other =
+    conversation && !conversation.isGroup
+      ? otherParticipant(conversation, meId)
+      : undefined;
+  const title = conversation ? conversationTitle(conversation, meId) : 'Sohbet';
+  const subtitle = conversation
+    ? conversation.isGroup
+      ? `${conversation.members?.length ?? conversation.participants.length} üye`
+      : other?.isOnline
+        ? 'çevrimiçi'
+        : other?.lastSeen
+          ? `son görülme: ${formatListTime(other.lastSeen)}`
+          : null
+    : null;
+
+  const openInfo = () => {
+    if (!conversation) return;
+    if (conversation.isGroup) {
+      router.push({ pathname: '/group/[id]', params: { id } });
+    } else if (other) {
+      router.push({
+        pathname: '/user/[username]',
+        params: { username: other.username },
+      });
+    }
+  };
+
   return (
     <ThemedView style={styles.flex}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: conversation
-            ? conversationTitle(conversation, meId) +
-              (!conversation.isGroup &&
-              otherParticipant(conversation, meId)?.isOnline
-                ? ' • çevrimiçi'
-                : '')
-            : 'Sohbet',
-          headerBackTitle: 'Geri',
-          headerRight: conversation
-            ? () => {
-                const other = conversation.isGroup
-                  ? undefined
-                  : otherParticipant(conversation, meId);
-                return (
-                  <Pressable
-                    onPress={() => {
-                      if (conversation.isGroup) {
-                        router.push({ pathname: '/group/[id]', params: { id } });
-                      } else if (other) {
-                        router.push({
-                          pathname: '/user/[username]',
-                          params: { username: other.username },
-                        });
-                      }
-                    }}
-                    hitSlop={8}
-                  >
-                    {conversation.isGroup ? (
-                      <GroupAvatar conversation={conversation} size={32} />
-                    ) : (
-                      <Avatar user={other} size={32} />
-                    )}
-                  </Pressable>
-                );
-              }
-            : undefined,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={headerHeight}
       >
+        <SafeAreaView edges={['top']}>
+          <View style={styles.chatHeader}>
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <ThemedText style={styles.backIcon}>‹</ThemedText>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.headerInfo, pressed && styles.headerPressed]}
+              onPress={openInfo}
+            >
+              {conversation?.isGroup ? (
+                <GroupAvatar conversation={conversation} size={38} />
+              ) : (
+                <Avatar user={other} size={38} />
+              )}
+              <View style={styles.headerTexts}>
+                <ThemedText type="defaultSemiBold" numberOfLines={1}>
+                  {title}
+                </ThemedText>
+                {subtitle ? (
+                  <ThemedText
+                    style={[
+                      styles.subtitle,
+                      !conversation?.isGroup && other?.isOnline && styles.subtitleOnline,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {subtitle}
+                  </ThemedText>
+                ) : null}
+              </View>
+            </Pressable>
+          </View>
+        </SafeAreaView>
         <FlatList
           data={inverted}
           keyExtractor={(item) => item._id}
@@ -430,6 +448,42 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128,128,128,0.3)',
+  },
+  backIcon: {
+    fontSize: 34,
+    lineHeight: 36,
+    color: '#2563EB',
+    paddingHorizontal: 6,
+  },
+  headerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerPressed: {
+    opacity: 0.7,
+  },
+  headerTexts: {
+    flex: 1,
+  },
+  subtitle: {
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.5,
+  },
+  subtitleOnline: {
+    color: '#22C55E',
+    opacity: 1,
   },
   listContent: {
     paddingHorizontal: 12,

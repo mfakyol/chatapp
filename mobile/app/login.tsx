@@ -9,12 +9,14 @@ import {
   TextInput,
 } from 'react-native';
 
+import { useT } from '@/lib/i18n';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthStore } from '@/stores/auth.store';
 
 export default function LoginScreen() {
+  const t = useT();
   const colorScheme = useColorScheme();
   const login = useAuthStore((s) => s.login);
   const error = useAuthStore((s) => s.error);
@@ -51,11 +53,11 @@ export default function LoginScreen() {
         <ThemedText type="title" style={styles.title}>
           Chatapp
         </ThemedText>
-        <ThemedText style={styles.subtitle}>Hesabına giriş yap</ThemedText>
+        <ThemedText style={styles.subtitle}>{t('auth.loginSubtitle')}</ThemedText>
 
         <TextInput
           style={inputStyle}
-          placeholder="Kullanıcı adı veya e-posta"
+          placeholder={t('auth.identifier')}
           placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
           autoCapitalize="none"
           autoCorrect={false}
@@ -65,7 +67,7 @@ export default function LoginScreen() {
         />
         <TextInput
           style={inputStyle}
-          placeholder="Şifre"
+          placeholder={t('auth.password')}
           placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
           secureTextEntry
           value={password}
@@ -84,14 +86,12 @@ export default function LoginScreen() {
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <ThemedText style={styles.buttonText}>Giriş yap</ThemedText>
+            <ThemedText style={styles.buttonText}>{t('auth.login')}</ThemedText>
           )}
         </Pressable>
 
         <Link href="/register" style={styles.link}>
-          <ThemedText style={styles.linkText}>
-            Hesabın yok mu? Kayıt ol
-          </ThemedText>
+          <ThemedText style={styles.linkText}>{t('auth.noAccount')}</ThemedText>
         </Link>
       </ThemedView>
     </KeyboardAvoidingView>

@@ -1,0 +1,385 @@
+import { useMemo } from "react";
+
+import { resolveLanguage, useLanguageStore } from "@/stores/language.store";
+
+const en = {
+  "auth.loginSubtitle": "Sign in to your account",
+  "auth.identifier": "Username or email",
+  "auth.password": "Password",
+  "auth.login": "Sign in",
+  "auth.noAccount": "No account? Sign up",
+  "auth.registerTitle": "Sign up",
+  "auth.firstName": "First name",
+  "auth.lastName": "Last name",
+  "auth.usernameHint": "Username (3-20 chars, lowercase)",
+  "auth.email": "Email",
+  "auth.passwordHint": "Password (min 6 characters)",
+  "auth.createAccount": "Create account",
+  "auth.haveAccount": "Already have an account? Sign in",
+
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "common.save": "Save",
+  "common.error": "Error",
+  "common.add": "Add",
+
+  "chats.title": "Chats",
+  "chats.new": "New",
+  "chats.empty": "No chats yet. Find friends and start one!",
+  "chats.noMessages": "No messages yet",
+  "chats.messageDeleted": "Message deleted",
+  "chats.photos": "📷 {n} photos",
+
+  "chat.title": "Chat",
+  "chat.online": "online",
+  "chat.lastSeen": "last seen: {time}",
+  "chat.members": "{n} members",
+  "chat.deletedMessage": "This message was deleted",
+  "chat.typing": "{names} typing...",
+  "chat.placeholder": "Type a message...",
+  "chat.addCaption": "Add a message...",
+  "chat.photosCount": "{n} photos",
+  "chat.editing": "Editing: {text}",
+  "chat.edited": " · edited",
+  "chat.edit": "Edit",
+  "chat.deleteTitle": "Delete message",
+  "chat.deleteConfirm": "This message will be deleted for everyone. Are you sure?",
+
+  "contacts.title": "Contacts",
+  "contacts.search": "Search users...",
+  "contacts.newGroup": "Create new group",
+  "contacts.requests": "Friend requests",
+  "contacts.friends": "Friends",
+  "contacts.results": "Results",
+  "contacts.searching": "Searching...",
+  "contacts.notFound": "No users found",
+  "contacts.empty": "No friends yet. Search above and send a request.",
+  "contacts.you": "(you)",
+  "contacts.requestSent": "Request sent",
+  "contacts.accept": "Accept",
+  "contacts.sendRequest": "Send request",
+
+  "group.newTitle": "New group",
+  "group.name": "Group name",
+  "group.selectHint": "Select at least {min} friends ({n} selected)",
+  "group.needFriends": "Add friends first to create a group.",
+  "group.create": "Create group",
+  "group.createFailed": "Could not create group",
+  "group.infoTitle": "Group info",
+  "group.changePhoto": "Change photo",
+  "group.descriptionPlaceholder": "Group description...",
+  "group.membersHeader": "Members ({n})",
+  "group.admin": "admin",
+  "group.makeAdmin": "Make admin",
+  "group.removeAdmin": "Remove admin",
+  "group.removeMember": "Remove from group",
+  "group.addMember": "Add member",
+  "group.noAddable": "No friends left to add.",
+  "group.leave": "Leave group",
+  "group.leaveConfirm": "Are you sure you want to leave this group?",
+  "group.leaveAction": "Leave",
+  "group.delete": "Delete group",
+  "group.deleteConfirm":
+    "The group will be permanently deleted for everyone, including all messages and files. Are you sure?",
+
+  "profile.title": "Profile",
+  "profile.changePhoto": "Change photo",
+  "profile.bioPlaceholder": "Tell us about yourself...",
+  "profile.saveBio": "Save bio",
+  "profile.settings": "⚙️ Settings",
+  "profile.logout": "Log out",
+
+  "user.noBio": "No bio yet.",
+  "user.message": "Send message",
+
+  "settings.title": "Settings",
+  "settings.appearance": "Appearance",
+  "settings.system": "System",
+  "settings.systemHint": "Follows your device theme",
+  "settings.light": "Light",
+  "settings.lightHint": "Always light theme",
+  "settings.dark": "Dark",
+  "settings.darkHint": "Always dark theme",
+  "settings.language": "Language",
+  "settings.languageSystemHint": "Follows your device language",
+
+  "time.today": "Today",
+  "time.yesterday": "Yesterday",
+  "time.yesterdayLower": "yesterday",
+  "time.todayAt": "today {time}",
+  "time.yesterdayAt": "yesterday {time}",
+  "time.weeksShort": "{n}w",
+  "time.monthsShort": "{n}mo",
+  "time.yearsShort": "{n}y",
+  "time.weeksAgo": "{n} weeks ago",
+  "time.monthsAgo": "{n} months ago",
+  "time.yearsAgo": "{n} years ago",
+};
+
+const tr: Record<TranslationKey, string> = {
+  "auth.loginSubtitle": "Hesabına giriş yap",
+  "auth.identifier": "Kullanıcı adı veya e-posta",
+  "auth.password": "Şifre",
+  "auth.login": "Giriş yap",
+  "auth.noAccount": "Hesabın yok mu? Kayıt ol",
+  "auth.registerTitle": "Kayıt ol",
+  "auth.firstName": "Ad",
+  "auth.lastName": "Soyad",
+  "auth.usernameHint": "Kullanıcı adı (3-20 karakter, küçük harf)",
+  "auth.email": "E-posta",
+  "auth.passwordHint": "Şifre (en az 6 karakter)",
+  "auth.createAccount": "Hesap oluştur",
+  "auth.haveAccount": "Zaten hesabın var mı? Giriş yap",
+
+  "common.cancel": "Vazgeç",
+  "common.delete": "Sil",
+  "common.save": "Kaydet",
+  "common.error": "Hata",
+  "common.add": "Ekle",
+
+  "chats.title": "Sohbetler",
+  "chats.new": "Yeni",
+  "chats.empty": "Henüz sohbetin yok. Arkadaş bul ve bir tane başlat!",
+  "chats.noMessages": "Henüz mesaj yok",
+  "chats.messageDeleted": "Mesaj silindi",
+  "chats.photos": "📷 {n} fotoğraf",
+
+  "chat.title": "Sohbet",
+  "chat.online": "çevrimiçi",
+  "chat.lastSeen": "son görülme: {time}",
+  "chat.members": "{n} üye",
+  "chat.deletedMessage": "Bu mesaj silindi",
+  "chat.typing": "{names} yazıyor...",
+  "chat.placeholder": "Mesaj yaz...",
+  "chat.addCaption": "Mesaj ekle...",
+  "chat.photosCount": "{n} fotoğraf",
+  "chat.editing": "Düzenleniyor: {text}",
+  "chat.edited": " · dzn",
+  "chat.edit": "Düzenle",
+  "chat.deleteTitle": "Mesajı sil",
+  "chat.deleteConfirm": "Bu mesaj herkes için silinecek. Emin misin?",
+
+  "contacts.title": "Kişiler",
+  "contacts.search": "Kullanıcı ara...",
+  "contacts.newGroup": "Yeni grup oluştur",
+  "contacts.requests": "Gelen istekler",
+  "contacts.friends": "Arkadaşlar",
+  "contacts.results": "Sonuçlar",
+  "contacts.searching": "Aranıyor...",
+  "contacts.notFound": "Kullanıcı bulunamadı",
+  "contacts.empty": "Henüz arkadaşın yok. Yukarıdan kullanıcı arayıp istek gönder.",
+  "contacts.you": "(sen)",
+  "contacts.requestSent": "İstek gönderildi",
+  "contacts.accept": "Kabul",
+  "contacts.sendRequest": "İstek gönder",
+
+  "group.newTitle": "Yeni grup",
+  "group.name": "Grup adı",
+  "group.selectHint": "En az {min} arkadaş seç ({n} seçili)",
+  "group.needFriends": "Grup kurmak için önce arkadaş eklemelisin.",
+  "group.create": "Grubu kur",
+  "group.createFailed": "Grup oluşturulamadı",
+  "group.infoTitle": "Grup bilgisi",
+  "group.changePhoto": "Fotoğrafı değiştir",
+  "group.descriptionPlaceholder": "Grup açıklaması...",
+  "group.membersHeader": "Üyeler ({n})",
+  "group.admin": "admin",
+  "group.makeAdmin": "Admin yap",
+  "group.removeAdmin": "Adminliği al",
+  "group.removeMember": "Gruptan çıkar",
+  "group.addMember": "Üye ekle",
+  "group.noAddable": "Eklenebilecek arkadaş kalmadı.",
+  "group.leave": "Gruptan ayrıl",
+  "group.leaveConfirm": "Bu gruptan ayrılmak istediğine emin misin?",
+  "group.leaveAction": "Ayrıl",
+  "group.delete": "Grubu sil",
+  "group.deleteConfirm":
+    "Grup, tüm mesajları ve dosyalarıyla birlikte herkes için kalıcı olarak silinecek. Emin misin?",
+
+  "profile.title": "Profil",
+  "profile.changePhoto": "Fotoğrafı değiştir",
+  "profile.bioPlaceholder": "Kendinden bahset...",
+  "profile.saveBio": "Bio'yu kaydet",
+  "profile.settings": "⚙️ Ayarlar",
+  "profile.logout": "Çıkış yap",
+
+  "user.noBio": "Henüz bio eklememiş.",
+  "user.message": "Mesaj gönder",
+
+  "settings.title": "Ayarlar",
+  "settings.appearance": "Görünüm",
+  "settings.system": "Sistem",
+  "settings.systemHint": "Cihazının temasına uyar",
+  "settings.light": "Açık",
+  "settings.lightHint": "Her zaman açık tema",
+  "settings.dark": "Koyu",
+  "settings.darkHint": "Her zaman koyu tema",
+  "settings.language": "Dil",
+  "settings.languageSystemHint": "Cihazının diline uyar",
+
+  "time.today": "Bugün",
+  "time.yesterday": "Dün",
+  "time.yesterdayLower": "dün",
+  "time.todayAt": "bugün {time}",
+  "time.yesterdayAt": "dün {time}",
+  "time.weeksShort": "{n} hf",
+  "time.monthsShort": "{n} ay",
+  "time.yearsShort": "{n} yıl",
+  "time.weeksAgo": "{n} hafta önce",
+  "time.monthsAgo": "{n} ay önce",
+  "time.yearsAgo": "{n} yıl önce",
+};
+
+const de: Record<TranslationKey, string> = {
+  "auth.loginSubtitle": "Melde dich bei deinem Konto an",
+  "auth.identifier": "Benutzername oder E-Mail",
+  "auth.password": "Passwort",
+  "auth.login": "Anmelden",
+  "auth.noAccount": "Kein Konto? Registrieren",
+  "auth.registerTitle": "Registrieren",
+  "auth.firstName": "Vorname",
+  "auth.lastName": "Nachname",
+  "auth.usernameHint": "Benutzername (3-20 Zeichen, Kleinbuchstaben)",
+  "auth.email": "E-Mail",
+  "auth.passwordHint": "Passwort (mind. 6 Zeichen)",
+  "auth.createAccount": "Konto erstellen",
+  "auth.haveAccount": "Schon ein Konto? Anmelden",
+
+  "common.cancel": "Abbrechen",
+  "common.delete": "Löschen",
+  "common.save": "Speichern",
+  "common.error": "Fehler",
+  "common.add": "Hinzufügen",
+
+  "chats.title": "Chats",
+  "chats.new": "Neu",
+  "chats.empty": "Noch keine Chats. Finde Freunde und starte einen!",
+  "chats.noMessages": "Noch keine Nachrichten",
+  "chats.messageDeleted": "Nachricht gelöscht",
+  "chats.photos": "📷 {n} Fotos",
+
+  "chat.title": "Chat",
+  "chat.online": "online",
+  "chat.lastSeen": "zuletzt online: {time}",
+  "chat.members": "{n} Mitglieder",
+  "chat.deletedMessage": "Diese Nachricht wurde gelöscht",
+  "chat.typing": "{names} schreibt...",
+  "chat.placeholder": "Nachricht schreiben...",
+  "chat.addCaption": "Nachricht hinzufügen...",
+  "chat.photosCount": "{n} Fotos",
+  "chat.editing": "Bearbeiten: {text}",
+  "chat.edited": " · bearbeitet",
+  "chat.edit": "Bearbeiten",
+  "chat.deleteTitle": "Nachricht löschen",
+  "chat.deleteConfirm": "Diese Nachricht wird für alle gelöscht. Bist du sicher?",
+
+  "contacts.title": "Kontakte",
+  "contacts.search": "Benutzer suchen...",
+  "contacts.newGroup": "Neue Gruppe erstellen",
+  "contacts.requests": "Freundschaftsanfragen",
+  "contacts.friends": "Freunde",
+  "contacts.results": "Ergebnisse",
+  "contacts.searching": "Suche...",
+  "contacts.notFound": "Keine Benutzer gefunden",
+  "contacts.empty": "Noch keine Freunde. Suche oben und sende eine Anfrage.",
+  "contacts.you": "(du)",
+  "contacts.requestSent": "Anfrage gesendet",
+  "contacts.accept": "Annehmen",
+  "contacts.sendRequest": "Anfrage senden",
+
+  "group.newTitle": "Neue Gruppe",
+  "group.name": "Gruppenname",
+  "group.selectHint": "Wähle mindestens {min} Freunde ({n} ausgewählt)",
+  "group.needFriends": "Füge zuerst Freunde hinzu, um eine Gruppe zu erstellen.",
+  "group.create": "Gruppe erstellen",
+  "group.createFailed": "Gruppe konnte nicht erstellt werden",
+  "group.infoTitle": "Gruppeninfo",
+  "group.changePhoto": "Foto ändern",
+  "group.descriptionPlaceholder": "Gruppenbeschreibung...",
+  "group.membersHeader": "Mitglieder ({n})",
+  "group.admin": "Admin",
+  "group.makeAdmin": "Zum Admin machen",
+  "group.removeAdmin": "Admin entfernen",
+  "group.removeMember": "Aus Gruppe entfernen",
+  "group.addMember": "Mitglied hinzufügen",
+  "group.noAddable": "Keine Freunde mehr zum Hinzufügen.",
+  "group.leave": "Gruppe verlassen",
+  "group.leaveConfirm": "Bist du sicher, dass du diese Gruppe verlassen möchtest?",
+  "group.leaveAction": "Verlassen",
+  "group.delete": "Gruppe löschen",
+  "group.deleteConfirm":
+    "Die Gruppe wird mit allen Nachrichten und Dateien für alle dauerhaft gelöscht. Bist du sicher?",
+
+  "profile.title": "Profil",
+  "profile.changePhoto": "Foto ändern",
+  "profile.bioPlaceholder": "Erzähl etwas über dich...",
+  "profile.saveBio": "Bio speichern",
+  "profile.settings": "⚙️ Einstellungen",
+  "profile.logout": "Abmelden",
+
+  "user.noBio": "Noch keine Bio.",
+  "user.message": "Nachricht senden",
+
+  "settings.title": "Einstellungen",
+  "settings.appearance": "Aussehen",
+  "settings.system": "System",
+  "settings.systemHint": "Folgt deinem Gerätethema",
+  "settings.light": "Hell",
+  "settings.lightHint": "Immer helles Design",
+  "settings.dark": "Dunkel",
+  "settings.darkHint": "Immer dunkles Design",
+  "settings.language": "Sprache",
+  "settings.languageSystemHint": "Folgt deiner Gerätesprache",
+
+  "time.today": "Heute",
+  "time.yesterday": "Gestern",
+  "time.yesterdayLower": "gestern",
+  "time.todayAt": "heute {time}",
+  "time.yesterdayAt": "gestern {time}",
+  "time.weeksShort": "{n} Wo.",
+  "time.monthsShort": "{n} Mon.",
+  "time.yearsShort": "{n} J.",
+  "time.weeksAgo": "vor {n} Wochen",
+  "time.monthsAgo": "vor {n} Monaten",
+  "time.yearsAgo": "vor {n} Jahren",
+};
+
+export type TranslationKey = keyof typeof en;
+
+const translations: Record<"en" | "tr" | "de", Record<TranslationKey, string>> = {
+  en,
+  tr,
+  de,
+};
+
+export function translate(
+  key: TranslationKey,
+  vars?: Record<string, string | number>,
+): string {
+  const lang = resolveLanguage(useLanguageStore.getState().preference);
+  let text = translations[lang][key] ?? translations.en[key] ?? key;
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      text = text.replace(`{${name}}`, String(value));
+    }
+  }
+  return text;
+}
+
+/**
+ * Ekranlarda kullan: dil değişince yeni bir fonksiyon kimliği döner ki
+ * memoize edilmiş JSX (React Compiler) yeniden hesaplansın.
+ */
+export function useT() {
+  const preference = useLanguageStore((s) => s.preference);
+  return useMemo(() => {
+    void preference;
+    return (key: TranslationKey, vars?: Record<string, string | number>) =>
+      translate(key, vars);
+  }, [preference]);
+}
+
+export function currentLocale(): string {
+  const lang = resolveLanguage(useLanguageStore.getState().preference);
+  return lang === "tr" ? "tr-TR" : lang === "de" ? "de-DE" : "en-US";
+}

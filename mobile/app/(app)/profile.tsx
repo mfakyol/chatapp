@@ -11,6 +11,7 @@ import {
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+import { useT } from '@/lib/i18n';
 import { Avatar } from '@/components/avatar';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -20,6 +21,7 @@ import * as userService from '@/services/user.service';
 import { useAuthStore } from '@/stores/auth.store';
 
 export default function ProfileScreen() {
+  const t = useT();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const user = useAuthStore((s) => s.user);
@@ -40,7 +42,7 @@ export default function ProfileScreen() {
     if (res.success) {
       setUser(res.data.user);
     } else {
-      Alert.alert('Hata', res.error);
+      Alert.alert(t('common.error'), res.error);
     }
   };
 
@@ -66,13 +68,13 @@ export default function ProfileScreen() {
     if (res.success) {
       setUser(res.data.user);
     } else {
-      Alert.alert('Hata', res.error);
+      Alert.alert(t('common.error'), res.error);
     }
   };
 
   return (
     <ThemedView style={styles.flex}>
-      <ScreenHeader title="Profil" />
+      <ScreenHeader title={t('profile.title')} />
       <ThemedView style={styles.container}>
         <Pressable onPress={handleChangeAvatar} disabled={uploading}>
           <Avatar user={user} size={112} />
@@ -83,7 +85,7 @@ export default function ProfileScreen() {
           )}
         </Pressable>
         <Pressable onPress={handleChangeAvatar} disabled={uploading}>
-          <ThemedText style={styles.changePhoto}>Fotoğrafı değiştir</ThemedText>
+          <ThemedText style={styles.changePhoto}>{t('profile.changePhoto')}</ThemedText>
         </Pressable>
 
         <ThemedText type="title" style={styles.name}>
@@ -100,7 +102,7 @@ export default function ProfileScreen() {
               backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
             },
           ]}
-          placeholder="Kendinden bahset..."
+          placeholder={t('profile.bioPlaceholder')}
           placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
           value={bio}
           onChangeText={setBio}
@@ -116,17 +118,17 @@ export default function ProfileScreen() {
             {savingBio ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <ThemedText style={styles.saveBioText}>Bio'yu kaydet</ThemedText>
+              <ThemedText style={styles.saveBioText}>{t('profile.saveBio')}</ThemedText>
             )}
           </Pressable>
         )}
 
         <Link href="/settings" style={styles.settingsLink}>
-          <ThemedText style={styles.settingsText}>⚙️ Ayarlar</ThemedText>
+          <ThemedText style={styles.settingsText}>{t('profile.settings')}</ThemedText>
         </Link>
 
         <Pressable style={styles.logoutButton} onPress={logout}>
-          <ThemedText style={styles.logoutText}>Çıkış yap</ThemedText>
+          <ThemedText style={styles.logoutText}>{t('profile.logout')}</ThemedText>
         </Pressable>
       </ThemedView>
     </ThemedView>

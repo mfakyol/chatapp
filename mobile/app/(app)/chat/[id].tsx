@@ -19,6 +19,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT } from '@/lib/i18n';
 import { Avatar } from '@/components/avatar';
 import { GroupAvatar } from '@/components/group-avatar';
 import { ScreenHeader } from '@/components/screen-header';
@@ -49,6 +50,7 @@ const TYPING_IDLE_MS = 3000;
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 export default function ChatScreen() {
+  const t = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -209,10 +211,10 @@ export default function ChatScreen() {
     const message = selected;
     closeMenu();
     if (!message) return;
-    Alert.alert('Mesajı sil', 'Bu mesaj herkes için silinecek. Emin misin?', [
-      { text: 'Vazgeç', style: 'cancel' },
+    Alert.alert(t('chat.deleteTitle'), t('chat.deleteConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Sil',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: () => deleteMessage(id, message._id),
       },
@@ -298,7 +300,7 @@ export default function ChatScreen() {
           )}
           {item.deletedAt ? (
             <ThemedText style={[styles.deleted, mine && styles.textMine]}>
-              Bu mesaj silindi
+              {t('chat.deletedMessage')}
             </ThemedText>
           ) : (
             <>
@@ -378,7 +380,7 @@ export default function ChatScreen() {
           )}
           <ThemedText style={[styles.time, mine && styles.timeMine]}>
             {formatMessageTime(item.createdAt)}
-            {item.editedAt ? ' · dzn' : ''}
+            {item.editedAt ? t('chat.edited') : ''}
             {mine && !item.deletedAt ? (
               <ThemedText style={[styles.tick, seen && styles.tickSeen]}>
                 {seen ? ' ✓✓' : ' ✓'}
@@ -395,14 +397,16 @@ export default function ChatScreen() {
     conversation && !conversation.isGroup
       ? otherParticipant(conversation, meId)
       : undefined;
-  const title = conversation ? conversationTitle(conversation, meId) : 'Sohbet';
+  const title = conversation ? conversationTitle(conversation, meId) : t('chat.title');
   const subtitle = conversation
     ? conversation.isGroup
-      ? `${conversation.members?.length ?? conversation.participants.length} üye`
+      ? t('chat.members', {
+          n: conversation.members?.length ?? conversation.participants.length,
+        })
       : other?.isOnline
-        ? 'çevrimiçi'
+        ? t('chat.online')
         : other?.lastSeen
-          ? `son görülme: ${formatLastSeen(other.lastSeen)}`
+          ? t('chat.lastSeen', { time: formatLastSeen(other.lastSeen) })
           : null
     : null;
 
@@ -463,7 +467,7 @@ export default function ChatScreen() {
                   ]}
                 >
                   <ThemedText style={styles.typingText}>
-                    {typingNames.join(', ')} yazıyor...
+                    {t('chat.typing', { names: typingNames.join(', ') })}
                   </ThemedText>
                 </View>
               </View>
@@ -475,7 +479,7 @@ export default function ChatScreen() {
           {editing && (
             <View style={[styles.editBanner, isDark && styles.editBannerDark]}>
               <ThemedText numberOfLines={1} style={styles.editBannerText}>
-                Düzenleniyor: {editing.content}
+                {t('chat.editing', { text: editing.content })}
               </ThemedText>
               <Pressable onPress={cancelEdit} hitSlop={12}>
                 <ThemedText style={styles.editBannerClose}>✕</ThemedText>
@@ -496,7 +500,7 @@ export default function ChatScreen() {
             </Pressable>
             <TextInput
               style={[styles.input, isDark && styles.inputDark]}
-              placeholder="Mesaj yaz..."
+              placeholder={t('chat.placeholder')}
               placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
               value={draft}
               onChangeText={handleChangeText}
@@ -536,11 +540,11 @@ export default function ChatScreen() {
               <>
                 {!selected.attachment && (
                   <Pressable style={styles.menuItem} onPress={startEdit}>
-                    <ThemedText>Düzenle</ThemedText>
+                    <ThemedText>{t('chat.edit')}</ThemedText>
                   </Pressable>
                 )}
                 <Pressable style={styles.menuItem} onPress={confirmDelete}>
-                  <ThemedText style={styles.menuDanger}>Sil</ThemedText>
+                  <ThemedText style={styles.menuDanger}>{t('common.delete')}</ThemedText>
                 </Pressable>
               </>
             )}
@@ -565,10 +569,10 @@ export default function ChatScreen() {
               hitSlop={12}
               disabled={uploading}
             >
-              <ThemedText style={styles.previewCancelText}>Vazgeç</ThemedText>
+              <ThemedText style={styles.previewCancelText}>{t('common.cancel')}</ThemedText>
             </Pressable>
             <ThemedText type="defaultSemiBold">
-              {pendingImages?.length} fotoğraf
+              {t('chat.photosCount', { n: pendingImages?.length ?? 0 })}
             </ThemedText>
             <View style={styles.previewHeaderSpacer} />
           </View>
@@ -597,7 +601,7 @@ export default function ChatScreen() {
             <View style={styles.inputBar}>
               <TextInput
                 style={[styles.input, isDark && styles.inputDark]}
-                placeholder="Mesaj ekle..."
+                placeholder={t('chat.addCaption')}
                 placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                 value={caption}
                 onChangeText={setCaption}

@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { useT } from '@/lib/i18n';
 import { Avatar } from '@/components/avatar';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -22,6 +23,7 @@ import type { PublicUser } from '@/types';
 const MIN_MEMBERS = 1;
 
 export default function NewGroupScreen() {
+  const t = useT();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -60,13 +62,13 @@ export default function NewGroupScreen() {
       if (router.canGoBack()) router.dismissAll();
       router.push({ pathname: '/chat/[id]', params: { id: result.id } });
     } else {
-      setError(result.error ?? 'Grup oluşturulamadı');
+      setError(result.error ?? t('group.createFailed'));
     }
   };
 
   return (
     <ThemedView style={styles.flex}>
-      <ScreenHeader title="Yeni grup" />
+      <ScreenHeader title={t('group.newTitle')} />
       <TextInput
         style={[
           styles.nameInput,
@@ -76,14 +78,14 @@ export default function NewGroupScreen() {
             backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
           },
         ]}
-        placeholder="Grup adı"
+        placeholder={t('group.name')}
         placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
         value={name}
         onChangeText={setName}
       />
 
       <ThemedText style={styles.hint}>
-        En az {MIN_MEMBERS} arkadaş seç ({selected.length} seçili)
+        {t('group.selectHint', { min: MIN_MEMBERS, n: selected.length })}
       </ThemedText>
 
       <FlatList
@@ -111,9 +113,7 @@ export default function NewGroupScreen() {
           );
         }}
         ListEmptyComponent={
-          <ThemedText style={styles.empty}>
-            Grup kurmak için önce arkadaş eklemelisin.
-          </ThemedText>
+          <ThemedText style={styles.empty}>{t('group.needFriends')}</ThemedText>
         }
       />
 
@@ -127,7 +127,7 @@ export default function NewGroupScreen() {
         {creating ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <ThemedText style={styles.createText}>Grubu kur</ThemedText>
+          <ThemedText style={styles.createText}>{t('group.create')}</ThemedText>
         )}
       </Pressable>
     </ThemedView>

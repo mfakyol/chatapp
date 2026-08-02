@@ -1,4 +1,5 @@
 import { SERVER_ORIGIN, apiUrl } from "@/lib/api";
+import { currentLocale, translate } from "@/lib/i18n";
 import type { Attachment, Conversation, Message, PublicUser } from "@/types";
 
 export function fileUrl(path: string): string {
@@ -62,7 +63,7 @@ function startOfDay(d: Date): Date {
 }
 
 function timeOf(d: Date): string {
-  return d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString(currentLocale(), { hour: "2-digit", minute: "2-digit" });
 }
 
 function daysAgo(date: Date, now: Date): number {
@@ -76,11 +77,11 @@ export function formatListTime(iso?: string): string {
   const days = daysAgo(date, now);
 
   if (days <= 0) return timeOf(date);
-  if (days === 1) return "dün";
-  if (days < 7) return date.toLocaleDateString("tr-TR", { weekday: "short" });
-  if (days < 30) return `${Math.floor(days / 7)} hf`;
-  if (days < 365) return `${Math.floor(days / 30)} ay`;
-  return `${Math.floor(days / 365)} yıl`;
+  if (days === 1) return translate("time.yesterdayLower");
+  if (days < 7) return date.toLocaleDateString(currentLocale(), { weekday: "short" });
+  if (days < 30) return translate("time.weeksShort", { n: Math.floor(days / 7) });
+  if (days < 365) return translate("time.monthsShort", { n: Math.floor(days / 30) });
+  return translate("time.yearsShort", { n: Math.floor(days / 365) });
 }
 
 export function formatLastSeen(iso: string): string {
@@ -88,14 +89,14 @@ export function formatLastSeen(iso: string): string {
   const now = new Date();
   const days = daysAgo(date, now);
 
-  if (days <= 0) return `bugün ${timeOf(date)}`;
-  if (days === 1) return `dün ${timeOf(date)}`;
+  if (days <= 0) return translate("time.todayAt", { time: timeOf(date) });
+  if (days === 1) return translate("time.yesterdayAt", { time: timeOf(date) });
   if (days < 7) {
-    return `${date.toLocaleDateString("tr-TR", { weekday: "long" })} ${timeOf(date)}`;
+    return `${date.toLocaleDateString(currentLocale(), { weekday: "long" })} ${timeOf(date)}`;
   }
-  if (days < 30) return `${Math.floor(days / 7)} hafta önce`;
-  if (days < 365) return `${Math.floor(days / 30)} ay önce`;
-  return `${Math.floor(days / 365)} yıl önce`;
+  if (days < 30) return translate("time.weeksAgo", { n: Math.floor(days / 7) });
+  if (days < 365) return translate("time.monthsAgo", { n: Math.floor(days / 30) });
+  return translate("time.yearsAgo", { n: Math.floor(days / 365) });
 }
 
 export function isSameDay(a: string, b: string): boolean {
@@ -113,10 +114,10 @@ export function formatDayLabel(iso: string): string {
   const now = new Date();
   const days = daysAgo(date, now);
 
-  if (days <= 0) return "Bugün";
-  if (days === 1) return "Dün";
-  if (days < 7) return date.toLocaleDateString("tr-TR", { weekday: "long" });
-  return date.toLocaleDateString("tr-TR", {
+  if (days <= 0) return translate("time.today");
+  if (days === 1) return translate("time.yesterday");
+  if (days < 7) return date.toLocaleDateString(currentLocale(), { weekday: "long" });
+  return date.toLocaleDateString(currentLocale(), {
     day: "numeric",
     month: "long",
     ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
@@ -124,8 +125,5 @@ export function formatDayLabel(iso: string): string {
 }
 
 export function formatMessageTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("tr-TR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return timeOf(new Date(iso));
 }

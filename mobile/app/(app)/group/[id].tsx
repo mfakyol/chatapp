@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { useT } from '@/lib/i18n';
 import { GroupAvatar } from '@/components/group-avatar';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -25,6 +26,7 @@ import { useChatStore } from '@/stores/chat.store';
 import type { ConversationMemberInfo, PublicUser } from '@/types';
 
 export default function GroupInfoScreen() {
+  const t = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -66,7 +68,7 @@ export default function GroupInfoScreen() {
   if (!conversation) {
     return (
       <ThemedView style={styles.flex}>
-        <ScreenHeader title="Grup bilgisi" />
+        <ScreenHeader title={t('group.infoTitle')} />
         <ActivityIndicator style={styles.loading} />
       </ThemedView>
     );
@@ -85,7 +87,7 @@ export default function GroupInfoScreen() {
       description: description.trim(),
     });
     setSaving(false);
-    if (result.error) Alert.alert('Hata', result.error);
+    if (result.error) Alert.alert(t('common.error'), result.error);
   };
 
   const handleChangePhoto = async () => {
@@ -106,7 +108,7 @@ export default function GroupInfoScreen() {
       type: asset.mimeType ?? 'image/jpeg',
     });
     setUploading(false);
-    if (res.error) Alert.alert('Hata', res.error);
+    if (res.error) Alert.alert(t('common.error'), res.error);
   };
 
   const memberUsernames = new Set(
@@ -120,19 +122,19 @@ export default function GroupInfoScreen() {
     const res = await action();
     setBusy(false);
     setMemberMenu(null);
-    if (res.error) Alert.alert('Hata', res.error);
+    if (res.error) Alert.alert(t('common.error'), res.error);
   };
 
   const handleLeave = () => {
-    Alert.alert('Gruptan ayrıl', 'Bu gruptan ayrılmak istediğine emin misin?', [
-      { text: 'Vazgeç', style: 'cancel' },
+    Alert.alert(t('group.leave'), t('group.leaveConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Ayrıl',
+        text: t('group.leaveAction'),
         style: 'destructive',
         onPress: async () => {
           const res = await leaveGroup(id);
           if (res.error) {
-            Alert.alert('Hata', res.error);
+            Alert.alert(t('common.error'), res.error);
           } else {
             router.dismissTo('/');
           }
@@ -143,17 +145,17 @@ export default function GroupInfoScreen() {
 
   const handleDelete = () => {
     Alert.alert(
-      'Grubu sil',
-      'Grup, tüm mesajları ve dosyalarıyla birlikte herkes için kalıcı olarak silinecek. Emin misin?',
+      t('group.delete'),
+      t('group.deleteConfirm'),
       [
-        { text: 'Vazgeç', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             const res = await deleteConversation(id);
             if (res.error) {
-              Alert.alert('Hata', res.error);
+              Alert.alert(t('common.error'), res.error);
             } else {
               router.dismissTo('/');
             }
@@ -174,7 +176,7 @@ export default function GroupInfoScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <ScreenHeader title="Grup bilgisi" />
+      <ScreenHeader title={t('group.infoTitle')} />
       <FlatList
         data={conversation.members ?? []}
         keyExtractor={(item) => item.user.username}
@@ -190,7 +192,7 @@ export default function GroupInfoScreen() {
             </Pressable>
             {isAdmin && (
               <Pressable onPress={handleChangePhoto} disabled={uploading}>
-                <ThemedText style={styles.changePhoto}>Fotoğrafı değiştir</ThemedText>
+                <ThemedText style={styles.changePhoto}>{t('group.changePhoto')}</ThemedText>
               </Pressable>
             )}
 
@@ -200,14 +202,14 @@ export default function GroupInfoScreen() {
                   style={inputStyle}
                   value={name}
                   onChangeText={setName}
-                  placeholder="Grup adı"
+                  placeholder={t('group.name')}
                   placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                 />
                 <TextInput
                   style={[inputStyle, styles.descriptionInput]}
                   value={description}
                   onChangeText={setDescription}
-                  placeholder="Grup açıklaması..."
+                  placeholder={t('group.descriptionPlaceholder')}
                   placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                   multiline
                   maxLength={500}
@@ -221,7 +223,7 @@ export default function GroupInfoScreen() {
                     {saving ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <ThemedText style={styles.saveText}>Kaydet</ThemedText>
+                      <ThemedText style={styles.saveText}>{t('common.save')}</ThemedText>
                     )}
                   </Pressable>
                 )}
@@ -240,7 +242,7 @@ export default function GroupInfoScreen() {
             )}
 
             <ThemedText style={styles.membersHeader}>
-              Üyeler ({conversation.members?.length ?? 0})
+              {t('group.membersHeader', { n: conversation.members?.length ?? 0 })}
             </ThemedText>
           </View>
         }
@@ -258,7 +260,7 @@ export default function GroupInfoScreen() {
             <View style={styles.memberBody}>
               <ThemedText type="defaultSemiBold">
                 {fullName(item.user)}
-                {userId(item.user) === meId ? ' (sen)' : ''}
+                {userId(item.user) === meId ? ` ${t('contacts.you')}` : ''}
               </ThemedText>
               {item.user.bio ? (
                 <ThemedText style={styles.memberBio} numberOfLines={1}>
@@ -270,7 +272,7 @@ export default function GroupInfoScreen() {
             </View>
             {item.role === 'admin' && (
               <View style={styles.adminBadge}>
-                <ThemedText style={styles.adminBadgeText}>admin</ThemedText>
+                <ThemedText style={styles.adminBadgeText}>{t('group.admin')}</ThemedText>
               </View>
             )}
             {isAdmin && item.user.username !== me?.username && (
@@ -293,14 +295,12 @@ export default function GroupInfoScreen() {
                   onPress={() => setAddOpen((open) => !open)}
                 >
                   <ThemedText style={styles.addToggleText}>
-                    {addOpen ? '− Üye ekle' : '＋ Üye ekle'}
+                    {addOpen ? '−' : '＋'} {t('group.addMember')}
                   </ThemedText>
                 </Pressable>
                 {addOpen &&
                   (addableFriends.length === 0 ? (
-                    <ThemedText style={styles.addEmpty}>
-                      Eklenebilecek arkadaş kalmadı.
-                    </ThemedText>
+                    <ThemedText style={styles.addEmpty}>{t('group.noAddable')}</ThemedText>
                   ) : (
                     addableFriends.map((friend) => (
                       <Pressable
@@ -314,18 +314,18 @@ export default function GroupInfoScreen() {
                         <ThemedText style={styles.addName}>
                           {fullName(friend)}
                         </ThemedText>
-                        <ThemedText style={styles.addAction}>Ekle</ThemedText>
+                        <ThemedText style={styles.addAction}>{t('common.add')}</ThemedText>
                       </Pressable>
                     ))
                   ))}
               </>
             )}
             <Pressable style={styles.leaveButton} onPress={handleLeave}>
-              <ThemedText style={styles.leaveText}>Gruptan ayrıl</ThemedText>
+              <ThemedText style={styles.leaveText}>{t('group.leave')}</ThemedText>
             </Pressable>
             {isAdmin && (
               <Pressable style={styles.deleteButton} onPress={handleDelete}>
-                <ThemedText style={styles.deleteText}>Grubu sil</ThemedText>
+                <ThemedText style={styles.deleteText}>{t('group.delete')}</ThemedText>
               </Pressable>
             )}
           </View>
@@ -361,7 +361,9 @@ export default function GroupInfoScreen() {
                   }
                 >
                   <ThemedText>
-                    {memberMenu?.role === 'admin' ? 'Adminliği al' : 'Admin yap'}
+                    {memberMenu?.role === 'admin'
+                      ? t('group.removeAdmin')
+                      : t('group.makeAdmin')}
                   </ThemedText>
                 </Pressable>
                 <Pressable
@@ -373,7 +375,7 @@ export default function GroupInfoScreen() {
                     )
                   }
                 >
-                  <ThemedText style={styles.menuDanger}>Gruptan çıkar</ThemedText>
+                  <ThemedText style={styles.menuDanger}>{t('group.removeMember')}</ThemedText>
                 </Pressable>
               </>
             )}

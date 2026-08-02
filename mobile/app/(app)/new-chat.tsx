@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { useT } from '@/lib/i18n';
 import { Avatar } from '@/components/avatar';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -25,6 +26,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 type ContactStatus = 'me' | 'friend' | 'received' | 'sent' | 'none';
 
 export default function NewChatScreen() {
+  const t = useT();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -100,11 +102,11 @@ export default function NewChatScreen() {
     if (busyUsername === user.username) return <ActivityIndicator size="small" />;
     switch (statusOf(user)) {
       case 'me':
-        return <ThemedText style={styles.muted}>(sen)</ThemedText>;
+        return <ThemedText style={styles.muted}>{t('contacts.you')}</ThemedText>;
       case 'friend':
         return <ThemedText style={styles.muted}>›</ThemedText>;
       case 'sent':
-        return <ThemedText style={styles.muted}>İstek gönderildi</ThemedText>;
+        return <ThemedText style={styles.muted}>{t('contacts.requestSent')}</ThemedText>;
       case 'received':
         return (
           <View style={styles.actionRow}>
@@ -112,7 +114,7 @@ export default function NewChatScreen() {
               style={styles.smallButton}
               onPress={() => act(user, userService.acceptFriendRequest)}
             >
-              <ThemedText style={styles.smallButtonText}>Kabul</ThemedText>
+              <ThemedText style={styles.smallButtonText}>{t('contacts.accept')}</ThemedText>
             </Pressable>
             <Pressable
               style={[styles.smallButton, styles.declineButton]}
@@ -128,7 +130,7 @@ export default function NewChatScreen() {
             style={styles.smallButton}
             onPress={() => act(user, userService.sendFriendRequest)}
           >
-            <ThemedText style={styles.smallButtonText}>İstek gönder</ThemedText>
+            <ThemedText style={styles.smallButtonText}>{t('contacts.sendRequest')}</ThemedText>
           </Pressable>
         );
     }
@@ -136,17 +138,22 @@ export default function NewChatScreen() {
 
   const isSearchMode = query.trim().length >= 2;
   const sections = isSearchMode
-    ? [{ title: searching ? 'Aranıyor...' : 'Sonuçlar', data: results }]
+    ? [
+        {
+          title: searching ? t('contacts.searching') : t('contacts.results'),
+          data: results,
+        },
+      ]
     : [
         ...(requests.received.length > 0
-          ? [{ title: 'Gelen istekler', data: requests.received }]
+          ? [{ title: t('contacts.requests'), data: requests.received }]
           : []),
-        { title: 'Arkadaşlar', data: friends },
+        { title: t('contacts.friends'), data: friends },
       ];
 
   return (
     <ThemedView style={styles.flex}>
-      <ScreenHeader title="Kişiler" />
+      <ScreenHeader title={t('contacts.title')} />
       <TextInput
         style={[
           styles.search,
@@ -156,7 +163,7 @@ export default function NewChatScreen() {
             backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
           },
         ]}
-        placeholder="Kullanıcı ara..."
+        placeholder={t('contacts.search')}
         placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
         autoCapitalize="none"
         autoCorrect={false}
@@ -171,7 +178,7 @@ export default function NewChatScreen() {
           <ThemedText style={styles.groupIconText}>👥</ThemedText>
         </View>
         <ThemedText type="defaultSemiBold" style={styles.groupText}>
-          Yeni grup oluştur
+          {t('contacts.newGroup')}
         </ThemedText>
         <ThemedText style={styles.muted}>›</ThemedText>
       </Pressable>
@@ -202,8 +209,8 @@ export default function NewChatScreen() {
             {isSearchMode
               ? searching
                 ? ''
-                : 'Kullanıcı bulunamadı'
-              : 'Henüz arkadaşın yok. Yukarıdan kullanıcı arayıp istek gönder.'}
+                : t('contacts.notFound')
+              : t('contacts.empty')}
           </ThemedText>
         }
       />

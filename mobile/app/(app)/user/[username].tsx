@@ -2,6 +2,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
+import { useT } from '@/lib/i18n';
 import { Avatar } from '@/components/avatar';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -13,6 +14,7 @@ import { useChatStore } from '@/stores/chat.store';
 import type { PublicUser } from '@/types';
 
 export default function UserProfileScreen() {
+  const t = useT();
   const { username } = useLocalSearchParams<{ username: string }>();
   const router = useRouter();
 
@@ -68,9 +70,9 @@ export default function UserProfileScreen() {
   }
 
   const presenceText = user.isOnline
-    ? 'çevrimiçi'
+    ? t('chat.online')
     : user.lastSeen
-      ? `son görülme: ${formatLastSeen(user.lastSeen)}`
+      ? t('chat.lastSeen', { time: formatLastSeen(user.lastSeen) })
       : null;
 
   return (
@@ -91,7 +93,7 @@ export default function UserProfileScreen() {
         {user.bio ? (
           <ThemedText style={styles.bio}>{user.bio}</ThemedText>
         ) : (
-          <ThemedText style={styles.noBio}>Henüz bio eklememiş.</ThemedText>
+          <ThemedText style={styles.noBio}>{t('user.noBio')}</ThemedText>
         )}
 
         {!isMe && (
@@ -103,7 +105,7 @@ export default function UserProfileScreen() {
             {opening ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <ThemedText style={styles.messageText}>Mesaj gönder</ThemedText>
+              <ThemedText style={styles.messageText}>{t('user.message')}</ThemedText>
             )}
           </Pressable>
         )}

@@ -10,12 +10,14 @@ import {
   TextInput,
 } from 'react-native';
 
+import { useT } from '@/lib/i18n';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthStore } from '@/stores/auth.store';
 
 export default function RegisterScreen() {
+  const t = useT();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const register = useAuthStore((s) => s.register);
@@ -70,26 +72,26 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ThemedText type="title" style={styles.title}>
-            Kayıt ol
+            {t('auth.registerTitle')}
           </ThemedText>
 
           <TextInput
             style={inputStyle}
-            placeholder="Ad"
+            placeholder={t('auth.firstName')}
             placeholderTextColor={placeholderColor}
             value={firstName}
             onChangeText={setFirstName}
           />
           <TextInput
             style={inputStyle}
-            placeholder="Soyad"
+            placeholder={t('auth.lastName')}
             placeholderTextColor={placeholderColor}
             value={lastName}
             onChangeText={setLastName}
           />
           <TextInput
             style={inputStyle}
-            placeholder="Kullanıcı adı (3-20 karakter, küçük harf)"
+            placeholder={t('auth.usernameHint')}
             placeholderTextColor={placeholderColor}
             autoCapitalize="none"
             autoCorrect={false}
@@ -98,7 +100,7 @@ export default function RegisterScreen() {
           />
           <TextInput
             style={inputStyle}
-            placeholder="E-posta"
+            placeholder={t('auth.email')}
             placeholderTextColor={placeholderColor}
             autoCapitalize="none"
             autoCorrect={false}
@@ -108,7 +110,7 @@ export default function RegisterScreen() {
           />
           <TextInput
             style={inputStyle}
-            placeholder="Şifre (en az 6 karakter)"
+            placeholder={t('auth.passwordHint')}
             placeholderTextColor={placeholderColor}
             secureTextEntry
             value={password}
@@ -125,14 +127,12 @@ export default function RegisterScreen() {
             {submitting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <ThemedText style={styles.buttonText}>Hesap oluştur</ThemedText>
+              <ThemedText style={styles.buttonText}>{t('auth.createAccount')}</ThemedText>
             )}
           </Pressable>
 
           <Link href="/login" style={styles.link}>
-            <ThemedText style={styles.linkText}>
-              Zaten hesabın var mı? Giriş yap
-            </ThemedText>
+            <ThemedText style={styles.linkText}>{t('auth.haveAccount')}</ThemedText>
           </Link>
         </ScrollView>
       </ThemedView>

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/lib/i18n';
 import { Avatar } from '@/components/avatar';
 import { GroupAvatar } from '@/components/group-avatar';
 import { ThemedText } from '@/components/themed-text';
@@ -13,6 +14,7 @@ import { useChatStore } from '@/stores/chat.store';
 import type { Conversation } from '@/types';
 
 export default function ConversationsScreen() {
+  const t = useT();
   const router = useRouter();
   const me = useAuthStore((s) => s.user);
   const conversations = useChatStore((s) => s.conversations);
@@ -32,13 +34,13 @@ export default function ConversationsScreen() {
     const last = item.lastMessage;
     const preview = last
       ? last.deletedAt
-        ? 'Mesaj silindi'
+        ? t('chats.messageDeleted')
         : (last.attachments?.length ?? 0) > 1
-          ? `📷 ${last.attachments!.length} fotoğraf`
+          ? t('chats.photos', { n: last.attachments!.length })
           : last.attachment
             ? last.content || `📎 ${last.attachment.fileName}`
             : last.content
-      : 'Henüz mesaj yok';
+      : t('chats.noMessages');
 
     return (
       <Pressable
@@ -81,10 +83,10 @@ export default function ConversationsScreen() {
     <ThemedView style={styles.flex}>
       <SafeAreaView style={styles.flex} edges={['top']}>
         <View style={styles.header}>
-          <ThemedText type="title">Sohbetler</ThemedText>
+          <ThemedText type="title">{t('chats.title')}</ThemedText>
           <View style={styles.headerActions}>
             <Pressable onPress={() => router.push('/new-chat')} hitSlop={12}>
-              <ThemedText style={styles.newChat}>＋ Yeni</ThemedText>
+              <ThemedText style={styles.newChat}>＋ {t('chats.new')}</ThemedText>
             </Pressable>
             <Pressable onPress={() => router.push('/profile')} hitSlop={8}>
               <Avatar user={me} size={36} />
@@ -101,9 +103,7 @@ export default function ConversationsScreen() {
           }
           ListEmptyComponent={
             conversationsLoaded ? (
-              <ThemedText style={styles.empty}>
-                Henüz sohbetin yok. Web uygulamasından bir sohbet başlat!
-              </ThemedText>
+              <ThemedText style={styles.empty}>{t('chats.empty')}</ThemedText>
             ) : null
           }
         />

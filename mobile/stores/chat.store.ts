@@ -19,6 +19,17 @@ interface ChatState {
   loadOlderMessages: (conversationId: string) => Promise<void>;
   sendAttachment: (conversationId: string, file: AttachmentFile) => Promise<boolean>;
   setTyping: (conversationId: string, userId: string, typing: boolean) => void;
+  reactToMessage: (
+    conversationId: string,
+    messageId: string,
+    emoji: string,
+  ) => Promise<void>;
+  editMessage: (
+    conversationId: string,
+    messageId: string,
+    content: string,
+  ) => Promise<boolean>;
+  deleteMessage: (conversationId: string, messageId: string) => Promise<void>;
   sendMessage: (conversationId: string, content: string) => Promise<boolean>;
   markRead: (conversationId: string) => Promise<void>;
   setActiveConversation: (conversationId: string | null) => void;
@@ -150,6 +161,35 @@ export const useChatStore = create<ChatState>((set, get) => {
     if (!res.success) return false;
     applySentMessage(conversationId, res.data.message);
     return true;
+  },
+
+  reactToMessage: async (conversationId, messageId, emoji) => {
+    const res = await conversationService.reactToMessage(
+      conversationId,
+      messageId,
+      emoji,
+    );
+    if (res.success) {
+      get().applyMessageReaction(conversationId, messageId, res.data.reactions);
+    }
+  },
+
+  editMessage: async (conversationId, messageId, content) => {
+    const res = await conversationService.editMessage(
+      conversationId,
+      messageId,
+      content,
+    );
+    if (!res.success) return false;
+    get().applyMessageUpdated(res.data.message);
+    return true;
+  },
+
+  deleteMessage: async (conversationId, messageId) => {
+    const res = await conversationService.deleteMessage(conversationId, messageId);
+    if (res.success) {
+      get().applyMessageDeleted(conversationId, messageId);
+    }
   },
 
   setTyping: (conversationId, userId, typing) => {

@@ -1,5 +1,5 @@
 import { apiUrl, request, type Result } from "@/lib/api";
-import type { Conversation, Message } from "@/types";
+import type { Conversation, Message, Reaction } from "@/types";
 
 export const getConversations = () =>
   request<{ conversations: Conversation[] }>("/conversations");
@@ -28,6 +28,32 @@ export const markRead = (conversationId: string) =>
   request<{ lastReadAt: string }>(`/conversations/${conversationId}/read`, {
     method: "POST",
   });
+
+export const reactToMessage = (
+  conversationId: string,
+  messageId: string,
+  emoji: string,
+) =>
+  request<{ reactions: Reaction[] }>(
+    `/conversations/${conversationId}/messages/${messageId}/reactions`,
+    { method: "POST", body: JSON.stringify({ emoji }) },
+  );
+
+export const editMessage = (
+  conversationId: string,
+  messageId: string,
+  content: string,
+) =>
+  request<{ message: Message }>(
+    `/conversations/${conversationId}/messages/${messageId}`,
+    { method: "PATCH", body: JSON.stringify({ content }) },
+  );
+
+export const deleteMessage = (conversationId: string, messageId: string) =>
+  request<{ message: string }>(
+    `/conversations/${conversationId}/messages/${messageId}`,
+    { method: "DELETE" },
+  );
 
 export interface AttachmentFile {
   uri: string;

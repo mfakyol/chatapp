@@ -5,8 +5,10 @@ import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -34,6 +36,7 @@ import type { Message } from '@/types';
 const NO_MESSAGES: Message[] = [];
 const NO_TYPING: string[] = [];
 const TYPING_IDLE_MS = 3000;
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -54,12 +57,17 @@ export default function ChatScreen() {
   const loadingOlder = useChatStore((s) => s.loadingOlder[id] === true);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const sendAttachment = useChatStore((s) => s.sendAttachment);
+  const reactToMessage = useChatStore((s) => s.reactToMessage);
+  const editMessage = useChatStore((s) => s.editMessage);
+  const deleteMessage = useChatStore((s) => s.deleteMessage);
   const markRead = useChatStore((s) => s.markRead);
   const setActiveConversation = useChatStore((s) => s.setActiveConversation);
 
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selected, setSelected] = useState<Message | null>(null);
+  const [editing, setEditing] = useState<Message | null>(null);
 
   const typingSent = useRef(false);
   const typingIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,9 +128,48 @@ export default function ChatScreen() {
     if (!content || sending) return;
     setSending(true);
     stopTyping();
-    const ok = await sendMessage(id, content);
-    if (ok) setDraft('');
+    const ok = editing
+      ? await editMessage(id, editing._id, content)
+      : await sendMessage(id, content);
+    if (ok) {
+      setDraft('');
+      setEditing(null);
+    }
     setSending(false);
+  };
+
+  const closeMenu = () => setSelected(null);
+
+  const handleReact = (emoji: string) => {
+    if (selected) reactToMessage(id, selected._id, emoji);
+    closeMenu();
+  };
+
+  const startEdit = () => {
+    if (selected) {
+      setEditing(selected);
+      setDraft(selected.content);
+    }
+    closeMenu();
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setDraft('');
+  };
+
+  const confirmDelete = () => {
+    const message = selected;
+    closeMenu();
+    if (!message) return;
+    Alert.alert('Mesajı sil', 'Bu mesaj herkes için silinecek. Emin misin?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: () => deleteMessage(id, message._id),
+      },
+    ]);
   };
 
   const handlePickImage = async () => {
@@ -148,7 +195,11 @@ export default function ChatScreen() {
     const image = isImageAttachment(item.attachment);
     return (
       <View style={[styles.bubbleRow, mine ? styles.rowMine : styles.rowTheirs]}>
-        <View
+        <Pressable
+          onLongPress={() => {
+            if (!item.deletedAt) setSelected(item);
+          }}
+          delayLongPress={300}
           style={[
             styles.bubble,
             mine
@@ -175,13 +226,31 @@ export default function ChatScreen() {
               {item.attachment ? `📎 ${item.attachment.fileName}` : item.content}
             </ThemedText>
           )}
+          {!item.deletedAt && (item.reactions?.length ?? 0) > 0 && (
+            <View style={styles.reactionsRow}>
+              {item.reactions!.map((r) => (
+                <Pressable
+                  key={r.emoji}
+                  onPress={() => reactToMessage(id, item._id, r.emoji)}
+                  style={[
+                    styles.reactionChip,
+                    r.users.includes(meId) && styles.reactionChipMine,
+                  ]}
+                >
+                  <ThemedText style={styles.reactionText}>
+                    {r.emoji} {r.users.length}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <ThemedText
             style={[styles.time, mine && styles.timeMine, image && styles.timeOnImage]}
           >
             {formatMessageTime(item.createdAt)}
             {item.editedAt ? ' · düzenlendi' : ''}
           </ThemedText>
-        </View>
+        </Pressable>
       </View>
     );
   };
@@ -231,6 +300,16 @@ export default function ChatScreen() {
         />
 
         <SafeAreaView edges={['bottom']}>
+          {editing && (
+            <View style={[styles.editBanner, isDark && styles.editBannerDark]}>
+              <ThemedText numberOfLines={1} style={styles.editBannerText}>
+                Düzenleniyor: {editing.content}
+              </ThemedText>
+              <Pressable onPress={cancelEdit} hitSlop={12}>
+                <ThemedText style={styles.editBannerClose}>✕</ThemedText>
+              </Pressable>
+            </View>
+          )}
           <View style={styles.inputBar}>
             <Pressable
               style={[styles.attachButton, uploading && styles.sendDisabled]}
@@ -261,6 +340,41 @@ export default function ChatScreen() {
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={selected !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMenu}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={closeMenu}>
+          <View style={[styles.menu, isDark && styles.menuDark]}>
+            <View style={styles.emojiRow}>
+              {REACTION_EMOJIS.map((emoji) => (
+                <Pressable
+                  key={emoji}
+                  onPress={() => handleReact(emoji)}
+                  style={styles.emojiButton}
+                >
+                  <ThemedText style={styles.emoji}>{emoji}</ThemedText>
+                </Pressable>
+              ))}
+            </View>
+            {selected && userId(selected.sender) === meId && (
+              <>
+                {!selected.attachment && (
+                  <Pressable style={styles.menuItem} onPress={startEdit}>
+                    <ThemedText>Düzenle</ThemedText>
+                  </Pressable>
+                )}
+                <Pressable style={styles.menuItem} onPress={confirmDelete}>
+                  <ThemedText style={styles.menuDanger}>Sil</ThemedText>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -393,5 +507,84 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     lineHeight: 22,
+  },
+  reactionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 4,
+  },
+  reactionChip: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  reactionChipMine: {
+    backgroundColor: 'rgba(37,99,235,0.35)',
+  },
+  reactionText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  editBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#E2E8F0',
+  },
+  editBannerDark: {
+    backgroundColor: '#1E293B',
+  },
+  editBannerText: {
+    flex: 1,
+    fontSize: 13,
+    opacity: 0.8,
+  },
+  editBannerClose: {
+    color: '#EF4444',
+    fontSize: 16,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  menu: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+  },
+  menuDark: {
+    backgroundColor: '#1E293B',
+  },
+  emojiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  emojiButton: {
+    padding: 6,
+  },
+  emoji: {
+    fontSize: 26,
+    lineHeight: 32,
+  },
+  menuItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(128,128,128,0.3)',
+  },
+  menuDanger: {
+    color: '#EF4444',
   },
 });

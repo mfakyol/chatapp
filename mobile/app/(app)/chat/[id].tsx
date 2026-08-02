@@ -292,20 +292,31 @@ export default function ChatScreen() {
               )}
               {images.length > 1 && (
                 <View style={styles.imageGrid}>
-                  {images.map((att, index) => (
-                    <Pressable
-                      key={index}
-                      onPress={() => openViewer(item._id, index)}
-                      onLongPress={() => setSelected(item)}
-                      delayLongPress={300}
-                    >
-                      <Image
-                        source={{ uri: fileUrl(att.url) }}
-                        style={styles.gridImage}
-                        contentFit="cover"
-                      />
-                    </Pressable>
-                  ))}
+                  {images.slice(0, 4).map((att, index) => {
+                    const hiddenCount =
+                      index === 3 && images.length > 4 ? images.length - 4 : 0;
+                    return (
+                      <Pressable
+                        key={index}
+                        onPress={() => openViewer(item._id, index)}
+                        onLongPress={() => setSelected(item)}
+                        delayLongPress={300}
+                      >
+                        <Image
+                          source={{ uri: fileUrl(att.url) }}
+                          style={styles.gridImage}
+                          contentFit="cover"
+                        />
+                        {hiddenCount > 0 && (
+                          <View style={styles.moreOverlay}>
+                            <ThemedText style={styles.moreOverlayText}>
+                              +{hiddenCount}
+                            </ThemedText>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
                 </View>
               )}
               {!hasImages && item.attachment && (
@@ -707,6 +718,19 @@ const styles = StyleSheet.create({
   captionText: {
     marginTop: 6,
     marginHorizontal: 4,
+  },
+  moreOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreOverlayText: {
+    color: '#fff',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '700',
   },
   sender: {
     fontSize: 12,

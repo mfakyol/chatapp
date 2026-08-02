@@ -586,15 +586,19 @@ export default function ChatScreen() {
               contentContainerStyle={styles.previewGrid}
             >
               {pendingImages?.map((asset, index) => (
-                <Image
+                <View
                   key={index}
-                  source={{ uri: asset.uri }}
                   style={[
-                    styles.previewImage,
+                    styles.previewImageWrap,
                     { width: previewImageSize, height: previewImageSize },
                   ]}
-                  contentFit="cover"
-                />
+                >
+                  <Image
+                    source={{ uri: asset.uri }}
+                    style={styles.previewImage}
+                    contentFit="cover"
+                  />
+                </View>
               ))}
             </ScrollView>
 
@@ -972,10 +976,14 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
   },
-  previewImage: {
+  previewImageWrap: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(128,128,128,0.35)',
+    borderColor: 'rgba(128,128,128,0.5)',
+    overflow: 'hidden',
+  },
+  previewImage: {
+    flex: 1,
   },
   viewer: {
     flex: 1,

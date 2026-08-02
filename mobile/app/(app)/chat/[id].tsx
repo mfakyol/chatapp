@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -237,16 +238,43 @@ export default function ChatScreen() {
   const handleSendImages = async () => {
     if (!pendingImages || uploading) return;
     setUploading(true);
-    const files = pendingImages.map((asset) => ({
-      uri: asset.uri,
-      name: asset.fileName ?? `photo_${Date.now()}.jpg`,
-      type: asset.mimeType ?? 'image/jpeg',
-    }));
+
+    const files: { uri: string; name: string; type: string }[] = [];
+    let unreadable = 0;
+    for (const [index, asset] of pendingImages.entries()) {
+      if (Platform.OS !== 'web') {
+        try {
+          const info = await FileSystem.getInfoAsync(asset.uri);
+          if (!info.exists || (info.size ?? 0) === 0) {
+            unreadable += 1;
+            continue;
+          }
+        } catch {
+          unreadable += 1;
+          continue;
+        }
+      }
+      files.push({
+        uri: asset.uri,
+        name: asset.fileName ?? `photo_${index}_${Date.now()}.jpg`,
+        type: asset.mimeType ?? 'image/jpeg',
+      });
+    }
+
+    if (files.length === 0) {
+      setUploading(false);
+      Alert.alert(t('common.error'), t('chat.imagesUnreadable', { n: unreadable }));
+      return;
+    }
+
     const ok = await sendAttachment(id, files, caption.trim() || undefined);
     setUploading(false);
     if (ok) {
       setPendingImages(null);
       setCaption('');
+      if (unreadable > 0) {
+        Alert.alert(t('common.error'), t('chat.imagesUnreadable', { n: unreadable }));
+      }
     }
   };
 

@@ -44,6 +44,8 @@ const en = {
   "chat.edit": "Edit",
   "chat.deleteTitle": "Delete message",
   "chat.deleteConfirm": "This message will be deleted for everyone. Are you sure?",
+  "chat.imagesUnreadable":
+    "{n} photo(s) could not be read (possibly not downloaded from iCloud)",
 
   "contacts.title": "Contacts",
   "contacts.search": "Search users...",
@@ -158,6 +160,8 @@ const tr: Record<TranslationKey, string> = {
   "chat.edit": "Düzenle",
   "chat.deleteTitle": "Mesajı sil",
   "chat.deleteConfirm": "Bu mesaj herkes için silinecek. Emin misin?",
+  "chat.imagesUnreadable":
+    "{n} fotoğraf okunamadı (iCloud'dan inmemiş olabilir)",
 
   "contacts.title": "Kişiler",
   "contacts.search": "Kullanıcı ara...",
@@ -272,6 +276,8 @@ const de: Record<TranslationKey, string> = {
   "chat.edit": "Bearbeiten",
   "chat.deleteTitle": "Nachricht löschen",
   "chat.deleteConfirm": "Diese Nachricht wird für alle gelöscht. Bist du sicher?",
+  "chat.imagesUnreadable":
+    "{n} Foto(s) konnten nicht gelesen werden (evtl. nicht aus iCloud geladen)",
 
   "contacts.title": "Kontakte",
   "contacts.search": "Benutzer suchen...",

@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -21,6 +22,7 @@ import { GroupAvatar } from '@/components/group-avatar';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ZoomableImage } from '@/components/zoomable-image';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { emitTyping } from '@/services/chatSocket.service';
 import {
@@ -451,7 +453,7 @@ export default function ChatScreen() {
         animationType="fade"
         onRequestClose={() => setViewerIndex(null)}
       >
-        <View
+        <GestureHandlerRootView
           style={[
             styles.viewer,
             { paddingTop: insets.top, paddingBottom: insets.bottom },
@@ -475,10 +477,9 @@ export default function ChatScreen() {
             </View>
 
             {viewerMessage && (
-              <Image
-                source={{ uri: fileUrl(viewerMessage.attachment!.url) }}
-                style={styles.viewerImage}
-                contentFit="contain"
+              <ZoomableImage
+                key={viewerMessage._id}
+                uri={fileUrl(viewerMessage.attachment!.url)}
               />
             )}
 
@@ -506,7 +507,7 @@ export default function ChatScreen() {
               )}
             />
           </View>
-        </View>
+        </GestureHandlerRootView>
       </Modal>
     </ThemedView>
   );
@@ -758,9 +759,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     opacity: 0.8,
     fontSize: 14,
-  },
-  viewerImage: {
-    flex: 1,
   },
   thumbStrip: {
     flexGrow: 0,

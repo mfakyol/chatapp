@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -120,6 +121,10 @@ export default function ProfileScreen() {
           </Pressable>
         )}
 
+        <Link href="/settings" style={styles.settingsLink}>
+          <ThemedText style={styles.settingsText}>⚙️ Ayarlar</ThemedText>
+        </Link>
+
         <Pressable style={styles.logoutButton} onPress={logout}>
           <ThemedText style={styles.logoutText}>Çıkış yap</ThemedText>
         </Pressable>
@@ -182,8 +187,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  logoutButton: {
+  settingsLink: {
     marginTop: 24,
+  },
+  settingsText: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+  logoutButton: {
+    marginTop: 12,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 32,

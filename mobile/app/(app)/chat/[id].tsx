@@ -30,9 +30,11 @@ import { emitTyping } from '@/services/chatSocket.service';
 import {
   conversationTitle,
   fileUrl,
+  formatDayLabel,
   formatLastSeen,
   formatMessageTime,
   fullName,
+  isSameDay,
   messageImages,
   otherParticipant,
   userId,
@@ -108,6 +110,13 @@ export default function ChatScreen() {
   );
 
   const inverted = useMemo(() => [...messages].reverse(), [messages]);
+
+  const othersReadAt = useMemo(() => {
+    const others =
+      conversation?.members?.filter((m) => userId(m.user) !== meId) ?? [];
+    if (others.length === 0) return null;
+    return Math.min(...others.map((m) => new Date(m.lastReadAt).getTime()));
+  }, [conversation, meId]);
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [pendingImages, setPendingImages] = useState<
@@ -239,11 +248,27 @@ export default function ChatScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: Message }) => {
+  const renderItem = ({ item, index }: { item: Message; index: number }) => {
     const mine = userId(item.sender) === meId;
     const images = messageImages(item);
     const hasImages = images.length > 0;
+    const seen =
+      mine &&
+      othersReadAt !== null &&
+      new Date(item.createdAt).getTime() <= othersReadAt;
+    const older = inverted[index + 1];
+    const showDayLabel = !older || !isSameDay(older.createdAt, item.createdAt);
     return (
+      <View>
+      {showDayLabel && (
+        <View style={styles.dayLabelRow}>
+          <View style={[styles.dayChip, isDark && styles.dayChipDark]}>
+            <ThemedText style={styles.dayChipText}>
+              {formatDayLabel(item.createdAt)}
+            </ThemedText>
+          </View>
+        </View>
+      )}
       <View style={[styles.bubbleRow, mine ? styles.rowMine : styles.rowTheirs]}>
         <Pressable
           onLongPress={() => {
@@ -354,8 +379,14 @@ export default function ChatScreen() {
           <ThemedText style={[styles.time, mine && styles.timeMine]}>
             {formatMessageTime(item.createdAt)}
             {item.editedAt ? ' · dzn' : ''}
+            {mine && !item.deletedAt ? (
+              <ThemedText style={[styles.tick, seen && styles.tickSeen]}>
+                {seen ? ' ✓✓' : ' ✓'}
+              </ThemedText>
+            ) : null}
           </ThemedText>
         </Pressable>
+      </View>
       </View>
     );
   };
@@ -748,14 +779,40 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   time: {
-    fontSize: 9,
-    lineHeight: 11,
+    fontSize: 10,
+    lineHeight: 13,
     opacity: 0.5,
     alignSelf: 'flex-end',
   },
   timeMine: {
     color: '#DBEAFE',
     opacity: 0.9,
+  },
+  tick: {
+    fontSize: 10,
+    lineHeight: 13,
+    color: '#DBEAFE',
+  },
+  tickSeen: {
+    color: '#38BDF8',
+  },
+  dayLabelRow: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  dayChip: {
+    backgroundColor: 'rgba(128,128,128,0.15)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  dayChipDark: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  dayChipText: {
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.7,
   },
   inputBar: {
     flexDirection: 'row',

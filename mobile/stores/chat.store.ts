@@ -77,6 +77,11 @@ interface ChatState {
   upsertConversation: (conversation: Conversation) => void;
   removeConversation: (conversationId: string) => void;
   applyPresence: (userId: string, isOnline: boolean, lastSeen?: string) => void;
+  applyConversationRead: (
+    conversationId: string,
+    userId: string,
+    lastReadAt: string,
+  ) => void;
 }
 
 function appendUnique(list: Message[], message: Message): Message[] {
@@ -415,6 +420,20 @@ export const useChatStore = create<ChatState>((set, get) => {
             (p.id ?? p._id) === targetUserId
               ? { ...p, isOnline, lastSeen: lastSeen ?? p.lastSeen }
               : p,
+          ),
+        };
+      }),
+    }));
+  },
+
+  applyConversationRead: (conversationId, targetUserId, lastReadAt) => {
+    set((state) => ({
+      conversations: state.conversations.map((c) => {
+        if (c._id !== conversationId || !c.members) return c;
+        return {
+          ...c,
+          members: c.members.map((m) =>
+            (m.user.id ?? m.user._id) === targetUserId ? { ...m, lastReadAt } : m,
           ),
         };
       }),

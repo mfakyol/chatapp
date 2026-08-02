@@ -98,6 +98,31 @@ export function formatLastSeen(iso: string): string {
   return `${Math.floor(days / 365)} yıl önce`;
 }
 
+export function isSameDay(a: string, b: string): boolean {
+  const da = new Date(a);
+  const db = new Date(b);
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+}
+
+export function formatDayLabel(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const days = daysAgo(date, now);
+
+  if (days <= 0) return "Bugün";
+  if (days === 1) return "Dün";
+  if (days < 7) return date.toLocaleDateString("tr-TR", { weekday: "long" });
+  return date.toLocaleDateString("tr-TR", {
+    day: "numeric",
+    month: "long",
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
 export function formatMessageTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("tr-TR", {
     hour: "2-digit",

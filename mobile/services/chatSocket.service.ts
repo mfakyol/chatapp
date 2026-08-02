@@ -100,6 +100,18 @@ export function subscribeChatSocket(currentUsername: string): () => void {
     store().removeConversation(conversationId);
   };
 
+  const onConversationRead = ({
+    conversationId,
+    userId,
+    lastReadAt,
+  }: {
+    conversationId: string;
+    userId: string;
+    lastReadAt: string;
+  }) => {
+    store().applyConversationRead(conversationId, String(userId), lastReadAt);
+  };
+
   const onPresenceUpdate = ({
     userId,
     isOnline,
@@ -122,6 +134,7 @@ export function subscribeChatSocket(currentUsername: string): () => void {
   socket.on("conversation:new", onConversationNew);
   socket.on("conversation:updated", onConversationUpdated);
   socket.on("conversation:deleted", onConversationDeleted);
+  socket.on("conversation:read", onConversationRead);
   socket.on("presence:update", onPresenceUpdate);
 
   return () => {
@@ -136,6 +149,7 @@ export function subscribeChatSocket(currentUsername: string): () => void {
     socket.off("conversation:new", onConversationNew);
     socket.off("conversation:updated", onConversationUpdated);
     socket.off("conversation:deleted", onConversationDeleted);
+    socket.off("conversation:read", onConversationRead);
     socket.off("presence:update", onPresenceUpdate);
     disconnectSocket();
   };

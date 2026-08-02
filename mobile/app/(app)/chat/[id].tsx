@@ -580,6 +580,7 @@ export default function ChatScreen() {
           maintainVisibleContentPosition={{
             startRenderingFromBottom: true,
             autoscrollToBottomThreshold: 0.2,
+            animateAutoScrollToBottom: false,
           }}
           contentContainerStyle={styles.listContent}
           onStartReached={() => loadOlderMessages(id)}

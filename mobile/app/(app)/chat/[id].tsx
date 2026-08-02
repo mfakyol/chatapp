@@ -94,6 +94,8 @@ export default function ChatScreen() {
   const hideDayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const topItemDateRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
+  const dayChipVisibleRef = useRef(false);
+  const invertedRef = useRef<Message[]>([]);
 
   const onViewableItemsChanged = useRef(
     ({
@@ -108,6 +110,15 @@ export default function ChatScreen() {
         if ((v.index ?? 0) > (top.index ?? 0)) top = v;
       }
       topItemDateRef.current = top.item.createdAt;
+
+      const list = invertedRef.current;
+      dayChipVisibleRef.current = viewableItems.some((v) => {
+        const index = v.index ?? -1;
+        if (index < 0) return false;
+        const older = list[index + 1];
+        const isDayStart = !older || !isSameDay(older.createdAt, v.item.createdAt);
+        return isDayStart && isSameDay(v.item.createdAt, top.item.createdAt);
+      });
     },
   ).current;
 
@@ -115,7 +126,11 @@ export default function ChatScreen() {
 
   const handleListScroll = () => {
     if (hideDayTimer.current) clearTimeout(hideDayTimer.current);
-    if (atBottomRef.current || !topItemDateRef.current) {
+    if (
+      atBottomRef.current ||
+      dayChipVisibleRef.current ||
+      !topItemDateRef.current
+    ) {
       setFloatingDay(null);
     } else {
       setFloatingDay(formatDayLabel(topItemDateRef.current));
@@ -154,6 +169,7 @@ export default function ChatScreen() {
   );
 
   const inverted = useMemo(() => [...messages].reverse(), [messages]);
+  invertedRef.current = inverted;
 
   const othersReadAt = useMemo(() => {
     const others =

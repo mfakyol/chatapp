@@ -551,6 +551,8 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.35)',
   },
   sender: {
     fontSize: 12,

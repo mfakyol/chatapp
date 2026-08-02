@@ -1,5 +1,13 @@
-import { apiUrl } from "@/lib/api";
-import type { Conversation, PublicUser } from "@/types";
+import { SERVER_ORIGIN, apiUrl } from "@/lib/api";
+import type { Attachment, Conversation, PublicUser } from "@/types";
+
+export function fileUrl(path: string): string {
+  return `${SERVER_ORIGIN}${path}`;
+}
+
+export function isImageAttachment(attachment?: Attachment): boolean {
+  return attachment?.mimeType.startsWith("image/") ?? false;
+}
 
 export function userId(user?: PublicUser | null): string {
   return user?.id ?? user?._id ?? "";

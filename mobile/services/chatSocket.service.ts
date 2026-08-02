@@ -1,9 +1,29 @@
-import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 import { useChatStore } from "@/stores/chat.store";
 import type { Conversation, Message, Reaction } from "@/types";
 
 function store() {
   return useChatStore.getState();
+}
+
+const TYPING_TTL_MS = 6000;
+const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+interface TypingPayload {
+  conversationId: string;
+  userId: string;
+}
+
+function clearTypingTimer(key: string) {
+  const timer = typingTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    typingTimers.delete(key);
+  }
+}
+
+export function emitTyping(conversationId: string, active: boolean): void {
+  getSocket()?.emit(active ? "typing:start" : "typing:stop", { conversationId });
 }
 
 export function subscribeChatSocket(currentUsername: string): () => void {
@@ -48,6 +68,26 @@ export function subscribeChatSocket(currentUsername: string): () => void {
     store().applyMessageReaction(conversationId, messageId, reactions);
   };
 
+  const onTypingStart = ({ conversationId, userId }: TypingPayload) => {
+    const uid = String(userId);
+    store().setTyping(conversationId, uid, true);
+    const key = `${conversationId}:${uid}`;
+    clearTypingTimer(key);
+    typingTimers.set(
+      key,
+      setTimeout(() => {
+        typingTimers.delete(key);
+        store().setTyping(conversationId, uid, false);
+      }, TYPING_TTL_MS),
+    );
+  };
+
+  const onTypingStop = ({ conversationId, userId }: TypingPayload) => {
+    const uid = String(userId);
+    clearTypingTimer(`${conversationId}:${uid}`);
+    store().setTyping(conversationId, uid, false);
+  };
+
   const onConversationNew = ({ conversation }: { conversation: Conversation }) => {
     store().upsertConversation(conversation);
   };
@@ -61,6 +101,8 @@ export function subscribeChatSocket(currentUsername: string): () => void {
   };
 
   socket.on("connect", onConnect);
+  socket.on("typing:start", onTypingStart);
+  socket.on("typing:stop", onTypingStop);
   socket.on("message:new", onNewMessage);
   socket.on("message:updated", onMessageUpdated);
   socket.on("message:deleted", onMessageDeleted);
@@ -70,7 +112,10 @@ export function subscribeChatSocket(currentUsername: string): () => void {
   socket.on("conversation:deleted", onConversationDeleted);
 
   return () => {
+    for (const key of typingTimers.keys()) clearTypingTimer(key);
     socket.off("connect", onConnect);
+    socket.off("typing:start", onTypingStart);
+    socket.off("typing:stop", onTypingStop);
     socket.off("message:new", onNewMessage);
     socket.off("message:updated", onMessageUpdated);
     socket.off("message:deleted", onMessageDeleted);

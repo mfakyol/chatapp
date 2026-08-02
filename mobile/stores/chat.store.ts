@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import * as conversationService from "@/services/conversation.service";
+import type { AttachmentFile } from "@/services/conversation.service";
 import type { Conversation, Message, Reaction } from "@/types";
 
 interface ChatState {
@@ -11,10 +12,13 @@ interface ChatState {
   activeConversationId: string | null;
   hasMoreOlder: Record<string, boolean>;
   loadingOlder: Record<string, boolean>;
+  typingByConversation: Record<string, string[]>;
 
   loadConversations: () => Promise<void>;
   loadMessages: (conversationId: string) => Promise<void>;
   loadOlderMessages: (conversationId: string) => Promise<void>;
+  sendAttachment: (conversationId: string, file: AttachmentFile) => Promise<boolean>;
+  setTyping: (conversationId: string, userId: string, typing: boolean) => void;
   sendMessage: (conversationId: string, content: string) => Promise<boolean>;
   markRead: (conversationId: string) => Promise<void>;
   setActiveConversation: (conversationId: string | null) => void;
@@ -50,7 +54,23 @@ function patchMessage(
   };
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>((set, get) => {
+  const applySentMessage = (conversationId: string, message: Message) => {
+    set((state) => ({
+      messagesByConversation: {
+        ...state.messagesByConversation,
+        [conversationId]: appendUnique(
+          state.messagesByConversation[conversationId] ?? [],
+          message,
+        ),
+      },
+      conversations: state.conversations.map((c) =>
+        c._id === conversationId ? { ...c, lastMessage: message } : c,
+      ),
+    }));
+  };
+
+  return {
   conversations: [],
   conversationsLoaded: false,
   refreshing: false,
@@ -58,6 +78,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeConversationId: null,
   hasMoreOlder: {},
   loadingOlder: {},
+  typingByConversation: {},
 
   loadConversations: async () => {
     set({ refreshing: true });
@@ -120,21 +141,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendMessage: async (conversationId, content) => {
     const res = await conversationService.sendMessage(conversationId, { content });
     if (!res.success) return false;
-
-    const message = res.data.message;
-    set((state) => ({
-      messagesByConversation: {
-        ...state.messagesByConversation,
-        [conversationId]: appendUnique(
-          state.messagesByConversation[conversationId] ?? [],
-          message,
-        ),
-      },
-      conversations: state.conversations.map((c) =>
-        c._id === conversationId ? { ...c, lastMessage: message } : c,
-      ),
-    }));
+    applySentMessage(conversationId, res.data.message);
     return true;
+  },
+
+  sendAttachment: async (conversationId, file) => {
+    const res = await conversationService.sendAttachment(conversationId, file);
+    if (!res.success) return false;
+    applySentMessage(conversationId, res.data.message);
+    return true;
+  },
+
+  setTyping: (conversationId, userId, typing) => {
+    set((state) => {
+      const current = state.typingByConversation[conversationId] ?? [];
+      const has = current.includes(userId);
+      if (typing === has) return state;
+      return {
+        typingByConversation: {
+          ...state.typingByConversation,
+          [conversationId]: typing
+            ? [...current, userId]
+            : current.filter((id) => id !== userId),
+        },
+      };
+    });
   },
 
   markRead: async (conversationId) => {
@@ -248,4 +279,5 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     });
   },
-}));
+  };
+});

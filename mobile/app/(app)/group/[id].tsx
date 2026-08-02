@@ -42,6 +42,7 @@ export default function GroupInfoScreen() {
   const addGroupMember = useChatStore((s) => s.addGroupMember);
   const removeGroupMember = useChatStore((s) => s.removeGroupMember);
   const leaveGroup = useChatStore((s) => s.leaveGroup);
+  const deleteConversation = useChatStore((s) => s.deleteConversation);
 
   const isAdmin = conversation?.admins?.includes(meId) ?? false;
 
@@ -138,6 +139,28 @@ export default function GroupInfoScreen() {
         },
       },
     ]);
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Grubu sil',
+      'Grup, tüm mesajları ve dosyalarıyla birlikte herkes için kalıcı olarak silinecek. Emin misin?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await deleteConversation(id);
+            if (res.error) {
+              Alert.alert('Hata', res.error);
+            } else {
+              router.dismissTo('/');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const inputStyle = [
@@ -300,6 +323,11 @@ export default function GroupInfoScreen() {
             <Pressable style={styles.leaveButton} onPress={handleLeave}>
               <ThemedText style={styles.leaveText}>Gruptan ayrıl</ThemedText>
             </Pressable>
+            {isAdmin && (
+              <Pressable style={styles.deleteButton} onPress={handleDelete}>
+                <ThemedText style={styles.deleteText}>Grubu sil</ThemedText>
+              </Pressable>
+            )}
           </View>
         }
       />
@@ -498,6 +526,17 @@ const styles = StyleSheet.create({
   },
   leaveText: {
     color: '#fff',
+    fontWeight: '600',
+  },
+  deleteButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  deleteText: {
+    color: '#EF4444',
     fontWeight: '600',
   },
   modalBackdrop: {

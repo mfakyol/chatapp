@@ -68,6 +68,11 @@ export const leaveGroup = (conversationId: string) =>
     method: "POST",
   });
 
+export const deleteConversation = (conversationId: string) =>
+  request<{ message: string }>(`/conversations/${conversationId}`, {
+    method: "DELETE",
+  });
+
 export const updateGroup = (
   conversationId: string,
   updates: { name?: string; description?: string },

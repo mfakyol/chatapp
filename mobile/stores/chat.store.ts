@@ -53,6 +53,7 @@ interface ChatState {
     username: string,
   ) => Promise<{ error?: string }>;
   leaveGroup: (conversationId: string) => Promise<{ error?: string }>;
+  deleteConversation: (conversationId: string) => Promise<{ error?: string }>;
   uploadGroupAvatar: (
     conversationId: string,
     file: AttachmentFile,
@@ -264,6 +265,13 @@ export const useChatStore = create<ChatState>((set, get) => {
 
   leaveGroup: async (conversationId) => {
     const res = await conversationService.leaveGroup(conversationId);
+    if (!res.success) return { error: res.error };
+    get().removeConversation(conversationId);
+    return {};
+  },
+
+  deleteConversation: async (conversationId) => {
+    const res = await conversationService.deleteConversation(conversationId);
     if (!res.success) return { error: res.error };
     get().removeConversation(conversationId);
     return {};

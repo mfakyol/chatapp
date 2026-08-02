@@ -475,15 +475,19 @@ export default function ChatScreen() {
       : undefined;
   const title = conversation ? conversationTitle(conversation, meId) : t('chat.title');
   const subtitle = conversation
-    ? conversation.isGroup
-      ? t('chat.members', {
-          n: conversation.members?.length ?? conversation.participants.length,
-        })
-      : other?.isOnline
-        ? t('chat.online')
-        : other?.lastSeen
-          ? t('chat.lastSeen', { time: formatLastSeen(other.lastSeen) })
-          : null
+    ? typingNames.length > 0
+      ? conversation.isGroup
+        ? t('chat.typing', { names: typingNames.join(', ') })
+        : t('chat.typingSolo')
+      : conversation.isGroup
+        ? t('chat.members', {
+            n: conversation.members?.length ?? conversation.participants.length,
+          })
+        : other?.isOnline
+          ? t('chat.online')
+          : other?.lastSeen
+            ? t('chat.lastSeen', { time: formatLastSeen(other.lastSeen) })
+            : null
     : null;
 
   const openInfo = () => {
@@ -510,7 +514,9 @@ export default function ChatScreen() {
           title={title}
           subtitle={subtitle}
           subtitleStyle={
-            !conversation?.isGroup && other?.isOnline ? styles.subtitleOnline : undefined
+            typingNames.length > 0 || (!conversation?.isGroup && other?.isOnline)
+              ? styles.subtitleOnline
+              : undefined
           }
           avatar={
             conversation?.isGroup ? (
@@ -536,23 +542,6 @@ export default function ChatScreen() {
           viewabilityConfig={viewabilityConfig}
           ListFooterComponent={
             loadingOlder ? <ActivityIndicator style={styles.olderSpinner} /> : null
-          }
-          ListHeaderComponent={
-            typingNames.length > 0 ? (
-              <View style={[styles.bubbleRow, styles.rowTheirs]}>
-                <View
-                  style={[
-                    styles.bubble,
-                    styles.bubbleTheirs,
-                    isDark && styles.bubbleTheirsDark,
-                  ]}
-                >
-                  <ThemedText style={styles.typingText}>
-                    {t('chat.typing', { names: typingNames.join(', ') })}
-                  </ThemedText>
-                </View>
-              </View>
-            ) : null
           }
         />
         {floatingDay && (
@@ -991,10 +980,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   deleted: {
-    fontStyle: 'italic',
-    opacity: 0.7,
-  },
-  typingText: {
     fontStyle: 'italic',
     opacity: 0.7,
   },

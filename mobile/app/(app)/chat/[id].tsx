@@ -89,6 +89,45 @@ export default function ChatScreen() {
   const typingSent = useRef(false);
   const typingIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [floatingDay, setFloatingDay] = useState<string | null>(null);
+  const hideDayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const topItemDateRef = useRef<string | null>(null);
+  const atBottomRef = useRef(true);
+
+  const onViewableItemsChanged = useRef(
+    ({
+      viewableItems,
+    }: {
+      viewableItems: { index: number | null; item: Message }[];
+    }) => {
+      if (viewableItems.length === 0) return;
+      atBottomRef.current = viewableItems.some((v) => v.index === 0);
+      let top = viewableItems[0];
+      for (const v of viewableItems) {
+        if ((v.index ?? 0) > (top.index ?? 0)) top = v;
+      }
+      topItemDateRef.current = top.item.createdAt;
+    },
+  ).current;
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+
+  const handleListScroll = () => {
+    if (hideDayTimer.current) clearTimeout(hideDayTimer.current);
+    if (atBottomRef.current || !topItemDateRef.current) {
+      setFloatingDay(null);
+    } else {
+      setFloatingDay(formatDayLabel(topItemDateRef.current));
+      hideDayTimer.current = setTimeout(() => setFloatingDay(null), 1500);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hideDayTimer.current) clearTimeout(hideDayTimer.current);
+    };
+  }, []);
+
   const stopTyping = useCallback(() => {
     if (typingIdleTimer.current) {
       clearTimeout(typingIdleTimer.current);
@@ -477,6 +516,7 @@ export default function ChatScreen() {
           }
           onBodyPress={conversation ? openInfo : undefined}
         />
+        <View style={styles.listWrap}>
         <FlatList
           data={inverted}
           keyExtractor={(item) => item._id}
@@ -485,6 +525,10 @@ export default function ChatScreen() {
           contentContainerStyle={styles.listContent}
           onEndReached={() => loadOlderMessages(id)}
           onEndReachedThreshold={0.4}
+          onScroll={handleListScroll}
+          scrollEventThrottle={64}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           ListFooterComponent={
             loadingOlder ? <ActivityIndicator style={styles.olderSpinner} /> : null
           }
@@ -506,6 +550,16 @@ export default function ChatScreen() {
             ) : null
           }
         />
+        {floatingDay && (
+          <View style={styles.floatingDay} pointerEvents="none">
+            <View
+              style={[styles.dayChip, styles.dayChipSolid, isDark && styles.dayChipSolidDark]}
+            >
+              <ThemedText style={styles.dayChipText}>{floatingDay}</ThemedText>
+            </View>
+          </View>
+        )}
+        </View>
 
         <SafeAreaView edges={['bottom']}>
           {editing && (
@@ -944,6 +998,16 @@ const styles = StyleSheet.create({
   tickSeen: {
     color: '#38BDF8',
   },
+  listWrap: {
+    flex: 1,
+  },
+  floatingDay: {
+    position: 'absolute',
+    top: 8,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
   dayLabelRow: {
     alignItems: 'center',
     marginVertical: 8,
@@ -956,6 +1020,12 @@ const styles = StyleSheet.create({
   },
   dayChipDark: {
     backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  dayChipSolid: {
+    backgroundColor: '#E5E7EB',
+  },
+  dayChipSolidDark: {
+    backgroundColor: '#334155',
   },
   dayChipText: {
     fontSize: 12,

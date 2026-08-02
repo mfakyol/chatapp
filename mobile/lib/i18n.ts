@@ -51,6 +51,7 @@ const en = {
   "chat.sentAt": "Sent",
   "chat.editedAtLabel": "Edited",
   "chat.seenBy": "Seen by ({n})",
+  "chat.seenAt": "Seen",
   "chat.notSeenBy": "Not seen yet",
   "chat.notSeenYet": "Not seen yet",
 
@@ -174,6 +175,7 @@ const tr: Record<TranslationKey, string> = {
   "chat.sentAt": "Gönderildi",
   "chat.editedAtLabel": "Düzenlendi",
   "chat.seenBy": "Görenler ({n})",
+  "chat.seenAt": "Görüldü",
   "chat.notSeenBy": "Henüz görmedi",
   "chat.notSeenYet": "Henüz görülmedi",
 
@@ -297,6 +299,7 @@ const de: Record<TranslationKey, string> = {
   "chat.sentAt": "Gesendet",
   "chat.editedAtLabel": "Bearbeitet",
   "chat.seenBy": "Gesehen von ({n})",
+  "chat.seenAt": "Gesehen",
   "chat.notSeenBy": "Noch nicht gesehen",
   "chat.notSeenYet": "Noch nicht gesehen",
 

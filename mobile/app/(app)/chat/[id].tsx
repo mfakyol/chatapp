@@ -689,6 +689,19 @@ export default function ChatScreen() {
                   const unseen = others.filter(
                     (m) => new Date(m.lastReadAt).getTime() < sentTime,
                   );
+                  if (!conversation?.isGroup) {
+                    const seenAt = seen[0]?.lastReadAt;
+                    return (
+                      <>
+                        <ThemedText style={styles.infoLabel}>
+                          {t('chat.seenAt')}
+                        </ThemedText>
+                        <ThemedText style={styles.infoValue}>
+                          {seenAt ? formatLastSeen(seenAt) : t('chat.notSeenYet')}
+                        </ThemedText>
+                      </>
+                    );
+                  }
                   return (
                     <>
                       <ThemedText style={styles.infoLabel}>

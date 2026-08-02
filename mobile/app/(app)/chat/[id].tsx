@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#888',
+    borderColor: 'rgba(128,128,128,0.6)',
     overflow: 'hidden',
   },
   thumbWrapActive: {

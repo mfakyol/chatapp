@@ -102,6 +102,13 @@ export default function ChatScreen() {
 
   const inverted = useMemo(() => [...messages].reverse(), [messages]);
 
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const imageMessages = useMemo(
+    () => messages.filter((m) => !m.deletedAt && isImageAttachment(m.attachment)),
+    [messages],
+  );
+  const viewerMessage = viewerIndex !== null ? imageMessages[viewerIndex] : null;
+
   const typingNames = useMemo(() => {
     if (!conversation) return [];
     return typingUserIds
@@ -180,17 +187,20 @@ export default function ChatScreen() {
     if (uploading) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: 10,
       quality: 0.8,
     });
     if (result.canceled || result.assets.length === 0) return;
 
-    const asset = result.assets[0];
     setUploading(true);
-    await sendAttachment(id, {
-      uri: asset.uri,
-      name: asset.fileName ?? `photo_${Date.now()}.jpg`,
-      type: asset.mimeType ?? 'image/jpeg',
-    });
+    for (const asset of result.assets) {
+      await sendAttachment(id, {
+        uri: asset.uri,
+        name: asset.fileName ?? `photo_${Date.now()}.jpg`,
+        type: asset.mimeType ?? 'image/jpeg',
+      });
+    }
     setUploading(false);
   };
 
@@ -230,11 +240,20 @@ export default function ChatScreen() {
               Bu mesaj silindi
             </ThemedText>
           ) : image ? (
-            <Image
-              source={{ uri: fileUrl(item.attachment!.url) }}
-              style={styles.attachmentImage}
-              contentFit="cover"
-            />
+            <Pressable
+              onPress={() => {
+                const index = imageMessages.findIndex((m) => m._id === item._id);
+                if (index >= 0) setViewerIndex(index);
+              }}
+              onLongPress={() => setSelected(item)}
+              delayLongPress={300}
+            >
+              <Image
+                source={{ uri: fileUrl(item.attachment!.url) }}
+                style={styles.attachmentImage}
+                contentFit="cover"
+              />
+            </Pressable>
           ) : (
             <ThemedText style={mine ? styles.textMine : undefined}>
               {item.attachment ? `📎 ${item.attachment.fileName}` : item.content}
@@ -424,6 +443,60 @@ export default function ChatScreen() {
             )}
           </View>
         </Pressable>
+      </Modal>
+
+      <Modal
+        visible={viewerIndex !== null}
+        animationType="fade"
+        onRequestClose={() => setViewerIndex(null)}
+      >
+        <View style={styles.viewer}>
+          <SafeAreaView style={styles.viewerSafe}>
+            <View style={styles.viewerTop}>
+              <Pressable onPress={() => setViewerIndex(null)} hitSlop={12}>
+                <ThemedText style={styles.viewerClose}>✕</ThemedText>
+              </Pressable>
+              {viewerMessage && (
+                <ThemedText style={styles.viewerCaption} numberOfLines={1}>
+                  {fullName(viewerMessage.sender)} ·{' '}
+                  {formatMessageTime(viewerMessage.createdAt)}
+                </ThemedText>
+              )}
+            </View>
+
+            {viewerMessage && (
+              <Image
+                source={{ uri: fileUrl(viewerMessage.attachment!.url) }}
+                style={styles.viewerImage}
+                contentFit="contain"
+              />
+            )}
+
+            <FlatList
+              horizontal
+              data={imageMessages}
+              keyExtractor={(m) => m._id}
+              style={styles.thumbStrip}
+              contentContainerStyle={styles.thumbContent}
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={viewerIndex ?? 0}
+              getItemLayout={(_, index) => ({
+                length: 64,
+                offset: 64 * index,
+                index,
+              })}
+              renderItem={({ item: m, index }) => (
+                <Pressable onPress={() => setViewerIndex(index)}>
+                  <Image
+                    source={{ uri: fileUrl(m.attachment!.url) }}
+                    style={[styles.thumb, index === viewerIndex && styles.thumbActive]}
+                    contentFit="cover"
+                  />
+                </Pressable>
+              )}
+            />
+          </SafeAreaView>
+        </View>
       </Modal>
     </ThemedView>
   );
@@ -640,5 +713,52 @@ const styles = StyleSheet.create({
   },
   menuDanger: {
     color: '#EF4444',
+  },
+  viewer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  viewerSafe: {
+    flex: 1,
+  },
+  viewerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  viewerClose: {
+    color: '#fff',
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  viewerCaption: {
+    flex: 1,
+    color: '#fff',
+    opacity: 0.8,
+    fontSize: 14,
+  },
+  viewerImage: {
+    flex: 1,
+  },
+  thumbStrip: {
+    flexGrow: 0,
+    marginVertical: 12,
+  },
+  thumbContent: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  thumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    opacity: 0.6,
+  },
+  thumbActive: {
+    opacity: 1,
+    borderWidth: 2,
+    borderColor: '#2563EB',
   },
 });

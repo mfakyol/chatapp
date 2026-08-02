@@ -507,62 +507,70 @@ export default function ChatScreen() {
 
       <Modal
         visible={pendingImages !== null}
-        transparent
         animationType="slide"
         onRequestClose={() => setPendingImages(null)}
       >
-        <KeyboardAvoidingView
-          style={styles.previewBackdrop}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <ThemedView
+          style={[
+            styles.flex,
+            { paddingTop: insets.top, paddingBottom: insets.bottom },
+          ]}
         >
-          <View style={[styles.previewSheet, isDark && styles.previewSheetDark]}>
+          <View style={styles.previewHeader}>
+            <Pressable
+              onPress={() => setPendingImages(null)}
+              hitSlop={12}
+              disabled={uploading}
+            >
+              <ThemedText style={styles.previewCancelText}>Vazgeç</ThemedText>
+            </Pressable>
             <ThemedText type="defaultSemiBold">
               {pendingImages?.length} fotoğraf
             </ThemedText>
+            <View style={styles.previewHeaderSpacer} />
+          </View>
+
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
             <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.previewStrip}
+              style={styles.flex}
+              contentContainerStyle={styles.previewGrid}
             >
               {pendingImages?.map((asset, index) => (
                 <Image
                   key={index}
                   source={{ uri: asset.uri }}
-                  style={styles.previewThumb}
+                  style={styles.previewImage}
                   contentFit="cover"
                 />
               ))}
             </ScrollView>
-            <TextInput
-              style={[styles.input, isDark && styles.inputDark]}
-              placeholder="Mesaj ekle..."
-              placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-              value={caption}
-              onChangeText={setCaption}
-              multiline
-            />
-            <View style={styles.previewActions}>
+
+            <View style={styles.inputBar}>
+              <TextInput
+                style={[styles.input, isDark && styles.inputDark]}
+                placeholder="Mesaj ekle..."
+                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                value={caption}
+                onChangeText={setCaption}
+                multiline
+              />
               <Pressable
-                style={styles.previewCancel}
-                onPress={() => setPendingImages(null)}
-                disabled={uploading}
-              >
-                <ThemedText style={styles.previewCancelText}>Vazgeç</ThemedText>
-              </Pressable>
-              <Pressable
-                style={[styles.previewSend, uploading && styles.sendDisabled]}
+                style={[styles.sendButton, uploading && styles.sendDisabled]}
                 onPress={handleSendImages}
                 disabled={uploading}
               >
                 {uploading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <ThemedText style={styles.previewSendText}>Gönder</ThemedText>
+                  <ThemedText style={styles.sendText}>➤</ThemedText>
                 )}
               </Pressable>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </ThemedView>
       </Modal>
 
       <Modal
@@ -856,54 +864,34 @@ const styles = StyleSheet.create({
   menuDanger: {
     color: '#EF4444',
   },
-  previewBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  previewSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    paddingBottom: 32,
-    gap: 12,
-  },
-  previewSheetDark: {
-    backgroundColor: '#1E293B',
-  },
-  previewStrip: {
-    gap: 8,
-  },
-  previewThumb: {
-    width: 96,
-    height: 96,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(128,128,128,0.35)',
-  },
-  previewActions: {
+  previewHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128,128,128,0.3)',
   },
-  previewCancel: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+  previewHeaderSpacer: {
+    width: 52,
   },
   previewCancelText: {
     color: '#EF4444',
   },
-  previewSend: {
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 28,
+  previewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    padding: 16,
+    gap: 8,
   },
-  previewSendText: {
-    color: '#fff',
-    fontWeight: '600',
+  previewImage: {
+    width: '48.5%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.35)',
   },
   viewer: {
     flex: 1,

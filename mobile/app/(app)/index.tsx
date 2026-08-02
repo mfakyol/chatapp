@@ -18,6 +18,7 @@ export default function ConversationsScreen() {
   const router = useRouter();
   const me = useAuthStore((s) => s.user);
   const conversations = useChatStore((s) => s.conversations);
+  const typingByConversation = useChatStore((s) => s.typingByConversation);
   const refreshing = useChatStore((s) => s.refreshing);
   const loadConversations = useChatStore((s) => s.loadConversations);
   const conversationsLoaded = useChatStore((s) => s.conversationsLoaded);
@@ -32,15 +33,24 @@ export default function ConversationsScreen() {
     const title = conversationTitle(item, meId);
     const avatarUser = item.isGroup ? undefined : otherParticipant(item, meId);
     const last = item.lastMessage;
-    const preview = last
-      ? last.deletedAt
-        ? t('chats.messageDeleted')
-        : (last.attachments?.length ?? 0) > 1
-          ? t('chats.photos', { n: last.attachments!.length })
-          : last.attachment
-            ? last.content || `📎 ${last.attachment.fileName}`
-            : last.content
-      : t('chats.noMessages');
+    const typerIds = typingByConversation[item._id] ?? [];
+    const typerNames = typerIds
+      .map((uid) => item.participants.find((p) => userId(p) === uid)?.firstName)
+      .filter(Boolean);
+    const isTyping = typerNames.length > 0;
+    const preview = isTyping
+      ? item.isGroup
+        ? t('chat.typing', { names: typerNames.join(', ') })
+        : t('chat.typingSolo')
+      : last
+        ? last.deletedAt
+          ? t('chats.messageDeleted')
+          : (last.attachments?.length ?? 0) > 1
+            ? t('chats.photos', { n: last.attachments!.length })
+            : last.attachment
+              ? last.content || `📎 ${last.attachment.fileName}`
+              : last.content
+        : t('chats.noMessages');
 
     return (
       <Pressable
@@ -65,7 +75,10 @@ export default function ConversationsScreen() {
             <ThemedText style={styles.time}>{formatListTime(last?.createdAt)}</ThemedText>
           </View>
           <View style={styles.rowBottom}>
-            <ThemedText numberOfLines={1} style={styles.preview}>
+            <ThemedText
+              numberOfLines={1}
+              style={[styles.preview, isTyping && styles.previewTyping]}
+            >
               {preview}
             </ThemedText>
             {(item.unreadCount ?? 0) > 0 && (
@@ -180,6 +193,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     opacity: 0.6,
+  },
+  previewTyping: {
+    color: '#22C55E',
+    opacity: 1,
   },
   badge: {
     backgroundColor: '#2563EB',

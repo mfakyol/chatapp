@@ -144,16 +144,6 @@ export default function ChatScreen() {
   }, [messages, meId]);
 
   useEffect(() => {
-    if (!firstNewId || !openScrollPendingRef.current) return;
-    const index = listItems.findIndex((entry) => entry.type === 'newDivider');
-    if (index < 0) return;
-    openScrollPendingRef.current = false;
-    setTimeout(() => {
-      listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.1 });
-    }, 80);
-  }, [firstNewId, listItems]);
-
-  useEffect(() => {
     const last = messages[messages.length - 1];
     if (!last) return;
     if (lastMessageIdRef.current && lastMessageIdRef.current !== last._id) {
@@ -272,6 +262,16 @@ export default function ChatScreen() {
     });
     return out;
   }, [messages, firstNewId]);
+
+  useEffect(() => {
+    if (!firstNewId || !openScrollPendingRef.current) return;
+    const index = listItems.findIndex((entry) => entry.type === 'newDivider');
+    if (index < 0) return;
+    openScrollPendingRef.current = false;
+    setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.1 });
+    }, 80);
+  }, [firstNewId, listItems]);
 
   const othersReadAt = useMemo(() => {
     const others =

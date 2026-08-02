@@ -51,7 +51,8 @@ const NO_TYPING: string[] = [];
 
 type ChatListItem =
   | { type: 'message'; message: Message }
-  | { type: 'day'; date: string };
+  | { type: 'day'; date: string }
+  | { type: 'newDivider' };
 const TYPING_IDLE_MS = 3000;
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
@@ -104,11 +105,13 @@ export default function ChatScreen() {
   const listRef = useRef<FlashListRef<ChatListItem>>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const firstNewIdRef = useRef<string | null>(null);
+  const [firstNewId, setFirstNewId] = useState<string | null>(null);
   const [newCount, setNewCount] = useState(0);
+  firstNewIdRef.current = firstNewId;
 
   useEffect(() => {
     lastMessageIdRef.current = null;
-    firstNewIdRef.current = null;
+    setFirstNewId(null);
     setNewCount(0);
   }, [id]);
 
@@ -117,13 +120,13 @@ export default function ChatScreen() {
     if (!last) return;
     if (lastMessageIdRef.current && lastMessageIdRef.current !== last._id) {
       if (userId(last.sender) === meId) {
-        firstNewIdRef.current = null;
+        setFirstNewId(null);
         setNewCount(0);
         requestAnimationFrame(() => {
           listRef.current?.scrollToEnd({ animated: false });
         });
       } else if (!atBottomRef.current) {
-        if (!firstNewIdRef.current) firstNewIdRef.current = last._id;
+        if (!firstNewIdRef.current) setFirstNewId(last._id);
         setNewCount((count) => count + 1);
       }
     }
@@ -131,20 +134,12 @@ export default function ChatScreen() {
   }, [messages, meId]);
 
   const jumpToNewMessages = () => {
-    const targetId = firstNewIdRef.current;
-    if (targetId) {
-      const index = listItems.findIndex(
-        (entry) => entry.type === 'message' && entry.message._id === targetId,
-      );
-      if (index >= 0) {
-        listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
-      } else {
-        listRef.current?.scrollToEnd({ animated: true });
-      }
+    const index = listItems.findIndex((entry) => entry.type === 'newDivider');
+    if (index >= 0) {
+      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.05 });
     } else {
       listRef.current?.scrollToEnd({ animated: true });
     }
-    firstNewIdRef.current = null;
     setNewCount(0);
   };
 
@@ -159,7 +154,7 @@ export default function ChatScreen() {
         (v) => v.index === listLenRef.current - 1,
       );
       if (atBottomRef.current) {
-        firstNewIdRef.current = null;
+        setFirstNewId(null);
         setNewCount(0);
       }
       let top = viewableItems[0];
@@ -225,10 +220,13 @@ export default function ChatScreen() {
       if (!prev || !isSameDay(prev.createdAt, message.createdAt)) {
         out.push({ type: 'day', date: message.createdAt });
       }
+      if (firstNewId && message._id === firstNewId) {
+        out.push({ type: 'newDivider' });
+      }
       out.push({ type: 'message', message });
     });
     return out;
-  }, [messages]);
+  }, [messages, firstNewId]);
   listLenRef.current = listItems.length;
 
   const othersReadAt = useMemo(() => {
@@ -396,6 +394,17 @@ export default function ChatScreen() {
   };
 
   const renderItem = ({ item: entry }: { item: ChatListItem }) => {
+    if (entry.type === 'newDivider') {
+      return (
+        <View style={styles.newDividerRow}>
+          <View style={styles.newDividerLine} />
+          <ThemedText style={styles.newDividerText}>
+            {t('chat.newDivider')}
+          </ThemedText>
+          <View style={styles.newDividerLine} />
+        </View>
+      );
+    }
     if (entry.type === 'day') {
       return (
         <View style={styles.dayLabelRow}>
@@ -607,7 +616,11 @@ export default function ChatScreen() {
           ref={listRef}
           data={listItems}
           keyExtractor={(entry) =>
-            entry.type === 'day' ? `day:${entry.date}` : entry.message._id
+            entry.type === 'day'
+              ? `day:${entry.date}`
+              : entry.type === 'newDivider'
+                ? 'new-divider'
+                : entry.message._id
           }
           renderItem={renderItem}
           maintainVisibleContentPosition={{
@@ -1093,6 +1106,24 @@ const styles = StyleSheet.create({
   },
   listWrap: {
     flex: 1,
+  },
+  newDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 10,
+  },
+  newDividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#2563EB',
+    opacity: 0.5,
+  },
+  newDividerText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    color: '#2563EB',
   },
   newMessagesRow: {
     position: 'absolute',

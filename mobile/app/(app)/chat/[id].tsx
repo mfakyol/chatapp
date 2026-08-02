@@ -306,6 +306,7 @@ export default function ChatScreen() {
             <>
               {images.length === 1 && (
                 <Pressable
+                  style={styles.attachmentImageWrap}
                   onPress={() => openViewer(item._id, 0)}
                   onLongPress={() => setSelected(item)}
                   delayLongPress={300}
@@ -325,6 +326,7 @@ export default function ChatScreen() {
                     return (
                       <Pressable
                         key={index}
+                        style={styles.gridImageWrap}
                         onPress={() => openViewer(item._id, index)}
                         onLongPress={() => setSelected(item)}
                         delayLongPress={300}
@@ -732,12 +734,15 @@ const styles = StyleSheet.create({
   bubbleImage: {
     padding: 4,
   },
+  attachmentImageWrap: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.5)',
+    overflow: 'hidden',
+  },
   attachmentImage: {
     width: 220,
     height: 220,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(128,128,128,0.35)',
   },
   imageGrid: {
     flexDirection: 'row',
@@ -745,12 +750,15 @@ const styles = StyleSheet.create({
     gap: 4,
     maxWidth: 224,
   },
+  gridImageWrap: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.5)',
+    overflow: 'hidden',
+  },
   gridImage: {
     width: 108,
     height: 108,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(128,128,128,0.35)',
   },
   captionText: {
     marginTop: 6,

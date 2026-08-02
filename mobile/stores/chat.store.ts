@@ -39,6 +39,20 @@ interface ChatState {
     conversationId: string,
     updates: { name?: string; description?: string },
   ) => Promise<{ error?: string }>;
+  setMemberRole: (
+    conversationId: string,
+    username: string,
+    role: "admin" | "member",
+  ) => Promise<{ error?: string }>;
+  addGroupMember: (
+    conversationId: string,
+    username: string,
+  ) => Promise<{ error?: string }>;
+  removeGroupMember: (
+    conversationId: string,
+    username: string,
+  ) => Promise<{ error?: string }>;
+  leaveGroup: (conversationId: string) => Promise<{ error?: string }>;
   uploadGroupAvatar: (
     conversationId: string,
     file: AttachmentFile,
@@ -224,6 +238,34 @@ export const useChatStore = create<ChatState>((set, get) => {
     const res = await conversationService.updateGroup(conversationId, updates);
     if (!res.success) return { error: res.error };
     get().upsertConversation(res.data.conversation);
+    return {};
+  },
+
+  setMemberRole: async (conversationId, username, role) => {
+    const res = await conversationService.setMemberRole(conversationId, username, role);
+    if (!res.success) return { error: res.error };
+    get().upsertConversation(res.data.conversation);
+    return {};
+  },
+
+  addGroupMember: async (conversationId, username) => {
+    const res = await conversationService.addGroupMember(conversationId, username);
+    if (!res.success) return { error: res.error };
+    get().upsertConversation(res.data.conversation);
+    return {};
+  },
+
+  removeGroupMember: async (conversationId, username) => {
+    const res = await conversationService.removeGroupMember(conversationId, username);
+    if (!res.success) return { error: res.error };
+    get().upsertConversation(res.data.conversation);
+    return {};
+  },
+
+  leaveGroup: async (conversationId) => {
+    const res = await conversationService.leaveGroup(conversationId);
+    if (!res.success) return { error: res.error };
+    get().removeConversation(conversationId);
     return {};
   },
 

@@ -241,6 +241,21 @@ export const addMember: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const setMemberRole: RequestHandler = async (req, res, next) => {
+  try {
+    const conversation = await conversationService.setMemberRole(
+      currentUser(req),
+      req.params.conversationId,
+      req.params.username,
+      req.body.role,
+      getIo(req)
+    );
+    res.json({ conversation });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const removeMember: RequestHandler = async (req, res, next) => {
   try {
     const conversation = await conversationService.removeMember(

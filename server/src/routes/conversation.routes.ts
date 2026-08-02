@@ -9,6 +9,7 @@ import {
   createDirectSchema,
   createGroupSchema,
   conversationIdParamSchema,
+  setMemberRoleSchema,
   sendMessageSchema,
   messageParamsSchema,
   editMessageSchema,
@@ -33,6 +34,7 @@ import {
   sendAttachment,
   ensureMembership,
   renameConversation,
+  setMemberRole,
   uploadGroupAvatar,
   serveGroupAvatar,
   addMember,
@@ -80,6 +82,11 @@ router.post(
 );
 router.get('/:conversationId/avatar', validate(conversationIdParamSchema), serveGroupAvatar);
 router.post('/:conversationId/members', validate(addMemberSchema), addMember);
+router.patch(
+  '/:conversationId/members/:username',
+  validate(setMemberRoleSchema),
+  setMemberRole
+);
 router.delete('/:conversationId/members/:username', validate(removeMemberSchema), removeMember);
 router.post('/:conversationId/leave', validate(conversationIdParamSchema), leaveGroup);
 router.delete('/:conversationId', validate(conversationIdParamSchema), deleteConversation);

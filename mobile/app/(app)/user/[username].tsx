@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
@@ -41,7 +41,11 @@ export default function UserProfileScreen() {
     });
   }, [username, userFromStore, isMe]);
 
-  const user = isMe ? me : (userFromStore ?? fetched);
+  if (isMe) {
+    return <Redirect href="/profile" />;
+  }
+
+  const user = userFromStore ?? fetched;
 
   const handleMessage = async () => {
     if (opening) return;

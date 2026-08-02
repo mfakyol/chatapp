@@ -57,6 +57,11 @@ export const renameSchema = z.object({
     }),
 });
 
+export const setMemberRoleSchema = z.object({
+  params: z.object({ conversationId: objectId, username }),
+  body: z.object({ role: z.enum(['admin', 'member']) }),
+});
+
 export const addMemberSchema = z.object({
   params: z.object({ conversationId: objectId }),
   body: z.object({ username }),

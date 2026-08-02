@@ -365,6 +365,46 @@ export async function removeMember(
   return assembled;
 }
 
+export async function setMemberRole(
+  user: UserDocument,
+  conversationId: string,
+  username: string,
+  role: 'admin' | 'member',
+  io: Server
+): Promise<AssembledConversation> {
+  const conversation = await requireGroupAdmin(
+    user,
+    conversationId,
+    'Only admins can change member roles'
+  );
+
+  const target = await User.findOne({ username: username.toLowerCase() });
+  if (!target) throw notFound('User not found');
+
+  const membership = await ConversationMember.findOne({
+    conversation: conversation._id,
+    user: target._id,
+  });
+  if (!membership) throw notFound('Member not found');
+
+  if (membership.role === 'admin' && role === 'member') {
+    const adminCount = await ConversationMember.countDocuments({
+      conversation: conversation._id,
+      role: 'admin',
+    });
+    if (adminCount <= 1) throw badRequest('A group must have at least one admin');
+  }
+
+  membership.role = role;
+  await membership.save();
+
+  const assembled = await assembleConversation(conversation);
+  await broadcastToConversation(io, conversationId, 'conversation:updated', {
+    conversation: assembled,
+  });
+  return assembled;
+}
+
 export async function leaveGroup(
   user: UserDocument,
   conversationId: string,

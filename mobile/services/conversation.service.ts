@@ -41,6 +41,33 @@ export const createGroupConversation = (name: string, usernames: string[]) =>
     body: JSON.stringify({ name, usernames }),
   });
 
+export const setMemberRole = (
+  conversationId: string,
+  username: string,
+  role: "admin" | "member",
+) =>
+  request<{ conversation: Conversation }>(
+    `/conversations/${conversationId}/members/${username}`,
+    { method: "PATCH", body: JSON.stringify({ role }) },
+  );
+
+export const addGroupMember = (conversationId: string, username: string) =>
+  request<{ conversation: Conversation }>(
+    `/conversations/${conversationId}/members`,
+    { method: "POST", body: JSON.stringify({ username }) },
+  );
+
+export const removeGroupMember = (conversationId: string, username: string) =>
+  request<{ conversation: Conversation }>(
+    `/conversations/${conversationId}/members/${username}`,
+    { method: "DELETE" },
+  );
+
+export const leaveGroup = (conversationId: string) =>
+  request<{ message: string }>(`/conversations/${conversationId}/leave`, {
+    method: "POST",
+  });
+
 export const updateGroup = (
   conversationId: string,
   updates: { name?: string; description?: string },

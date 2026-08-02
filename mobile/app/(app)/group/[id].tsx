@@ -1,10 +1,11 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   TextInput,
@@ -18,8 +19,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { fullName, userId } from '@/lib/utils';
+import * as userService from '@/services/user.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useChatStore } from '@/stores/chat.store';
+import type { ConversationMemberInfo, PublicUser } from '@/types';
 
 export default function GroupInfoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,6 +38,10 @@ export default function GroupInfoScreen() {
   );
   const updateGroup = useChatStore((s) => s.updateGroup);
   const uploadGroupAvatar = useChatStore((s) => s.uploadGroupAvatar);
+  const setMemberRole = useChatStore((s) => s.setMemberRole);
+  const addGroupMember = useChatStore((s) => s.addGroupMember);
+  const removeGroupMember = useChatStore((s) => s.removeGroupMember);
+  const leaveGroup = useChatStore((s) => s.leaveGroup);
 
   const isAdmin = conversation?.admins?.includes(meId) ?? false;
 
@@ -42,6 +49,18 @@ export default function GroupInfoScreen() {
   const [description, setDescription] = useState(conversation?.description ?? '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [memberMenu, setMemberMenu] = useState<ConversationMemberInfo | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [friends, setFriends] = useState<PublicUser[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (addOpen && friends.length === 0) {
+      userService.getFriends().then((res) => {
+        if (res.success) setFriends(res.data.friends);
+      });
+    }
+  }, [addOpen, friends.length]);
 
   if (!conversation) {
     return (
@@ -87,6 +106,38 @@ export default function GroupInfoScreen() {
     });
     setUploading(false);
     if (res.error) Alert.alert('Hata', res.error);
+  };
+
+  const memberUsernames = new Set(
+    (conversation.members ?? []).map((m) => m.user.username),
+  );
+  const addableFriends = friends.filter((f) => !memberUsernames.has(f.username));
+
+  const runMemberAction = async (action: () => Promise<{ error?: string }>) => {
+    if (busy) return;
+    setBusy(true);
+    const res = await action();
+    setBusy(false);
+    setMemberMenu(null);
+    if (res.error) Alert.alert('Hata', res.error);
+  };
+
+  const handleLeave = () => {
+    Alert.alert('Gruptan ayrıl', 'Bu gruptan ayrılmak istediğine emin misin?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Ayrıl',
+        style: 'destructive',
+        onPress: async () => {
+          const res = await leaveGroup(id);
+          if (res.error) {
+            Alert.alert('Hata', res.error);
+          } else {
+            router.dismissTo('/');
+          }
+        },
+      },
+    ]);
   };
 
   const inputStyle = [
@@ -199,9 +250,108 @@ export default function GroupInfoScreen() {
                 <ThemedText style={styles.adminBadgeText}>admin</ThemedText>
               </View>
             )}
+            {isAdmin && item.user.username !== me?.username && (
+              <Pressable
+                onPress={() => setMemberMenu(item)}
+                hitSlop={8}
+                style={styles.moreButton}
+              >
+                <ThemedText style={styles.moreText}>⋯</ThemedText>
+              </Pressable>
+            )}
           </Pressable>
         )}
+        ListFooterComponent={
+          <View style={styles.footer}>
+            {isAdmin && (
+              <>
+                <Pressable
+                  style={styles.addToggle}
+                  onPress={() => setAddOpen((open) => !open)}
+                >
+                  <ThemedText style={styles.addToggleText}>
+                    {addOpen ? '− Üye ekle' : '＋ Üye ekle'}
+                  </ThemedText>
+                </Pressable>
+                {addOpen &&
+                  (addableFriends.length === 0 ? (
+                    <ThemedText style={styles.addEmpty}>
+                      Eklenebilecek arkadaş kalmadı.
+                    </ThemedText>
+                  ) : (
+                    addableFriends.map((friend) => (
+                      <Pressable
+                        key={friend.username}
+                        style={styles.addRow}
+                        onPress={() =>
+                          runMemberAction(() => addGroupMember(id, friend.username))
+                        }
+                      >
+                        <Avatar user={friend} size={36} />
+                        <ThemedText style={styles.addName}>
+                          {fullName(friend)}
+                        </ThemedText>
+                        <ThemedText style={styles.addAction}>Ekle</ThemedText>
+                      </Pressable>
+                    ))
+                  ))}
+              </>
+            )}
+            <Pressable style={styles.leaveButton} onPress={handleLeave}>
+              <ThemedText style={styles.leaveText}>Gruptan ayrıl</ThemedText>
+            </Pressable>
+          </View>
+        }
       />
+
+      <Modal
+        visible={memberMenu !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMemberMenu(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setMemberMenu(null)}>
+          <View style={[styles.menu, isDark && styles.menuDark]}>
+            <ThemedText type="defaultSemiBold" style={styles.menuTitle}>
+              {memberMenu ? fullName(memberMenu.user) : ''}
+            </ThemedText>
+            {busy ? (
+              <ActivityIndicator style={styles.menuBusy} />
+            ) : (
+              <>
+                <Pressable
+                  style={styles.menuItem}
+                  onPress={() =>
+                    memberMenu &&
+                    runMemberAction(() =>
+                      setMemberRole(
+                        id,
+                        memberMenu.user.username,
+                        memberMenu.role === 'admin' ? 'member' : 'admin',
+                      ),
+                    )
+                  }
+                >
+                  <ThemedText>
+                    {memberMenu?.role === 'admin' ? 'Adminliği al' : 'Admin yap'}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  style={styles.menuItem}
+                  onPress={() =>
+                    memberMenu &&
+                    runMemberAction(() =>
+                      removeGroupMember(id, memberMenu.user.username),
+                    )
+                  }
+                >
+                  <ThemedText style={styles.menuDanger}>Gruptan çıkar</ThemedText>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -301,5 +451,86 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#2563EB',
     fontWeight: '600',
+  },
+  moreButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  moreText: {
+    fontSize: 22,
+    lineHeight: 24,
+    opacity: 0.6,
+  },
+  footer: {
+    padding: 24,
+    gap: 8,
+  },
+  addToggle: {
+    paddingVertical: 8,
+  },
+  addToggleText: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+  addEmpty: {
+    opacity: 0.5,
+    fontSize: 14,
+  },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 6,
+  },
+  addName: {
+    flex: 1,
+  },
+  addAction: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+  leaveButton: {
+    marginTop: 16,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+  },
+  leaveText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  menu: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+  },
+  menuDark: {
+    backgroundColor: '#1E293B',
+  },
+  menuTitle: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  menuBusy: {
+    marginVertical: 16,
+  },
+  menuItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(128,128,128,0.3)',
+  },
+  menuDanger: {
+    color: '#EF4444',
   },
 });

@@ -101,6 +101,23 @@ export default function ChatScreen() {
   const atBottomRef = useRef(true);
   const separatorVisibleRef = useRef(false);
   const listLenRef = useRef(0);
+  const listRef = useRef<FlashList<ChatListItem>>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastMessageIdRef.current = null;
+  }, [id]);
+
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last) return;
+    if (lastMessageIdRef.current && lastMessageIdRef.current !== last._id) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      });
+    }
+    lastMessageIdRef.current = last._id;
+  }, [messages]);
 
   const onViewableItemsChanged = useRef(
     ({
@@ -554,6 +571,7 @@ export default function ChatScreen() {
         />
         <View style={styles.listWrap}>
         <FlashList
+          ref={listRef}
           data={listItems}
           keyExtractor={(entry) =>
             entry.type === 'day' ? `day:${entry.date}` : entry.message._id

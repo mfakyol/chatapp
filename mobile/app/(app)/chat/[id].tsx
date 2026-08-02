@@ -101,7 +101,6 @@ export default function ChatScreen() {
   const topItemDateRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
   const separatorVisibleRef = useRef(false);
-  const listLenRef = useRef(0);
   const listRef = useRef<FlashListRef<ChatListItem>>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const firstNewIdRef = useRef<string | null>(null);
@@ -150,13 +149,6 @@ export default function ChatScreen() {
       viewableItems: { index: number | null; item: ChatListItem }[];
     }) => {
       if (viewableItems.length === 0) return;
-      atBottomRef.current = viewableItems.some(
-        (v) => v.index === listLenRef.current - 1,
-      );
-      if (atBottomRef.current) {
-        setFirstNewId(null);
-        setNewCount(0);
-      }
       let top = viewableItems[0];
       for (const v of viewableItems) {
         if ((v.index ?? Infinity) < (top.index ?? Infinity)) top = v;
@@ -179,7 +171,22 @@ export default function ChatScreen() {
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
 
-  const handleListScroll = () => {
+  const handleListScroll = (event: {
+    nativeEvent: {
+      contentOffset: { y: number };
+      layoutMeasurement: { height: number };
+      contentSize: { height: number };
+    };
+  }) => {
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    atBottomRef.current = distanceFromBottom < 40;
+    if (atBottomRef.current) {
+      setFirstNewId(null);
+      setNewCount(0);
+    }
+
     if (hideDayTimer.current) clearTimeout(hideDayTimer.current);
     const topDate = topItemDateRef.current;
     if (atBottomRef.current || separatorVisibleRef.current || !topDate) {
@@ -234,7 +241,6 @@ export default function ChatScreen() {
     });
     return out;
   }, [messages, firstNewId]);
-  listLenRef.current = listItems.length;
 
   const othersReadAt = useMemo(() => {
     const others =

@@ -10,7 +10,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -56,6 +55,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const previewImageSize = (windowWidth - 16 * 2 - 8) / 2;
+  const bubbleMaxWidth = Math.round(windowWidth * 0.8);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -279,6 +279,7 @@ export default function ChatScreen() {
           delayLongPress={300}
           style={[
             styles.bubble,
+            { maxWidth: bubbleMaxWidth },
             mine
               ? styles.bubbleMine
               : [styles.bubbleTheirs, isDark && styles.bubbleTheirsDark],
@@ -583,13 +584,15 @@ export default function ChatScreen() {
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           >
-            <ScrollView
+            <FlatList
               style={styles.flex}
-              contentContainerStyle={styles.previewGrid}
-            >
-              {pendingImages?.map((asset, index) => (
+              data={pendingImages ?? []}
+              keyExtractor={(asset, index) => asset.assetId ?? asset.uri ?? String(index)}
+              numColumns={2}
+              contentContainerStyle={styles.previewGridContent}
+              columnWrapperStyle={styles.previewGridRow}
+              renderItem={({ item: asset }) => (
                 <View
-                  key={index}
                   style={[
                     styles.previewImageWrap,
                     { width: previewImageSize, height: previewImageSize },
@@ -601,8 +604,8 @@ export default function ChatScreen() {
                     contentFit="cover"
                   />
                 </View>
-              ))}
-            </ScrollView>
+              )}
+            />
 
             <View style={styles.inputBar}>
               <TextInput
@@ -721,7 +724,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   bubble: {
-    maxWidth: '80%',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -979,11 +981,11 @@ const styles = StyleSheet.create({
   previewCancelText: {
     color: '#EF4444',
   },
-  previewGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  previewGridContent: {
     padding: 16,
+    gap: 8,
+  },
+  previewGridRow: {
     gap: 8,
   },
   previewImageWrap: {

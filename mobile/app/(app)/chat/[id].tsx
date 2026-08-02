@@ -113,7 +113,7 @@ export default function ChatScreen() {
     if (!last) return;
     if (lastMessageIdRef.current && lastMessageIdRef.current !== last._id) {
       requestAnimationFrame(() => {
-        listRef.current?.scrollToEnd({ animated: true });
+        listRef.current?.scrollToEnd({ animated: false });
       });
     }
     lastMessageIdRef.current = last._id;

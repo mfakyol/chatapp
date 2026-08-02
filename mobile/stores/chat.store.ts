@@ -31,6 +31,10 @@ interface ChatState {
   ) => Promise<boolean>;
   deleteMessage: (conversationId: string, messageId: string) => Promise<void>;
   openDirectConversation: (username: string) => Promise<string | null>;
+  createGroup: (
+    name: string,
+    usernames: string[],
+  ) => Promise<{ id?: string; error?: string }>;
   sendMessage: (conversationId: string, content: string) => Promise<boolean>;
   markRead: (conversationId: string) => Promise<void>;
   setActiveConversation: (conversationId: string | null) => void;
@@ -199,6 +203,13 @@ export const useChatStore = create<ChatState>((set, get) => {
     if (!res.success) return null;
     get().upsertConversation(res.data.conversation);
     return res.data.conversation._id;
+  },
+
+  createGroup: async (name, usernames) => {
+    const res = await conversationService.createGroupConversation(name, usernames);
+    if (!res.success) return { error: res.error };
+    get().upsertConversation(res.data.conversation);
+    return { id: res.data.conversation._id };
   },
 
   setTyping: (conversationId, userId, typing) => {

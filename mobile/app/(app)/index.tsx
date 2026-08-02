@@ -44,10 +44,16 @@ export default function ConversationsScreen() {
           router.push({ pathname: '/chat/[id]', params: { id: item._id } })
         }
       >
-        <View>
-          <Avatar user={avatarUser} size={52} />
-          {!item.isGroup && avatarUser?.isOnline && <View style={styles.onlineDot} />}
-        </View>
+        {item.isGroup ? (
+          <View style={styles.groupAvatar}>
+            <ThemedText style={styles.groupAvatarText}>👥</ThemedText>
+          </View>
+        ) : (
+          <View>
+            <Avatar user={avatarUser} size={52} />
+            {avatarUser?.isOnline && <View style={styles.onlineDot} />}
+          </View>
+        )}
         <View style={styles.rowBody}>
           <View style={styles.rowTop}>
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.title}>
@@ -134,6 +140,18 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     opacity: 0.6,
+  },
+  groupAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(37,99,235,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupAvatarText: {
+    fontSize: 24,
+    lineHeight: 30,
   },
   onlineDot: {
     position: 'absolute',

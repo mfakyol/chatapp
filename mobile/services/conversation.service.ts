@@ -35,6 +35,12 @@ export const createDirectConversation = (username: string) =>
     body: JSON.stringify({ username }),
   });
 
+export const createGroupConversation = (name: string, usernames: string[]) =>
+  request<{ conversation: Conversation }>("/conversations/group", {
+    method: "POST",
+    body: JSON.stringify({ name, usernames }),
+  });
+
 export const reactToMessage = (
   conversationId: string,
   messageId: string,

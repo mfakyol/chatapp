@@ -163,6 +163,18 @@ export default function NewChatScreen() {
         value={query}
         onChangeText={setQuery}
       />
+      <Pressable
+        style={({ pressed }) => [styles.groupRow, pressed && styles.rowPressed]}
+        onPress={() => router.push('/new-group')}
+      >
+        <View style={styles.groupIcon}>
+          <ThemedText style={styles.groupIconText}>👥</ThemedText>
+        </View>
+        <ThemedText type="defaultSemiBold" style={styles.groupText}>
+          Yeni grup oluştur
+        </ThemedText>
+        <ThemedText style={styles.muted}>›</ThemedText>
+      </Pressable>
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.username}
@@ -226,6 +238,28 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
+  },
+  groupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  groupIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(37,99,235,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupIconText: {
+    fontSize: 20,
+    lineHeight: 26,
+  },
+  groupText: {
+    flex: 1,
   },
   rowPressed: {
     opacity: 0.6,

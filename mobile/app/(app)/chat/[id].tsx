@@ -636,12 +636,13 @@ export default function ChatScreen() {
           </View>
         )}
         {newCount > 0 && (
-          <Pressable style={styles.newMessagesButton} onPress={jumpToNewMessages}>
-            <MaterialIcons name="arrow-downward" size={20} color="#fff" />
-            <View style={styles.newMessagesBadge}>
-              <ThemedText style={styles.newMessagesBadgeText}>{newCount}</ThemedText>
-            </View>
-          </Pressable>
+          <View style={styles.newMessagesRow} pointerEvents="box-none">
+            <Pressable style={styles.newMessagesButton} onPress={jumpToNewMessages}>
+              <ThemedText style={styles.newMessagesText}>
+                {t('chat.newMessages', { n: newCount })}
+              </ThemedText>
+            </Pressable>
+          </View>
         )}
         </View>
 
@@ -1092,34 +1093,24 @@ const styles = StyleSheet.create({
   listWrap: {
     flex: 1,
   },
-  newMessagesButton: {
+  newMessagesRow: {
     position: 'absolute',
-    right: 12,
+    left: 0,
+    right: 0,
     bottom: 12,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    alignItems: 'center',
+  },
+  newMessagesButton: {
     backgroundColor: '#2563EB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  newMessagesBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -4,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 5,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  newMessagesBadgeText: {
+  newMessagesText: {
     color: '#fff',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '600',
   },
   floatingDay: {
     position: 'absolute',

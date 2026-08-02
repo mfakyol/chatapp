@@ -638,6 +638,7 @@ export default function ChatScreen() {
         {newCount > 0 && (
           <View style={styles.newMessagesRow} pointerEvents="box-none">
             <Pressable style={styles.newMessagesButton} onPress={jumpToNewMessages}>
+              <MaterialIcons name="arrow-downward" size={15} color="#fff" />
               <ThemedText style={styles.newMessagesText}>
                 {t('chat.newMessages', { n: newCount })}
               </ThemedText>
@@ -1101,9 +1102,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   newMessagesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: '#2563EB',
     borderRadius: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
   },
   newMessagesText: {

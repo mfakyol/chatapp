@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import {
 
 import { Avatar } from '@/components/avatar';
 import { GroupAvatar } from '@/components/group-avatar';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -45,7 +46,7 @@ export default function GroupInfoScreen() {
   if (!conversation) {
     return (
       <ThemedView style={styles.flex}>
-        <Stack.Screen options={{ headerShown: true, title: 'Grup bilgisi' }} />
+        <ScreenHeader title="Grup bilgisi" />
         <ActivityIndicator style={styles.loading} />
       </ThemedView>
     );
@@ -99,9 +100,7 @@ export default function GroupInfoScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <Stack.Screen
-        options={{ headerShown: true, title: 'Grup bilgisi', headerBackTitle: 'Geri' }}
-      />
+      <ScreenHeader title="Grup bilgisi" />
       <FlatList
         data={conversation.members ?? []}
         keyExtractor={(item) => item.user.username}

@@ -1,4 +1,4 @@
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -80,7 +81,8 @@ export default function NewChatScreen() {
     const conversationId = await openDirectConversation(user.username);
     setBusyUsername(null);
     if (conversationId) {
-      router.replace({ pathname: '/chat/[id]', params: { id: conversationId } });
+      if (router.canGoBack()) router.dismissAll();
+      router.push({ pathname: '/chat/[id]', params: { id: conversationId } });
     }
   };
 
@@ -144,9 +146,7 @@ export default function NewChatScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <Stack.Screen
-        options={{ headerShown: true, title: 'Kişiler', headerBackTitle: 'Geri' }}
-      />
+      <ScreenHeader title="Kişiler" />
       <TextInput
         style={[
           styles.search,

@@ -1,11 +1,12 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { formatListTime, fullName } from '@/lib/utils';
+import { formatLastSeen, fullName } from '@/lib/utils';
 import * as userService from '@/services/user.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useChatStore } from '@/stores/chat.store';
@@ -48,14 +49,15 @@ export default function UserProfileScreen() {
     const conversationId = await openDirectConversation(username);
     setOpening(false);
     if (conversationId) {
-      router.replace({ pathname: '/chat/[id]', params: { id: conversationId } });
+      if (router.canGoBack()) router.dismissAll();
+      router.push({ pathname: '/chat/[id]', params: { id: conversationId } });
     }
   };
 
   if (!user) {
     return (
       <ThemedView style={styles.flex}>
-        <Stack.Screen options={{ headerShown: true, title: `@${username}` }} />
+        <ScreenHeader title={`@${username}`} />
         <ActivityIndicator style={styles.loading} />
       </ThemedView>
     );
@@ -64,14 +66,12 @@ export default function UserProfileScreen() {
   const presenceText = user.isOnline
     ? 'çevrimiçi'
     : user.lastSeen
-      ? `son görülme: ${formatListTime(user.lastSeen)}`
+      ? `son görülme: ${formatLastSeen(user.lastSeen)}`
       : null;
 
   return (
     <ThemedView style={styles.flex}>
-      <Stack.Screen
-        options={{ headerShown: true, title: `@${user.username}`, headerBackTitle: 'Geri' }}
-      />
+      <ScreenHeader title={`@${user.username}`} />
       <ThemedView style={styles.container}>
         <Avatar user={user} size={112} />
         <ThemedText type="title" style={styles.name}>

@@ -47,19 +47,45 @@ export function conversationTitle(
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function timeOf(d: Date): string {
+  return d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function daysAgo(date: Date, now: Date): number {
+  return Math.floor((startOfDay(now).getTime() - startOfDay(date).getTime()) / DAY_MS);
+}
+
 export function formatListTime(iso?: string): string {
   if (!iso) return "";
   const date = new Date(iso);
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = daysAgo(date, now);
 
-  if (date >= startOfToday) {
-    return date.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  if (days <= 0) return timeOf(date);
+  if (days === 1) return "dün";
+  if (days < 7) return date.toLocaleDateString("tr-TR", { weekday: "short" });
+  if (days < 30) return `${Math.floor(days / 7)} hf`;
+  if (days < 365) return `${Math.floor(days / 30)} ay`;
+  return `${Math.floor(days / 365)} yıl`;
+}
+
+export function formatLastSeen(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const days = daysAgo(date, now);
+
+  if (days <= 0) return `bugün ${timeOf(date)}`;
+  if (days === 1) return `dün ${timeOf(date)}`;
+  if (days < 7) {
+    return `${date.toLocaleDateString("tr-TR", { weekday: "long" })} ${timeOf(date)}`;
   }
-  if (now.getTime() - date.getTime() < 7 * DAY_MS) {
-    return date.toLocaleDateString("tr-TR", { weekday: "short" });
-  }
-  return date.toLocaleDateString("tr-TR");
+  if (days < 30) return `${Math.floor(days / 7)} hafta önce`;
+  if (days < 365) return `${Math.floor(days / 30)} ay önce`;
+  return `${Math.floor(days / 365)} yıl önce`;
 }
 
 export function formatMessageTime(iso: string): string {

@@ -1,4 +1,4 @@
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -56,7 +57,8 @@ export default function NewGroupScreen() {
     const result = await createGroup(name.trim(), selected);
     setCreating(false);
     if (result.id) {
-      router.replace({ pathname: '/chat/[id]', params: { id: result.id } });
+      if (router.canGoBack()) router.dismissAll();
+      router.push({ pathname: '/chat/[id]', params: { id: result.id } });
     } else {
       setError(result.error ?? 'Grup oluşturulamadı');
     }
@@ -64,9 +66,7 @@ export default function NewGroupScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <Stack.Screen
-        options={{ headerShown: true, title: 'Yeni grup', headerBackTitle: 'Geri' }}
-      />
+      <ScreenHeader title="Yeni grup" />
       <TextInput
         style={[
           styles.nameInput,

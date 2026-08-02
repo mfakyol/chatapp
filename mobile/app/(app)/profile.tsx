@@ -1,5 +1,4 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Stack } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +11,7 @@ import {
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { Avatar } from '@/components/avatar';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { fullName } from '@/lib/utils';
@@ -71,9 +71,7 @@ export default function ProfileScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <Stack.Screen
-        options={{ headerShown: true, title: 'Profil', headerBackTitle: 'Geri' }}
-      />
+      <ScreenHeader title="Profil" />
       <ThemedView style={styles.container}>
         <Pressable onPress={handleChangeAvatar} disabled={uploading}>
           <Avatar user={user} size={112} />

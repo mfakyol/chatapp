@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { GroupAvatar } from '@/components/group-avatar';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -25,7 +26,7 @@ import { emitTyping } from '@/services/chatSocket.service';
 import {
   conversationTitle,
   fileUrl,
-  formatListTime,
+  formatLastSeen,
   formatMessageTime,
   fullName,
   isImageAttachment,
@@ -279,7 +280,7 @@ export default function ChatScreen() {
       : other?.isOnline
         ? 'çevrimiçi'
         : other?.lastSeen
-          ? `son görülme: ${formatListTime(other.lastSeen)}`
+          ? `son görülme: ${formatLastSeen(other.lastSeen)}`
           : null
     : null;
 
@@ -302,39 +303,22 @@ export default function ChatScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <SafeAreaView edges={['top']}>
-          <View style={styles.chatHeader}>
-            <Pressable onPress={() => router.back()} hitSlop={12}>
-              <ThemedText style={styles.backIcon}>‹</ThemedText>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.headerInfo, pressed && styles.headerPressed]}
-              onPress={openInfo}
-            >
-              {conversation?.isGroup ? (
-                <GroupAvatar conversation={conversation} size={38} />
-              ) : (
-                <Avatar user={other} size={38} />
-              )}
-              <View style={styles.headerTexts}>
-                <ThemedText type="defaultSemiBold" numberOfLines={1}>
-                  {title}
-                </ThemedText>
-                {subtitle ? (
-                  <ThemedText
-                    style={[
-                      styles.subtitle,
-                      !conversation?.isGroup && other?.isOnline && styles.subtitleOnline,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {subtitle}
-                  </ThemedText>
-                ) : null}
-              </View>
-            </Pressable>
-          </View>
-        </SafeAreaView>
+        <ScreenHeader
+          backTo="/"
+          title={title}
+          subtitle={subtitle}
+          subtitleStyle={
+            !conversation?.isGroup && other?.isOnline ? styles.subtitleOnline : undefined
+          }
+          avatar={
+            conversation?.isGroup ? (
+              <GroupAvatar conversation={conversation} size={38} />
+            ) : (
+              <Avatar user={other} size={38} />
+            )
+          }
+          onBodyPress={conversation ? openInfo : undefined}
+        />
         <FlatList
           data={inverted}
           keyExtractor={(item) => item._id}
@@ -448,38 +432,6 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128,128,128,0.3)',
-  },
-  backIcon: {
-    fontSize: 34,
-    lineHeight: 36,
-    color: '#2563EB',
-    paddingHorizontal: 6,
-  },
-  headerInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerPressed: {
-    opacity: 0.7,
-  },
-  headerTexts: {
-    flex: 1,
-  },
-  subtitle: {
-    fontSize: 12,
-    lineHeight: 16,
-    opacity: 0.5,
   },
   subtitleOnline: {
     color: '#22C55E',

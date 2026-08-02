@@ -4,6 +4,8 @@ import { removeAttachmentFileByUrl } from '../utils/attachments';
 export interface IConversation {
   type: 'direct' | 'group';
   name: string;
+  description: string;
+  avatarUrl: string;
   createdBy?: Types.ObjectId;
   lastMessage?: Types.ObjectId;
   directKey?: string;
@@ -18,6 +20,8 @@ const conversationSchema = new Schema<IConversation, ConversationModel>(
   {
     type: { type: String, enum: ['direct', 'group'], required: true },
     name: { type: String, trim: true, default: '' },
+    description: { type: String, trim: true, default: '', maxlength: 500 },
+    avatarUrl: { type: String, default: '' },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     lastMessage: { type: Schema.Types.ObjectId, ref: 'Message' },
     directKey: { type: String },

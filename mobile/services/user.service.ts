@@ -26,6 +26,12 @@ export const declineFriendRequest = (username: string) =>
     method: "POST",
   });
 
+export const updateProfile = (bio: string) =>
+  request<{ user: PublicUser }>("/users/me", {
+    method: "PATCH",
+    body: JSON.stringify({ bio }),
+  });
+
 export async function uploadAvatar(
   file: AttachmentFile,
 ): Promise<Result<{ user: PublicUser }>> {

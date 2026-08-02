@@ -4,6 +4,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
+import { GroupAvatar } from '@/components/group-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { conversationTitle, formatListTime, otherParticipant, userId } from '@/lib/utils';
@@ -45,9 +46,7 @@ export default function ConversationsScreen() {
         }
       >
         {item.isGroup ? (
-          <View style={styles.groupAvatar}>
-            <ThemedText style={styles.groupAvatarText}>👥</ThemedText>
-          </View>
+          <GroupAvatar conversation={item} size={52} />
         ) : (
           <View>
             <Avatar user={avatarUser} size={52} />
@@ -140,18 +139,6 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     opacity: 0.6,
-  },
-  groupAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(37,99,235,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  groupAvatarText: {
-    fontSize: 24,
-    lineHeight: 30,
   },
   onlineDot: {
     position: 'absolute',

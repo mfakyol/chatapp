@@ -5,6 +5,7 @@ export interface PublicUser {
   firstName: string;
   lastName: string;
   avatarUrl?: string;
+  bio?: string;
   isOnline?: boolean;
   lastSeen?: string;
 }
@@ -59,6 +60,8 @@ export interface Conversation {
   _id: string;
   isGroup: boolean;
   name: string;
+  description?: string;
+  avatarUrl?: string;
   participants: PublicUser[];
   admins?: string[];
   members?: ConversationMemberInfo[];

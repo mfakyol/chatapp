@@ -1,3 +1,5 @@
+import fs from 'fs/promises';
+import path from 'path';
 import type { Server } from 'socket.io';
 import { Types } from 'mongoose';
 import Conversation, { ConversationDocument, directKeyFor } from '../models/Conversation';
@@ -9,6 +11,12 @@ import { userRoom, userRooms } from '../utils/rooms';
 import { presence } from '../utils/presence';
 import { areFriends } from './friendship.service';
 import { broadcastToConversation } from './fanout';
+import {
+  UPLOADS_DIR,
+  assertSafeFilename,
+  normalizeMime,
+  validateUploadedFile,
+} from '../utils/attachments';
 
 const LAST_MESSAGE_POPULATE = {
   path: 'lastMessage',
@@ -25,7 +33,7 @@ export interface AssembledConversation {
   unreadCount?: number;
 }
 
-const MEMBER_USER_SELECT = 'username firstName lastName avatarUrl lastSeen';
+const MEMBER_USER_SELECT = 'username firstName lastName avatarUrl bio lastSeen';
 
 interface PopulatedMember {
   user: {
@@ -34,6 +42,7 @@ interface PopulatedMember {
     firstName: string;
     lastName: string;
     avatarUrl: string;
+    bio: string;
     lastSeen: Date;
   };
   role: string;
@@ -48,6 +57,7 @@ function publicMemberUser(m: PopulatedMember) {
     firstName: m.user.firstName,
     lastName: m.user.lastName,
     avatarUrl: m.user.avatarUrl,
+    bio: m.user.bio,
     lastSeen: m.user.lastSeen,
     isOnline: presence.isOnline(m.user._id.toString()),
   };
@@ -213,15 +223,16 @@ export async function createGroupConversation(
 export async function renameConversation(
   user: UserDocument,
   conversationId: string,
-  name: string,
+  updates: { name?: string; description?: string },
   io: Server
 ): Promise<AssembledConversation> {
   const conversation = await requireGroupAdmin(
     user,
     conversationId,
-    'Only admins can rename the group'
+    'Only admins can update the group'
   );
-  conversation.name = name.trim();
+  if (updates.name !== undefined) conversation.name = updates.name.trim();
+  if (updates.description !== undefined) conversation.description = updates.description.trim();
   await conversation.save();
 
   const assembled = await assembleConversation(conversation);
@@ -229,6 +240,66 @@ export async function renameConversation(
     conversation: assembled,
   });
   return assembled;
+}
+
+async function deleteGroupAvatarFile(filename: string): Promise<void> {
+  if (!filename) return;
+  assertSafeFilename(filename);
+  if (!filename.startsWith('avatar-')) return;
+  try {
+    await fs.unlink(path.join(UPLOADS_DIR, filename));
+  } catch {
+    void 0;
+  }
+}
+
+export async function setGroupAvatar(
+  user: UserDocument,
+  conversationId: string,
+  filePath: string,
+  mime: string,
+  io: Server
+): Promise<AssembledConversation> {
+  const conversation = await requireGroupAdmin(
+    user,
+    conversationId,
+    'Only admins can change the group photo'
+  );
+  await validateUploadedFile(filePath, mime);
+  const filename = path.basename(filePath);
+  const previous = conversation.avatarUrl;
+  conversation.avatarUrl = filename;
+  await conversation.save();
+  if (previous && previous !== filename) await deleteGroupAvatarFile(previous);
+
+  const assembled = await assembleConversation(conversation);
+  await broadcastToConversation(io, conversationId, 'conversation:updated', {
+    conversation: assembled,
+  });
+  return assembled;
+}
+
+export async function resolveGroupAvatar(user: UserDocument, conversationId: string) {
+  await requireMembership(user, conversationId);
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation?.avatarUrl) throw notFound('Avatar not found');
+  assertSafeFilename(conversation.avatarUrl);
+  const filePath = path.join(UPLOADS_DIR, conversation.avatarUrl);
+  try {
+    await fs.access(filePath);
+  } catch {
+    throw notFound('Avatar not found');
+  }
+  const mime = normalizeMime(
+    conversation.avatarUrl.endsWith('.png')
+      ? 'image/png'
+      : conversation.avatarUrl.endsWith('.webp')
+        ? 'image/webp'
+        : conversation.avatarUrl.endsWith('.gif')
+          ? 'image/gif'
+          : 'image/jpeg'
+  );
+  return { filePath, mimeType: mime || 'image/jpeg' };
 }
 
 export async function addMember(

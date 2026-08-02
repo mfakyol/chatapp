@@ -15,6 +15,15 @@ export const searchUsers: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const updateMe: RequestHandler = async (req, res, next) => {
+  try {
+    const user = await userService.updateProfile(currentUser(req), req.body.bio);
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const sendFriendRequest: RequestHandler = async (req, res, next) => {
   try {
     const { auto } = await friendshipService.sendFriendRequest(

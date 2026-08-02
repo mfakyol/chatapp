@@ -24,6 +24,11 @@ export function userAvatarUrl(user?: PublicUser | null): string | undefined {
   return `${apiUrl(`/users/${id}/avatar`)}?v=${encodeURIComponent(user.avatarUrl)}`;
 }
 
+export function groupAvatarUrl(conversation: Conversation): string | undefined {
+  if (!conversation.avatarUrl) return undefined;
+  return `${apiUrl(`/conversations/${conversation._id}/avatar`)}?v=${encodeURIComponent(conversation.avatarUrl)}`;
+}
+
 export function otherParticipant(
   conversation: Conversation,
   meId: string,

@@ -43,7 +43,18 @@ export const reactSchema = z.object({
 
 export const renameSchema = z.object({
   params: z.object({ conversationId: objectId }),
-  body: z.object({ name: z.string().trim().min(1, 'Name is required') }),
+  body: z
+    .object({
+      name: z.string().trim().min(1, 'Name is required').optional(),
+      description: z
+        .string()
+        .trim()
+        .max(500, 'Description must be at most 500 characters')
+        .optional(),
+    })
+    .refine((body) => body.name !== undefined || body.description !== undefined, {
+      message: 'Nothing to update',
+    }),
 });
 
 export const addMemberSchema = z.object({

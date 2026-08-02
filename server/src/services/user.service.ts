@@ -22,6 +22,13 @@ async function deleteAvatarFile(filename: string): Promise<void> {
   }
 }
 
+export async function updateProfile(user: UserDocument, bio: string) {
+  user.bio = bio;
+  await user.save();
+  invalidateUser(user._id.toString());
+  return withPresence(user);
+}
+
 export async function setAvatar(user: UserDocument, filePath: string, mime: string) {
   await validateUploadedFile(filePath, mime);
   const filename = path.basename(filePath);

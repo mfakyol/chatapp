@@ -41,6 +41,15 @@ export const createGroupConversation = (name: string, usernames: string[]) =>
     body: JSON.stringify({ name, usernames }),
   });
 
+export const updateGroup = (
+  conversationId: string,
+  updates: { name?: string; description?: string },
+) =>
+  request<{ conversation: Conversation }>(`/conversations/${conversationId}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+
 export const reactToMessage = (
   conversationId: string,
   messageId: string,
@@ -71,6 +80,32 @@ export interface AttachmentFile {
   uri: string;
   name: string;
   type: string;
+}
+
+export async function uploadGroupAvatar(
+  conversationId: string,
+  file: AttachmentFile,
+): Promise<Result<{ conversation: Conversation }>> {
+  const formData = new FormData();
+  formData.append("avatar", file as unknown as Blob);
+
+  try {
+    const res = await fetch(apiUrl(`/conversations/${conversationId}/avatar`), {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, error: data.message || "Failed to upload avatar" };
+    }
+    return { success: true, data };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to upload avatar",
+    };
+  }
 }
 
 export async function sendAttachment(

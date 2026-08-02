@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import fs from 'fs/promises';
+import { createReadStream } from 'fs';
 import { currentUser } from '../middleware/auth';
 import { getIo } from '../utils/io';
 import { badRequest } from '../errors/AppError';
@@ -187,10 +188,40 @@ export const renameConversation: RequestHandler = async (req, res, next) => {
     const conversation = await conversationService.renameConversation(
       currentUser(req),
       req.params.conversationId,
-      req.body.name,
+      { name: req.body.name, description: req.body.description },
       getIo(req)
     );
     res.json({ conversation });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const uploadGroupAvatar: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.file) throw badRequest('No file uploaded');
+    const conversation = await conversationService.setGroupAvatar(
+      currentUser(req),
+      req.params.conversationId,
+      req.file.path,
+      req.file.mimetype,
+      getIo(req)
+    );
+    res.json({ conversation });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const serveGroupAvatar: RequestHandler = async (req, res, next) => {
+  try {
+    const { filePath, mimeType } = await conversationService.resolveGroupAvatar(
+      currentUser(req),
+      req.params.conversationId
+    );
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    createReadStream(filePath).pipe(res);
   } catch (err) {
     next(err);
   }

@@ -1,7 +1,7 @@
 import { useHeaderHeight } from '@react-navigation/elements';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -41,6 +41,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const headerHeight = useHeaderHeight();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -269,6 +270,18 @@ export default function ChatScreen() {
                 : '')
             : 'Sohbet',
           headerBackTitle: 'Geri',
+          headerRight: conversation?.isGroup
+            ? () => (
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: '/group/[id]', params: { id } })
+                  }
+                  hitSlop={12}
+                >
+                  <ThemedText style={styles.infoButton}>ⓘ</ThemedText>
+                </Pressable>
+              )
+            : undefined,
         }}
       />
       <KeyboardAvoidingView
@@ -397,6 +410,10 @@ const styles = StyleSheet.create({
   },
   olderSpinner: {
     marginVertical: 12,
+  },
+  infoButton: {
+    fontSize: 22,
+    color: '#2563EB',
   },
   bubbleRow: {
     flexDirection: 'row',

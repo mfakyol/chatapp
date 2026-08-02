@@ -12,3 +12,9 @@ export const usernameParamSchema = z.object({
 export const userIdParamSchema = z.object({
   params: z.object({ userId: objectId }),
 });
+
+export const updateProfileSchema = z.object({
+  body: z.object({
+    bio: z.string().trim().max(160, 'Bio must be at most 160 characters'),
+  }),
+});

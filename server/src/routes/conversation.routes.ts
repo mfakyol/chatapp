@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { upload } from '../middleware/upload';
+import { avatarUpload } from '../middleware/avatarUpload';
 import { validateUpload } from '../middleware/validateUpload';
 import { validate } from '../middleware/validate';
 import { uploadLimiter, messageLimiter } from '../middleware/rateLimit';
@@ -32,6 +33,8 @@ import {
   sendAttachment,
   ensureMembership,
   renameConversation,
+  uploadGroupAvatar,
+  serveGroupAvatar,
   addMember,
   removeMember,
   leaveGroup,
@@ -68,6 +71,14 @@ router.post(
 );
 
 router.patch('/:conversationId', validate(renameSchema), renameConversation);
+router.post(
+  '/:conversationId/avatar',
+  uploadLimiter,
+  validate(conversationIdParamSchema),
+  avatarUpload.single('avatar'),
+  uploadGroupAvatar
+);
+router.get('/:conversationId/avatar', validate(conversationIdParamSchema), serveGroupAvatar);
 router.post('/:conversationId/members', validate(addMemberSchema), addMember);
 router.delete('/:conversationId/members/:username', validate(removeMemberSchema), removeMember);
 router.post('/:conversationId/leave', validate(conversationIdParamSchema), leaveGroup);

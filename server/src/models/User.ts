@@ -10,6 +10,7 @@ export interface PublicUser {
   firstName: string;
   lastName: string;
   avatarUrl: string;
+  bio: string;
   lastSeen: Date;
 }
 
@@ -20,6 +21,7 @@ export interface IUser {
   firstName: string;
   lastName: string;
   avatarUrl: string;
+  bio: string;
   lastSeen: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -68,6 +70,12 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
       type: String,
       default: '',
     },
+    bio: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 160,
+    },
     lastSeen: {
       type: Date,
       default: Date.now,
@@ -98,6 +106,7 @@ userSchema.methods.toPublicJSON = function toPublicJSON(this: UserDocument): Pub
     firstName: this.firstName,
     lastName: this.lastName,
     avatarUrl: this.avatarUrl,
+    bio: this.bio,
     lastSeen: this.lastSeen,
   };
 };

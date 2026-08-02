@@ -35,6 +35,14 @@ interface ChatState {
     name: string,
     usernames: string[],
   ) => Promise<{ id?: string; error?: string }>;
+  updateGroup: (
+    conversationId: string,
+    updates: { name?: string; description?: string },
+  ) => Promise<{ error?: string }>;
+  uploadGroupAvatar: (
+    conversationId: string,
+    file: AttachmentFile,
+  ) => Promise<{ error?: string }>;
   sendMessage: (conversationId: string, content: string) => Promise<boolean>;
   markRead: (conversationId: string) => Promise<void>;
   setActiveConversation: (conversationId: string | null) => void;
@@ -210,6 +218,20 @@ export const useChatStore = create<ChatState>((set, get) => {
     if (!res.success) return { error: res.error };
     get().upsertConversation(res.data.conversation);
     return { id: res.data.conversation._id };
+  },
+
+  updateGroup: async (conversationId, updates) => {
+    const res = await conversationService.updateGroup(conversationId, updates);
+    if (!res.success) return { error: res.error };
+    get().upsertConversation(res.data.conversation);
+    return {};
+  },
+
+  uploadGroupAvatar: async (conversationId, file) => {
+    const res = await conversationService.uploadGroupAvatar(conversationId, file);
+    if (!res.success) return { error: res.error };
+    get().upsertConversation(res.data.conversation);
+    return {};
   },
 
   setTyping: (conversationId, userId, typing) => {

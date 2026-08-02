@@ -47,6 +47,10 @@ import type { Message } from '@/types';
 
 const NO_MESSAGES: Message[] = [];
 const NO_TYPING: string[] = [];
+
+type ChatListItem =
+  | { type: 'message'; message: Message }
+  | { type: 'day'; date: string };
 const TYPING_IDLE_MS = 3000;
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
@@ -94,8 +98,7 @@ export default function ChatScreen() {
   const hideDayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const topItemDateRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
-  const dayStartsVisibleRef = useRef<string[]>([]);
-  const invertedRef = useRef<Message[]>([]);
+  const separatorVisibleRef = useRef(false);
 
   const viewabilityPairs = useRef([
     {
@@ -103,7 +106,7 @@ export default function ChatScreen() {
       onViewableItemsChanged: ({
         viewableItems,
       }: {
-        viewableItems: { index: number | null; item: Message }[];
+        viewableItems: { index: number | null; item: ChatListItem }[];
       }) => {
         if (viewableItems.length === 0) return;
         atBottomRef.current = viewableItems.some((v) => v.index === 0);
@@ -111,25 +114,12 @@ export default function ChatScreen() {
         for (const v of viewableItems) {
           if ((v.index ?? 0) > (top.index ?? 0)) top = v;
         }
-        topItemDateRef.current = top.item.createdAt;
-      },
-    },
-    {
-      viewabilityConfig: { itemVisiblePercentThreshold: 90 },
-      onViewableItemsChanged: ({
-        viewableItems,
-      }: {
-        viewableItems: { index: number | null; item: Message }[];
-      }) => {
-        const list = invertedRef.current;
-        dayStartsVisibleRef.current = viewableItems
-          .filter((v) => {
-            const index = v.index ?? -1;
-            if (index < 0) return false;
-            const older = list[index + 1];
-            return !older || !isSameDay(older.createdAt, v.item.createdAt);
-          })
-          .map((v) => v.item.createdAt);
+        const topDate =
+          top.item.type === 'message' ? top.item.message.createdAt : top.item.date;
+        topItemDateRef.current = topDate;
+        separatorVisibleRef.current = viewableItems.some(
+          (v) => v.item.type === 'day' && isSameDay(v.item.date, topDate),
+        );
       },
     },
   ]).current;
@@ -137,10 +127,7 @@ export default function ChatScreen() {
   const handleListScroll = () => {
     if (hideDayTimer.current) clearTimeout(hideDayTimer.current);
     const topDate = topItemDateRef.current;
-    const separatorVisible =
-      topDate !== null &&
-      dayStartsVisibleRef.current.some((d) => isSameDay(d, topDate));
-    if (atBottomRef.current || separatorVisible || !topDate) {
+    if (atBottomRef.current || separatorVisibleRef.current || !topDate) {
       setFloatingDay(null);
     } else {
       setFloatingDay(formatDayLabel(topDate));
@@ -179,7 +166,18 @@ export default function ChatScreen() {
   );
 
   const inverted = useMemo(() => [...messages].reverse(), [messages]);
-  invertedRef.current = inverted;
+
+  const listItems = useMemo(() => {
+    const out: ChatListItem[] = [];
+    inverted.forEach((message, index) => {
+      out.push({ type: 'message', message });
+      const older = inverted[index + 1];
+      if (!older || !isSameDay(older.createdAt, message.createdAt)) {
+        out.push({ type: 'day', date: message.createdAt });
+      }
+    });
+    return out;
+  }, [inverted]);
 
   const othersReadAt = useMemo(() => {
     const others =
@@ -345,7 +343,19 @@ export default function ChatScreen() {
     }
   };
 
-  const renderItem = ({ item, index }: { item: Message; index: number }) => {
+  const renderItem = ({ item: entry }: { item: ChatListItem }) => {
+    if (entry.type === 'day') {
+      return (
+        <View style={styles.dayLabelRow}>
+          <View style={[styles.dayChip, isDark && styles.dayChipDark]}>
+            <ThemedText style={styles.dayChipText}>
+              {formatDayLabel(entry.date)}
+            </ThemedText>
+          </View>
+        </View>
+      );
+    }
+    const item = entry.message;
     const mine = userId(item.sender) === meId;
     const images = messageImages(item);
     const hasImages = images.length > 0;
@@ -353,19 +363,7 @@ export default function ChatScreen() {
       mine &&
       othersReadAt !== null &&
       new Date(item.createdAt).getTime() <= othersReadAt;
-    const older = inverted[index + 1];
-    const showDayLabel = !older || !isSameDay(older.createdAt, item.createdAt);
     return (
-      <View>
-      {showDayLabel && (
-        <View style={styles.dayLabelRow}>
-          <View style={[styles.dayChip, isDark && styles.dayChipDark]}>
-            <ThemedText style={styles.dayChipText}>
-              {formatDayLabel(item.createdAt)}
-            </ThemedText>
-          </View>
-        </View>
-      )}
       <View style={[styles.bubbleRow, mine ? styles.rowMine : styles.rowTheirs]}>
         <Pressable
           onLongPress={() => {
@@ -491,7 +489,6 @@ export default function ChatScreen() {
           </View>
         </Pressable>
       </View>
-      </View>
     );
   };
 
@@ -555,8 +552,10 @@ export default function ChatScreen() {
         />
         <View style={styles.listWrap}>
         <FlatList
-          data={inverted}
-          keyExtractor={(item) => item._id}
+          data={listItems}
+          keyExtractor={(entry) =>
+            entry.type === 'day' ? `day:${entry.date}` : entry.message._id
+          }
           renderItem={renderItem}
           inverted
           contentContainerStyle={styles.listContent}

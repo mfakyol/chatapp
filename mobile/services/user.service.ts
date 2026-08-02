@@ -1,4 +1,5 @@
-import { request } from "@/lib/api";
+import { apiUrl, request, type Result } from "@/lib/api";
+import type { AttachmentFile } from "@/services/conversation.service";
 import type { FriendRequests, PublicUser } from "@/types";
 
 export const searchUsers = (q: string) =>
@@ -24,3 +25,28 @@ export const declineFriendRequest = (username: string) =>
   request<{ message: string }>(`/users/friend-requests/${username}/decline`, {
     method: "POST",
   });
+
+export async function uploadAvatar(
+  file: AttachmentFile,
+): Promise<Result<{ user: PublicUser }>> {
+  const formData = new FormData();
+  formData.append("avatar", file as unknown as Blob);
+
+  try {
+    const res = await fetch(apiUrl("/users/me/avatar"), {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, error: data.message || "Failed to upload avatar" };
+    }
+    return { success: true, data };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to upload avatar",
+    };
+  }
+}

@@ -14,6 +14,7 @@ interface AuthState {
   login: (identifier: string, password: string) => Promise<boolean>;
   register: (payload: RegisterPayload) => Promise<boolean>;
   logout: () => Promise<void>;
+  setUser: (user: PublicUser) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -55,6 +56,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     await authService.logout();
     set({ user: null, status: "guest" });
+  },
+
+  setUser: (user) => {
+    set({ user });
   },
 }));
 

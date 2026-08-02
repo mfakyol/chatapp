@@ -14,7 +14,6 @@ import type { Conversation } from '@/types';
 export default function ConversationsScreen() {
   const router = useRouter();
   const me = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
   const conversations = useChatStore((s) => s.conversations);
   const refreshing = useChatStore((s) => s.refreshing);
   const loadConversations = useChatStore((s) => s.loadConversations);
@@ -80,8 +79,8 @@ export default function ConversationsScreen() {
             <Pressable onPress={() => router.push('/new-chat')} hitSlop={12}>
               <ThemedText style={styles.newChat}>＋ Yeni</ThemedText>
             </Pressable>
-            <Pressable onPress={logout} hitSlop={12}>
-              <ThemedText style={styles.logout}>Çıkış</ThemedText>
+            <Pressable onPress={() => router.push('/profile')} hitSlop={8}>
+              <Avatar user={me} size={36} />
             </Pressable>
           </View>
         </View>
@@ -125,9 +124,6 @@ const styles = StyleSheet.create({
   newChat: {
     color: '#2563EB',
     fontWeight: '600',
-  },
-  logout: {
-    color: '#EF4444',
   },
   row: {
     flexDirection: 'row',

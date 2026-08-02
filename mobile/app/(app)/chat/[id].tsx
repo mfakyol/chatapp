@@ -143,7 +143,7 @@ export default function ChatScreen() {
     if (atBottomRef.current || separatorVisible || !topDate) {
       setFloatingDay(null);
     } else {
-      setFloatingDay(formatDayLabel(topItemDateRef.current));
+      setFloatingDay(formatDayLabel(topDate));
       hideDayTimer.current = setTimeout(() => setFloatingDay(null), 1500);
     }
   };

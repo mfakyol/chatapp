@@ -1,5 +1,5 @@
 import { SERVER_ORIGIN, apiUrl } from "@/lib/api";
-import type { Attachment, Conversation, PublicUser } from "@/types";
+import type { Attachment, Conversation, Message, PublicUser } from "@/types";
 
 export function fileUrl(path: string): string {
   return `${SERVER_ORIGIN}${path}`;
@@ -7,6 +7,16 @@ export function fileUrl(path: string): string {
 
 export function isImageAttachment(attachment?: Attachment): boolean {
   return attachment?.mimeType.startsWith("image/") ?? false;
+}
+
+export function messageImages(message: Message): Attachment[] {
+  if (message.deletedAt) return [];
+  if (message.attachments?.length) {
+    return message.attachments.filter((a) => isImageAttachment(a));
+  }
+  return message.attachment && isImageAttachment(message.attachment)
+    ? [message.attachment]
+    : [];
 }
 
 export function userId(user?: PublicUser | null): string {

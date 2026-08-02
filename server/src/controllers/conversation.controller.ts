@@ -159,26 +159,29 @@ export const deleteMessage: RequestHandler = async (req, res, next) => {
 };
 
 export const sendAttachment: RequestHandler = async (req, res, next) => {
+  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
   try {
-    if (!req.file) throw badRequest('No file uploaded');
+    if (files.length === 0) throw badRequest('No file uploaded');
+    const attachments = files.map((file) => ({
+      url: attachmentUrl(file.filename),
+      fileName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+    }));
     const message = await messageService.createMessage(
       currentUser(req),
       req.params.conversationId,
       {
         content: asString(req.body.caption),
         clientTempId: asString(req.body.clientTempId),
-        attachment: {
-          url: attachmentUrl(req.file.filename),
-          fileName: req.file.originalname,
-          mimeType: req.file.mimetype,
-          size: req.file.size,
-        },
+        attachment: attachments[0],
+        attachments: attachments.length > 1 ? attachments : undefined,
       },
       getIo(req)
     );
     res.status(201).json({ message });
   } catch (err) {
-    if (req.file) await fs.unlink(req.file.path).catch(() => {});
+    await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => {})));
     next(err);
   }
 };

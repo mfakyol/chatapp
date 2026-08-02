@@ -67,7 +67,7 @@ router.post(
   uploadLimiter,
   validate(conversationIdParamSchema),
   ensureMembership,
-  upload.single('file'),
+  upload.array('file', 10),
   validateUpload,
   sendAttachment
 );

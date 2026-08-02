@@ -142,10 +142,14 @@ export async function uploadGroupAvatar(
 
 export async function sendAttachment(
   conversationId: string,
-  file: AttachmentFile,
+  files: AttachmentFile[],
+  caption?: string,
 ): Promise<Result<{ message: Message }>> {
   const formData = new FormData();
-  formData.append("file", file as unknown as Blob);
+  for (const file of files) {
+    formData.append("file", file as unknown as Blob);
+  }
+  if (caption) formData.append("caption", caption);
 
   try {
     const res = await fetch(apiUrl(`/conversations/${conversationId}/attachments`), {

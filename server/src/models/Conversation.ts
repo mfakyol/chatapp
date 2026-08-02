@@ -38,12 +38,18 @@ export function directKeyFor(a: Types.ObjectId, b: Types.ObjectId): string {
 async function cascadeDelete(conversationId: Types.ObjectId): Promise<void> {
   const withFiles = await mongoose
     .model('Message')
-    .find({ conversation: conversationId, 'attachment.url': { $exists: true } })
-    .select('attachment.url');
+    .find({
+      conversation: conversationId,
+      $or: [{ 'attachment.url': { $exists: true } }, { 'attachments.0': { $exists: true } }],
+    })
+    .select('attachment.url attachments.url');
   await Promise.all(
-    withFiles.map((m) =>
-      removeAttachmentFileByUrl((m as { attachment?: { url?: string } }).attachment?.url)
-    )
+    withFiles.flatMap((m) => {
+      const doc = m as { attachment?: { url?: string }; attachments?: { url?: string }[] };
+      return [doc.attachment?.url, ...(doc.attachments ?? []).map((a) => a.url)]
+        .filter(Boolean)
+        .map((url) => removeAttachmentFileByUrl(url));
+    })
   );
   await Promise.all([
     mongoose.model('Message').deleteMany({ conversation: conversationId }),

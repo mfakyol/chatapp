@@ -33,9 +33,11 @@ export default function ConversationsScreen() {
     const preview = last
       ? last.deletedAt
         ? 'Mesaj silindi'
-        : last.attachment
-          ? `📎 ${last.attachment.fileName}`
-          : last.content
+        : (last.attachments?.length ?? 0) > 1
+          ? `📷 ${last.attachments!.length} fotoğraf`
+          : last.attachment
+            ? last.content || `📎 ${last.attachment.fileName}`
+            : last.content
       : 'Henüz mesaj yok';
 
     return (

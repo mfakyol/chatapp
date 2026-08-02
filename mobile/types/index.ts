@@ -41,6 +41,7 @@ export interface Message {
   sender: PublicUser;
   content: string;
   attachment?: Attachment;
+  attachments?: Attachment[];
   reactions?: Reaction[];
   replyTo?: Message | null;
   clientTempId?: string;

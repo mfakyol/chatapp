@@ -10,6 +10,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -31,7 +32,7 @@ import {
   formatLastSeen,
   formatMessageTime,
   fullName,
-  isImageAttachment,
+  messageImages,
   otherParticipant,
   userId,
 } from '@/lib/utils';
@@ -106,11 +107,31 @@ export default function ChatScreen() {
   const inverted = useMemo(() => [...messages].reverse(), [messages]);
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const imageMessages = useMemo(
-    () => messages.filter((m) => !m.deletedAt && isImageAttachment(m.attachment)),
+  const [pendingImages, setPendingImages] = useState<
+    ImagePicker.ImagePickerAsset[] | null
+  >(null);
+  const [caption, setCaption] = useState('');
+
+  const galleryItems = useMemo(
+    () =>
+      messages.flatMap((m) =>
+        messageImages(m).map((att, index) => ({
+          key: `${m._id}:${index}`,
+          uri: fileUrl(att.url),
+          sender: m.sender,
+          createdAt: m.createdAt,
+        })),
+      ),
     [messages],
   );
-  const viewerMessage = viewerIndex !== null ? imageMessages[viewerIndex] : null;
+  const viewerItem = viewerIndex !== null ? galleryItems[viewerIndex] : null;
+
+  const openViewer = (messageId: string, imageIndex: number) => {
+    const index = galleryItems.findIndex(
+      (g) => g.key === `${messageId}:${imageIndex}`,
+    );
+    if (index >= 0) setViewerIndex(index);
+  };
 
   const typingNames = useMemo(() => {
     if (!conversation) return [];
@@ -195,21 +216,30 @@ export default function ChatScreen() {
       quality: 0.8,
     });
     if (result.canceled || result.assets.length === 0) return;
+    setCaption('');
+    setPendingImages(result.assets);
+  };
 
+  const handleSendImages = async () => {
+    if (!pendingImages || uploading) return;
     setUploading(true);
-    for (const asset of result.assets) {
-      await sendAttachment(id, {
-        uri: asset.uri,
-        name: asset.fileName ?? `photo_${Date.now()}.jpg`,
-        type: asset.mimeType ?? 'image/jpeg',
-      });
-    }
+    const files = pendingImages.map((asset) => ({
+      uri: asset.uri,
+      name: asset.fileName ?? `photo_${Date.now()}.jpg`,
+      type: asset.mimeType ?? 'image/jpeg',
+    }));
+    const ok = await sendAttachment(id, files, caption.trim() || undefined);
     setUploading(false);
+    if (ok) {
+      setPendingImages(null);
+      setCaption('');
+    }
   };
 
   const renderItem = ({ item }: { item: Message }) => {
     const mine = userId(item.sender) === meId;
-    const image = isImageAttachment(item.attachment);
+    const images = messageImages(item);
+    const hasImages = images.length > 0;
     return (
       <View style={[styles.bubbleRow, mine ? styles.rowMine : styles.rowTheirs]}>
         <Pressable
@@ -222,7 +252,7 @@ export default function ChatScreen() {
             mine
               ? styles.bubbleMine
               : [styles.bubbleTheirs, isDark && styles.bubbleTheirsDark],
-            image && !item.deletedAt && styles.bubbleImage,
+            hasImages && styles.bubbleImage,
           ]}
         >
           {!mine && conversation?.isGroup && (
@@ -242,25 +272,52 @@ export default function ChatScreen() {
             <ThemedText style={[styles.deleted, mine && styles.textMine]}>
               Bu mesaj silindi
             </ThemedText>
-          ) : image ? (
-            <Pressable
-              onPress={() => {
-                const index = imageMessages.findIndex((m) => m._id === item._id);
-                if (index >= 0) setViewerIndex(index);
-              }}
-              onLongPress={() => setSelected(item)}
-              delayLongPress={300}
-            >
-              <Image
-                source={{ uri: fileUrl(item.attachment!.url) }}
-                style={styles.attachmentImage}
-                contentFit="cover"
-              />
-            </Pressable>
           ) : (
-            <ThemedText style={mine ? styles.textMine : undefined}>
-              {item.attachment ? `📎 ${item.attachment.fileName}` : item.content}
-            </ThemedText>
+            <>
+              {images.length === 1 && (
+                <Pressable
+                  onPress={() => openViewer(item._id, 0)}
+                  onLongPress={() => setSelected(item)}
+                  delayLongPress={300}
+                >
+                  <Image
+                    source={{ uri: fileUrl(images[0].url) }}
+                    style={styles.attachmentImage}
+                    contentFit="cover"
+                  />
+                </Pressable>
+              )}
+              {images.length > 1 && (
+                <View style={styles.imageGrid}>
+                  {images.map((att, index) => (
+                    <Pressable
+                      key={index}
+                      onPress={() => openViewer(item._id, index)}
+                      onLongPress={() => setSelected(item)}
+                      delayLongPress={300}
+                    >
+                      <Image
+                        source={{ uri: fileUrl(att.url) }}
+                        style={styles.gridImage}
+                        contentFit="cover"
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              {!hasImages && item.attachment && (
+                <ThemedText style={mine ? styles.textMine : undefined}>
+                  📎 {item.attachment.fileName}
+                </ThemedText>
+              )}
+              {item.content ? (
+                <ThemedText
+                  style={[mine && styles.textMine, hasImages && styles.captionText]}
+                >
+                  {item.content}
+                </ThemedText>
+              ) : null}
+            </>
           )}
           {!item.deletedAt && (item.reactions?.length ?? 0) > 0 && (
             <View style={styles.reactionsRow}>
@@ -281,7 +338,7 @@ export default function ChatScreen() {
             </View>
           )}
           <ThemedText
-            style={[styles.time, mine && styles.timeMine, image && styles.timeOnImage]}
+            style={[styles.time, mine && styles.timeMine, hasImages && styles.timeOnImage]}
           >
             {formatMessageTime(item.createdAt)}
             {item.editedAt ? ' · düzenlendi' : ''}
@@ -449,6 +506,66 @@ export default function ChatScreen() {
       </Modal>
 
       <Modal
+        visible={pendingImages !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPendingImages(null)}
+      >
+        <KeyboardAvoidingView
+          style={styles.previewBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.previewSheet, isDark && styles.previewSheetDark]}>
+            <ThemedText type="defaultSemiBold">
+              {pendingImages?.length} fotoğraf
+            </ThemedText>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.previewStrip}
+            >
+              {pendingImages?.map((asset, index) => (
+                <Image
+                  key={index}
+                  source={{ uri: asset.uri }}
+                  style={styles.previewThumb}
+                  contentFit="cover"
+                />
+              ))}
+            </ScrollView>
+            <TextInput
+              style={[styles.input, isDark && styles.inputDark]}
+              placeholder="Mesaj ekle..."
+              placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+              value={caption}
+              onChangeText={setCaption}
+              multiline
+            />
+            <View style={styles.previewActions}>
+              <Pressable
+                style={styles.previewCancel}
+                onPress={() => setPendingImages(null)}
+                disabled={uploading}
+              >
+                <ThemedText style={styles.previewCancelText}>Vazgeç</ThemedText>
+              </Pressable>
+              <Pressable
+                style={[styles.previewSend, uploading && styles.sendDisabled]}
+                onPress={handleSendImages}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <ThemedText style={styles.previewSendText}>Gönder</ThemedText>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
         visible={viewerIndex !== null}
         animationType="fade"
         onRequestClose={() => setViewerIndex(null)}
@@ -468,25 +585,20 @@ export default function ChatScreen() {
               >
                 <ThemedText style={styles.viewerClose}>✕</ThemedText>
               </Pressable>
-              {viewerMessage && (
+              {viewerItem && (
                 <ThemedText style={styles.viewerCaption} numberOfLines={1}>
-                  {fullName(viewerMessage.sender)} ·{' '}
-                  {formatMessageTime(viewerMessage.createdAt)}
+                  {fullName(viewerItem.sender)} ·{' '}
+                  {formatMessageTime(viewerItem.createdAt)}
                 </ThemedText>
               )}
             </View>
 
-            {viewerMessage && (
-              <ZoomableImage
-                key={viewerMessage._id}
-                uri={fileUrl(viewerMessage.attachment!.url)}
-              />
-            )}
+            {viewerItem && <ZoomableImage key={viewerItem.key} uri={viewerItem.uri} />}
 
             <FlatList
               horizontal
-              data={imageMessages}
-              keyExtractor={(m) => m._id}
+              data={galleryItems}
+              keyExtractor={(g) => g.key}
               style={styles.thumbStrip}
               contentContainerStyle={styles.thumbContent}
               showsHorizontalScrollIndicator={false}
@@ -496,10 +608,10 @@ export default function ChatScreen() {
                 offset: 64 * index,
                 index,
               })}
-              renderItem={({ item: m, index }) => (
+              renderItem={({ item: g, index }) => (
                 <Pressable onPress={() => setViewerIndex(index)}>
                   <Image
-                    source={{ uri: fileUrl(m.attachment!.url) }}
+                    source={{ uri: g.uri }}
                     style={[styles.thumb, index === viewerIndex && styles.thumbActive]}
                     contentFit="cover"
                   />
@@ -564,6 +676,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(128,128,128,0.35)',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    maxWidth: 224,
+  },
+  gridImage: {
+    width: 108,
+    height: 108,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.35)',
+  },
+  captionText: {
+    marginTop: 6,
+    marginHorizontal: 4,
   },
   sender: {
     fontSize: 12,
@@ -726,6 +855,55 @@ const styles = StyleSheet.create({
   },
   menuDanger: {
     color: '#EF4444',
+  },
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  previewSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 32,
+    gap: 12,
+  },
+  previewSheetDark: {
+    backgroundColor: '#1E293B',
+  },
+  previewStrip: {
+    gap: 8,
+  },
+  previewThumb: {
+    width: 96,
+    height: 96,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.35)',
+  },
+  previewActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 16,
+  },
+  previewCancel: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  previewCancelText: {
+    color: '#EF4444',
+  },
+  previewSend: {
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+  },
+  previewSendText: {
+    color: '#fff',
+    fontWeight: '600',
   },
   viewer: {
     flex: 1,

@@ -17,6 +17,7 @@ export interface IMessage {
   sender: Types.ObjectId;
   content: string;
   attachment?: IAttachment;
+  attachments?: IAttachment[];
   replyTo?: Types.ObjectId;
   reactions: Types.DocumentArray<IReaction>;
   clientTempId?: string;
@@ -39,6 +40,18 @@ const messageSchema = new Schema<IMessage, MessageModel>(
       fileName: { type: String },
       mimeType: { type: String },
       size: { type: Number },
+    },
+    attachments: {
+      type: [
+        {
+          url: { type: String },
+          fileName: { type: String },
+          mimeType: { type: String },
+          size: { type: Number },
+          _id: false,
+        },
+      ],
+      default: undefined,
     },
     replyTo: { type: Schema.Types.ObjectId, ref: 'Message' },
     reactions: [

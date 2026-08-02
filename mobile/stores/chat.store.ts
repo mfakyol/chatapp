@@ -17,7 +17,11 @@ interface ChatState {
   loadConversations: () => Promise<void>;
   loadMessages: (conversationId: string) => Promise<void>;
   loadOlderMessages: (conversationId: string) => Promise<void>;
-  sendAttachment: (conversationId: string, file: AttachmentFile) => Promise<boolean>;
+  sendAttachment: (
+    conversationId: string,
+    files: AttachmentFile[],
+    caption?: string,
+  ) => Promise<boolean>;
   setTyping: (conversationId: string, userId: string, typing: boolean) => void;
   reactToMessage: (
     conversationId: string,
@@ -185,8 +189,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     return true;
   },
 
-  sendAttachment: async (conversationId, file) => {
-    const res = await conversationService.sendAttachment(conversationId, file);
+  sendAttachment: async (conversationId, files, caption) => {
+    const res = await conversationService.sendAttachment(conversationId, files, caption);
     if (!res.success) return false;
     applySentMessage(conversationId, res.data.message);
     return true;

@@ -112,6 +112,7 @@ export async function searchMessages(
 export interface CreateMessageInput {
   content?: string;
   attachment?: IAttachment;
+  attachments?: IAttachment[];
   replyTo?: string;
   clientTempId?: string;
 }
@@ -137,6 +138,7 @@ export async function createMessage(
       sender: user._id,
       content: input.content?.trim() || '',
       attachment: input.attachment,
+      attachments: input.attachments,
       replyTo,
       clientTempId: input.clientTempId,
     });
@@ -194,9 +196,13 @@ export async function deleteMessage(
   if (!message.sender.equals(user._id)) throw forbidden('You can only delete your own messages');
 
   await removeAttachmentFileByUrl(message.attachment?.url);
+  for (const att of message.attachments ?? []) {
+    await removeAttachmentFileByUrl(att.url);
+  }
 
   message.content = '';
   message.attachment = undefined;
+  message.attachments = undefined;
   message.deletedAt = new Date();
   await message.save();
 

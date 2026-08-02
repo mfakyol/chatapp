@@ -22,11 +22,16 @@ export async function resolveAttachmentForUser(
 ): Promise<ServedAttachment> {
   assertSafeFilename(filename);
 
+  const url = attachmentUrl(filename);
   const message = await Message.findOne({
     deletedAt: null,
-    'attachment.url': attachmentUrl(filename),
+    $or: [{ 'attachment.url': url }, { 'attachments.url': url }],
   });
-  if (!message?.attachment?.mimeType) throw notFound('Attachment not found');
+  const attachment =
+    message?.attachment?.url === url
+      ? message.attachment
+      : message?.attachments?.find((a) => a.url === url);
+  if (!attachment?.mimeType || !message) throw notFound('Attachment not found');
 
   await requireMembership(user, message.conversation.toString());
 
@@ -39,7 +44,7 @@ export async function resolveAttachmentForUser(
 
   return {
     filePath,
-    mimeType: message.attachment.mimeType,
-    fileName: message.attachment.fileName ?? filename,
+    mimeType: attachment.mimeType,
+    fileName: attachment.fileName ?? filename,
   };
 }

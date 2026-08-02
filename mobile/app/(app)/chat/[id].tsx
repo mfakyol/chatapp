@@ -161,12 +161,19 @@ export default function ChatScreen() {
       for (const v of viewableItems) {
         if ((v.index ?? Infinity) < (top.index ?? Infinity)) top = v;
       }
+      const topItem = top.item;
       const topDate =
-        top.item.type === 'message' ? top.item.message.createdAt : top.item.date;
-      topItemDateRef.current = topDate;
-      separatorVisibleRef.current = viewableItems.some(
-        (v) => v.item.type === 'day' && isSameDay(v.item.date, topDate),
-      );
+        topItem.type === 'message'
+          ? topItem.message.createdAt
+          : topItem.type === 'day'
+            ? topItem.date
+            : null;
+      if (topDate) {
+        topItemDateRef.current = topDate;
+        separatorVisibleRef.current = viewableItems.some(
+          (v) => v.item.type === 'day' && isSameDay(v.item.date, topDate),
+        );
+      }
     },
   ).current;
 

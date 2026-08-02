@@ -103,21 +103,50 @@ export default function ChatScreen() {
   const listLenRef = useRef(0);
   const listRef = useRef<FlashListRef<ChatListItem>>(null);
   const lastMessageIdRef = useRef<string | null>(null);
+  const firstNewIdRef = useRef<string | null>(null);
+  const [newCount, setNewCount] = useState(0);
 
   useEffect(() => {
     lastMessageIdRef.current = null;
+    firstNewIdRef.current = null;
+    setNewCount(0);
   }, [id]);
 
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (!last) return;
     if (lastMessageIdRef.current && lastMessageIdRef.current !== last._id) {
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToEnd({ animated: false });
-      });
+      if (userId(last.sender) === meId) {
+        firstNewIdRef.current = null;
+        setNewCount(0);
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToEnd({ animated: false });
+        });
+      } else if (!atBottomRef.current) {
+        if (!firstNewIdRef.current) firstNewIdRef.current = last._id;
+        setNewCount((count) => count + 1);
+      }
     }
     lastMessageIdRef.current = last._id;
-  }, [messages]);
+  }, [messages, meId]);
+
+  const jumpToNewMessages = () => {
+    const targetId = firstNewIdRef.current;
+    if (targetId) {
+      const index = listItems.findIndex(
+        (entry) => entry.type === 'message' && entry.message._id === targetId,
+      );
+      if (index >= 0) {
+        listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
+      } else {
+        listRef.current?.scrollToEnd({ animated: true });
+      }
+    } else {
+      listRef.current?.scrollToEnd({ animated: true });
+    }
+    firstNewIdRef.current = null;
+    setNewCount(0);
+  };
 
   const onViewableItemsChanged = useRef(
     ({
@@ -129,6 +158,10 @@ export default function ChatScreen() {
       atBottomRef.current = viewableItems.some(
         (v) => v.index === listLenRef.current - 1,
       );
+      if (atBottomRef.current) {
+        firstNewIdRef.current = null;
+        setNewCount(0);
+      }
       let top = viewableItems[0];
       for (const v of viewableItems) {
         if ((v.index ?? Infinity) < (top.index ?? Infinity)) top = v;
@@ -602,6 +635,14 @@ export default function ChatScreen() {
             </View>
           </View>
         )}
+        {newCount > 0 && (
+          <Pressable style={styles.newMessagesButton} onPress={jumpToNewMessages}>
+            <MaterialIcons name="arrow-downward" size={20} color="#fff" />
+            <View style={styles.newMessagesBadge}>
+              <ThemedText style={styles.newMessagesBadgeText}>{newCount}</ThemedText>
+            </View>
+          </Pressable>
+        )}
         </View>
 
         <SafeAreaView edges={['bottom']}>
@@ -1050,6 +1091,35 @@ const styles = StyleSheet.create({
   },
   listWrap: {
     flex: 1,
+  },
+  newMessagesButton: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newMessagesBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newMessagesBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
   },
   floatingDay: {
     position: 'absolute',

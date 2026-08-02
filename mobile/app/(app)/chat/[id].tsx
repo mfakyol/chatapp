@@ -94,43 +94,53 @@ export default function ChatScreen() {
   const hideDayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const topItemDateRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
-  const dayChipVisibleRef = useRef(false);
+  const dayStartsVisibleRef = useRef<string[]>([]);
   const invertedRef = useRef<Message[]>([]);
 
-  const onViewableItemsChanged = useRef(
-    ({
-      viewableItems,
-    }: {
-      viewableItems: { index: number | null; item: Message }[];
-    }) => {
-      if (viewableItems.length === 0) return;
-      atBottomRef.current = viewableItems.some((v) => v.index === 0);
-      let top = viewableItems[0];
-      for (const v of viewableItems) {
-        if ((v.index ?? 0) > (top.index ?? 0)) top = v;
-      }
-      topItemDateRef.current = top.item.createdAt;
-
-      const list = invertedRef.current;
-      dayChipVisibleRef.current = viewableItems.some((v) => {
-        const index = v.index ?? -1;
-        if (index < 0) return false;
-        const older = list[index + 1];
-        const isDayStart = !older || !isSameDay(older.createdAt, v.item.createdAt);
-        return isDayStart && isSameDay(v.item.createdAt, top.item.createdAt);
-      });
+  const viewabilityPairs = useRef([
+    {
+      viewabilityConfig: { itemVisiblePercentThreshold: 10 },
+      onViewableItemsChanged: ({
+        viewableItems,
+      }: {
+        viewableItems: { index: number | null; item: Message }[];
+      }) => {
+        if (viewableItems.length === 0) return;
+        atBottomRef.current = viewableItems.some((v) => v.index === 0);
+        let top = viewableItems[0];
+        for (const v of viewableItems) {
+          if ((v.index ?? 0) > (top.index ?? 0)) top = v;
+        }
+        topItemDateRef.current = top.item.createdAt;
+      },
     },
-  ).current;
-
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+    {
+      viewabilityConfig: { itemVisiblePercentThreshold: 90 },
+      onViewableItemsChanged: ({
+        viewableItems,
+      }: {
+        viewableItems: { index: number | null; item: Message }[];
+      }) => {
+        const list = invertedRef.current;
+        dayStartsVisibleRef.current = viewableItems
+          .filter((v) => {
+            const index = v.index ?? -1;
+            if (index < 0) return false;
+            const older = list[index + 1];
+            return !older || !isSameDay(older.createdAt, v.item.createdAt);
+          })
+          .map((v) => v.item.createdAt);
+      },
+    },
+  ]).current;
 
   const handleListScroll = () => {
     if (hideDayTimer.current) clearTimeout(hideDayTimer.current);
-    if (
-      atBottomRef.current ||
-      dayChipVisibleRef.current ||
-      !topItemDateRef.current
-    ) {
+    const topDate = topItemDateRef.current;
+    const separatorVisible =
+      topDate !== null &&
+      dayStartsVisibleRef.current.some((d) => isSameDay(d, topDate));
+    if (atBottomRef.current || separatorVisible || !topDate) {
       setFloatingDay(null);
     } else {
       setFloatingDay(formatDayLabel(topItemDateRef.current));
@@ -554,8 +564,7 @@ export default function ChatScreen() {
           onEndReachedThreshold={0.4}
           onScroll={handleListScroll}
           scrollEventThrottle={64}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
+          viewabilityConfigCallbackPairs={viewabilityPairs}
           ListFooterComponent={
             loadingOlder ? <ActivityIndicator style={styles.olderSpinner} /> : null
           }

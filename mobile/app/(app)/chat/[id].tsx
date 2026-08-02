@@ -14,6 +14,7 @@ import {
   StyleSheet,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,6 +50,8 @@ export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const previewImageSize = (windowWidth - 16 * 2 - 8) / 2;
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -542,7 +545,10 @@ export default function ChatScreen() {
                 <Image
                   key={index}
                   source={{ uri: asset.uri }}
-                  style={styles.previewImage}
+                  style={[
+                    styles.previewImage,
+                    { width: previewImageSize, height: previewImageSize },
+                  ]}
                   contentFit="cover"
                 />
               ))}
@@ -887,8 +893,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   previewImage: {
-    width: '48.5%',
-    aspectRatio: 1,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(128,128,128,0.35)',

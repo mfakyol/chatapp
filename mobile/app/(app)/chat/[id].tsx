@@ -84,6 +84,7 @@ export default function ChatScreen() {
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState<Message | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
+  const [infoMessage, setInfoMessage] = useState<Message | null>(null);
 
   const typingSent = useRef(false);
   const typingIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -569,6 +570,15 @@ export default function ChatScreen() {
             </View>
             {selected && userId(selected.sender) === meId && (
               <>
+                <Pressable
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setInfoMessage(selected);
+                    closeMenu();
+                  }}
+                >
+                  <ThemedText>{t('chat.info')}</ThemedText>
+                </Pressable>
                 {!selected.attachment && (
                   <Pressable style={styles.menuItem} onPress={startEdit}>
                     <ThemedText>{t('chat.edit')}</ThemedText>
@@ -578,6 +588,96 @@ export default function ChatScreen() {
                   <ThemedText style={styles.menuDanger}>{t('common.delete')}</ThemedText>
                 </Pressable>
               </>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={infoMessage !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setInfoMessage(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setInfoMessage(null)}>
+          <View style={[styles.menu, isDark && styles.menuDark]}>
+            <ThemedText type="defaultSemiBold" style={styles.menuTitle}>
+              {t('chat.infoTitle')}
+            </ThemedText>
+            {infoMessage && (
+              <View style={styles.infoBody}>
+                <ThemedText style={styles.infoLabel}>{t('chat.sentAt')}</ThemedText>
+                <ThemedText style={styles.infoValue}>
+                  {formatDayLabel(infoMessage.createdAt)}{' '}
+                  {formatMessageTime(infoMessage.createdAt)}
+                </ThemedText>
+
+                {infoMessage.editedAt ? (
+                  <>
+                    <ThemedText style={styles.infoLabel}>
+                      {t('chat.editedAtLabel')}
+                    </ThemedText>
+                    <ThemedText style={styles.infoValue}>
+                      {formatDayLabel(infoMessage.editedAt)}{' '}
+                      {formatMessageTime(infoMessage.editedAt)}
+                    </ThemedText>
+                  </>
+                ) : null}
+
+                {(() => {
+                  const others =
+                    conversation?.members?.filter((m) => userId(m.user) !== meId) ??
+                    [];
+                  const sentTime = new Date(infoMessage.createdAt).getTime();
+                  const seen = others.filter(
+                    (m) => new Date(m.lastReadAt).getTime() >= sentTime,
+                  );
+                  const unseen = others.filter(
+                    (m) => new Date(m.lastReadAt).getTime() < sentTime,
+                  );
+                  return (
+                    <>
+                      <ThemedText style={styles.infoLabel}>
+                        {t('chat.seenBy', { n: seen.length })}
+                      </ThemedText>
+                      {seen.length === 0 && (
+                        <ThemedText style={styles.infoValue}>
+                          {t('chat.notSeenYet')}
+                        </ThemedText>
+                      )}
+                      {seen.map((m) => (
+                        <View key={m.user.username} style={styles.infoRow}>
+                          <Avatar user={m.user} size={28} />
+                          <ThemedText style={styles.infoName} numberOfLines={1}>
+                            {fullName(m.user)}
+                          </ThemedText>
+                          <ThemedText style={styles.infoTime}>
+                            {formatLastSeen(m.lastReadAt)}
+                          </ThemedText>
+                        </View>
+                      ))}
+                      {unseen.length > 0 && (
+                        <>
+                          <ThemedText style={styles.infoLabel}>
+                            {t('chat.notSeenBy')}
+                          </ThemedText>
+                          {unseen.map((m) => (
+                            <View key={m.user.username} style={styles.infoRow}>
+                              <Avatar user={m.user} size={28} />
+                              <ThemedText
+                                style={styles.infoName}
+                                numberOfLines={1}
+                              >
+                                {fullName(m.user)}
+                              </ThemedText>
+                            </View>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
+              </View>
             )}
           </View>
         </Pressable>
@@ -993,6 +1093,40 @@ const styles = StyleSheet.create({
   },
   menuDanger: {
     color: '#EF4444',
+  },
+  menuTitle: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  infoBody: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    opacity: 0.5,
+    marginTop: 12,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 14,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  infoName: {
+    flex: 1,
+    fontSize: 14,
+  },
+  infoTime: {
+    fontSize: 12,
+    opacity: 0.5,
   },
   previewHeader: {
     flexDirection: 'row',

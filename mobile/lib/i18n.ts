@@ -46,6 +46,13 @@ const en = {
   "chat.deleteConfirm": "This message will be deleted for everyone. Are you sure?",
   "chat.imagesUnreadable":
     "{n} photo(s) could not be read (possibly not downloaded from iCloud)",
+  "chat.info": "Info",
+  "chat.infoTitle": "Message info",
+  "chat.sentAt": "Sent",
+  "chat.editedAtLabel": "Edited",
+  "chat.seenBy": "Seen by ({n})",
+  "chat.notSeenBy": "Not seen yet",
+  "chat.notSeenYet": "Not seen yet",
 
   "contacts.title": "Contacts",
   "contacts.search": "Search users...",
@@ -162,6 +169,13 @@ const tr: Record<TranslationKey, string> = {
   "chat.deleteConfirm": "Bu mesaj herkes için silinecek. Emin misin?",
   "chat.imagesUnreadable":
     "{n} fotoğraf okunamadı (iCloud'dan inmemiş olabilir)",
+  "chat.info": "Bilgi",
+  "chat.infoTitle": "Mesaj bilgisi",
+  "chat.sentAt": "Gönderildi",
+  "chat.editedAtLabel": "Düzenlendi",
+  "chat.seenBy": "Görenler ({n})",
+  "chat.notSeenBy": "Henüz görmedi",
+  "chat.notSeenYet": "Henüz görülmedi",
 
   "contacts.title": "Kişiler",
   "contacts.search": "Kullanıcı ara...",
@@ -278,6 +292,13 @@ const de: Record<TranslationKey, string> = {
   "chat.deleteConfirm": "Diese Nachricht wird für alle gelöscht. Bist du sicher?",
   "chat.imagesUnreadable":
     "{n} Foto(s) konnten nicht gelesen werden (evtl. nicht aus iCloud geladen)",
+  "chat.info": "Info",
+  "chat.infoTitle": "Nachrichteninfo",
+  "chat.sentAt": "Gesendet",
+  "chat.editedAtLabel": "Bearbeitet",
+  "chat.seenBy": "Gesehen von ({n})",
+  "chat.notSeenBy": "Noch nicht gesehen",
+  "chat.notSeenYet": "Noch nicht gesehen",
 
   "contacts.title": "Kontakte",
   "contacts.search": "Benutzer suchen...",

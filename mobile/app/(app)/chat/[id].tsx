@@ -263,15 +263,28 @@ export default function ChatScreen() {
     return out;
   }, [messages, firstNewId]);
 
+  const listItemsRef = useRef<ChatListItem[]>([]);
+  listItemsRef.current = listItems;
+
   useEffect(() => {
     if (!firstNewId || !openScrollPendingRef.current) return;
-    const index = listItems.findIndex((entry) => entry.type === 'newDivider');
-    if (index < 0) return;
     openScrollPendingRef.current = false;
-    setTimeout(() => {
+
+    const scrollToDivider = () => {
+      const index = listItemsRef.current.findIndex(
+        (entry) => entry.type === 'newDivider',
+      );
+      if (index < 0) return;
       listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.1 });
-    }, 80);
-  }, [firstNewId, listItems]);
+    };
+
+    const firstTry = setTimeout(scrollToDivider, 80);
+    const retry = setTimeout(scrollToDivider, 450);
+    return () => {
+      clearTimeout(firstTry);
+      clearTimeout(retry);
+    };
+  }, [firstNewId]);
 
   const othersReadAt = useMemo(() => {
     const others =

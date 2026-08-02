@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { GroupAvatar } from '@/components/group-avatar';
@@ -45,6 +45,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -450,10 +451,19 @@ export default function ChatScreen() {
         animationType="fade"
         onRequestClose={() => setViewerIndex(null)}
       >
-        <View style={styles.viewer}>
-          <SafeAreaView style={styles.viewerSafe}>
+        <View
+          style={[
+            styles.viewer,
+            { paddingTop: insets.top, paddingBottom: insets.bottom },
+          ]}
+        >
+          <View style={styles.viewerSafe}>
             <View style={styles.viewerTop}>
-              <Pressable onPress={() => setViewerIndex(null)} hitSlop={12}>
+              <Pressable
+                onPress={() => setViewerIndex(null)}
+                hitSlop={12}
+                style={styles.viewerCloseButton}
+              >
                 <ThemedText style={styles.viewerClose}>✕</ThemedText>
               </Pressable>
               {viewerMessage && (
@@ -495,7 +505,7 @@ export default function ChatScreen() {
                 </Pressable>
               )}
             />
-          </SafeAreaView>
+          </View>
         </View>
       </Modal>
     </ThemedView>
@@ -729,6 +739,14 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  viewerCloseButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   viewerClose: {
     color: '#fff',

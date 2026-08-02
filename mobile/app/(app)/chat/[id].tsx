@@ -103,29 +103,66 @@ export default function ChatScreen() {
   const separatorVisibleRef = useRef(false);
   const listRef = useRef<FlashListRef<ChatListItem>>(null);
   const lastMessageIdRef = useRef<string | null>(null);
-  const firstNewIdRef = useRef<string | null>(null);
+  const openLastReadRef = useRef<number | null>(null);
+  const boundaryDoneRef = useRef(false);
+  const openScrollPendingRef = useRef(false);
   const [firstNewId, setFirstNewId] = useState<string | null>(null);
   const [newCount, setNewCount] = useState(0);
-  firstNewIdRef.current = firstNewId;
 
   useEffect(() => {
     lastMessageIdRef.current = null;
+    boundaryDoneRef.current = false;
+    openScrollPendingRef.current = false;
     setFirstNewId(null);
     setNewCount(0);
-  }, [id]);
+
+    const conv = useChatStore
+      .getState()
+      .conversations.find((c) => c._id === id);
+    const myMembership = conv?.members?.find(
+      (m) => (m.user.id ?? m.user._id) === meId,
+    );
+    openLastReadRef.current = myMembership
+      ? new Date(myMembership.lastReadAt).getTime()
+      : null;
+  }, [id, meId]);
+
+  useEffect(() => {
+    if (boundaryDoneRef.current || messages.length === 0) return;
+    boundaryDoneRef.current = true;
+    const lastRead = openLastReadRef.current;
+    if (lastRead === null) return;
+    const firstUnread = messages.find(
+      (m) =>
+        userId(m.sender) !== meId &&
+        new Date(m.createdAt).getTime() > lastRead,
+    );
+    if (firstUnread) {
+      openScrollPendingRef.current = true;
+      setFirstNewId(firstUnread._id);
+    }
+  }, [messages, meId]);
+
+  useEffect(() => {
+    if (!firstNewId || !openScrollPendingRef.current) return;
+    const index = listItems.findIndex((entry) => entry.type === 'newDivider');
+    if (index < 0) return;
+    openScrollPendingRef.current = false;
+    setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.1 });
+    }, 80);
+  }, [firstNewId, listItems]);
 
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (!last) return;
     if (lastMessageIdRef.current && lastMessageIdRef.current !== last._id) {
       if (userId(last.sender) === meId) {
-        setFirstNewId(null);
         setNewCount(0);
         requestAnimationFrame(() => {
           listRef.current?.scrollToEnd({ animated: false });
         });
       } else if (!atBottomRef.current) {
-        if (!firstNewIdRef.current) setFirstNewId(last._id);
         setNewCount((count) => count + 1);
       }
     }
@@ -133,12 +170,7 @@ export default function ChatScreen() {
   }, [messages, meId]);
 
   const jumpToNewMessages = () => {
-    const index = listItems.findIndex((entry) => entry.type === 'newDivider');
-    if (index >= 0) {
-      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.05 });
-    } else {
-      listRef.current?.scrollToEnd({ animated: true });
-    }
+    listRef.current?.scrollToEnd({ animated: true });
     setNewCount(0);
   };
 
@@ -183,7 +215,6 @@ export default function ChatScreen() {
       contentSize.height - (contentOffset.y + layoutMeasurement.height);
     atBottomRef.current = distanceFromBottom < 40;
     if (atBottomRef.current) {
-      setFirstNewId(null);
       setNewCount(0);
     }
 

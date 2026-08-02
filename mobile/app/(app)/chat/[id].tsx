@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -101,7 +101,7 @@ export default function ChatScreen() {
   const atBottomRef = useRef(true);
   const separatorVisibleRef = useRef(false);
   const listLenRef = useRef(0);
-  const listRef = useRef<FlashList<ChatListItem>>(null);
+  const listRef = useRef<FlashListRef<ChatListItem>>(null);
   const lastMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -99,30 +100,32 @@ export default function ChatScreen() {
   const topItemDateRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
   const separatorVisibleRef = useRef(false);
+  const listLenRef = useRef(0);
 
-  const viewabilityPairs = useRef([
-    {
-      viewabilityConfig: { itemVisiblePercentThreshold: 10 },
-      onViewableItemsChanged: ({
-        viewableItems,
-      }: {
-        viewableItems: { index: number | null; item: ChatListItem }[];
-      }) => {
-        if (viewableItems.length === 0) return;
-        atBottomRef.current = viewableItems.some((v) => v.index === 0);
-        let top = viewableItems[0];
-        for (const v of viewableItems) {
-          if ((v.index ?? 0) > (top.index ?? 0)) top = v;
-        }
-        const topDate =
-          top.item.type === 'message' ? top.item.message.createdAt : top.item.date;
-        topItemDateRef.current = topDate;
-        separatorVisibleRef.current = viewableItems.some(
-          (v) => v.item.type === 'day' && isSameDay(v.item.date, topDate),
-        );
-      },
+  const onViewableItemsChanged = useRef(
+    ({
+      viewableItems,
+    }: {
+      viewableItems: { index: number | null; item: ChatListItem }[];
+    }) => {
+      if (viewableItems.length === 0) return;
+      atBottomRef.current = viewableItems.some(
+        (v) => v.index === listLenRef.current - 1,
+      );
+      let top = viewableItems[0];
+      for (const v of viewableItems) {
+        if ((v.index ?? Infinity) < (top.index ?? Infinity)) top = v;
+      }
+      const topDate =
+        top.item.type === 'message' ? top.item.message.createdAt : top.item.date;
+      topItemDateRef.current = topDate;
+      separatorVisibleRef.current = viewableItems.some(
+        (v) => v.item.type === 'day' && isSameDay(v.item.date, topDate),
+      );
     },
-  ]).current;
+  ).current;
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
 
   const handleListScroll = () => {
     if (hideDayTimer.current) clearTimeout(hideDayTimer.current);
@@ -165,19 +168,18 @@ export default function ChatScreen() {
     }, [id, markRead, setActiveConversation]),
   );
 
-  const inverted = useMemo(() => [...messages].reverse(), [messages]);
-
   const listItems = useMemo(() => {
     const out: ChatListItem[] = [];
-    inverted.forEach((message, index) => {
-      out.push({ type: 'message', message });
-      const older = inverted[index + 1];
-      if (!older || !isSameDay(older.createdAt, message.createdAt)) {
+    messages.forEach((message, index) => {
+      const prev = messages[index - 1];
+      if (!prev || !isSameDay(prev.createdAt, message.createdAt)) {
         out.push({ type: 'day', date: message.createdAt });
       }
+      out.push({ type: 'message', message });
     });
     return out;
-  }, [inverted]);
+  }, [messages]);
+  listLenRef.current = listItems.length;
 
   const othersReadAt = useMemo(() => {
     const others =
@@ -551,20 +553,24 @@ export default function ChatScreen() {
           onBodyPress={conversation ? openInfo : undefined}
         />
         <View style={styles.listWrap}>
-        <FlatList
+        <FlashList
           data={listItems}
           keyExtractor={(entry) =>
             entry.type === 'day' ? `day:${entry.date}` : entry.message._id
           }
           renderItem={renderItem}
-          inverted
+          maintainVisibleContentPosition={{
+            startRenderingFromBottom: true,
+            autoscrollToBottomThreshold: 0.2,
+          }}
           contentContainerStyle={styles.listContent}
-          onEndReached={() => loadOlderMessages(id)}
-          onEndReachedThreshold={0.4}
+          onStartReached={() => loadOlderMessages(id)}
+          onStartReachedThreshold={0.4}
           onScroll={handleListScroll}
           scrollEventThrottle={64}
-          viewabilityConfigCallbackPairs={viewabilityPairs}
-          ListFooterComponent={
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          ListHeaderComponent={
             loadingOlder ? <ActivityIndicator style={styles.olderSpinner} /> : null
           }
         />
@@ -922,13 +928,13 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    gap: 4,
   },
   olderSpinner: {
     marginVertical: 12,
   },
   bubbleRow: {
     flexDirection: 'row',
+    marginVertical: 2,
   },
   rowMine: {
     justifyContent: 'flex-end',

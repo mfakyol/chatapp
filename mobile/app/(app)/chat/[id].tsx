@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -449,15 +450,19 @@ export default function ChatScreen() {
               ))}
             </View>
           )}
-          <ThemedText style={[styles.time, mine && styles.timeMine]}>
-            {formatMessageTime(item.createdAt)}
-            {item.editedAt ? t('chat.edited') : ''}
-            {mine && !item.deletedAt ? (
-              <ThemedText style={[styles.tick, seen && styles.tickSeen]}>
-                {seen ? ' ✓✓' : ' ✓'}
-              </ThemedText>
-            ) : null}
-          </ThemedText>
+          <View style={styles.timeRow}>
+            <ThemedText style={[styles.time, mine && styles.timeMine]}>
+              {formatMessageTime(item.createdAt)}
+              {item.editedAt ? t('chat.edited') : ''}
+            </ThemedText>
+            {mine && !item.deletedAt && (
+              <MaterialIcons
+                name={seen ? 'done-all' : 'done'}
+                size={13}
+                color={seen ? '#38BDF8' : '#DBEAFE'}
+              />
+            )}
+          </View>
         </Pressable>
       </View>
       </View>
@@ -993,23 +998,21 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     opacity: 0.7,
   },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 3,
+    marginTop: 1,
+  },
   time: {
     fontSize: 10,
     lineHeight: 13,
     opacity: 0.5,
-    alignSelf: 'flex-end',
   },
   timeMine: {
     color: '#DBEAFE',
     opacity: 0.9,
-  },
-  tick: {
-    fontSize: 10,
-    lineHeight: 13,
-    color: '#DBEAFE',
-  },
-  tickSeen: {
-    color: '#38BDF8',
   },
   listWrap: {
     flex: 1,

@@ -245,7 +245,6 @@ export default function ChatScreen() {
     const hasImages = images.length > 0;
     return (
       <View style={[styles.bubbleRow, mine ? styles.rowMine : styles.rowTheirs]}>
-        <View style={mine ? styles.columnMine : styles.columnTheirs}>
         <Pressable
           onLongPress={() => {
             if (!item.deletedAt) setSelected(item);
@@ -352,12 +351,11 @@ export default function ChatScreen() {
               ))}
             </View>
           )}
+          <ThemedText style={[styles.time, mine && styles.timeMine]}>
+            {formatMessageTime(item.createdAt)}
+            {item.editedAt ? ' · dzn' : ''}
+          </ThemedText>
         </Pressable>
-        <ThemedText style={styles.time}>
-          {formatMessageTime(item.createdAt)}
-          {item.editedAt ? ' · düzenlendi' : ''}
-        </ThemedText>
-        </View>
       </View>
     );
   };
@@ -676,7 +674,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   bubble: {
-    maxWidth: '100%',
+    maxWidth: '80%',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -749,20 +747,15 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     opacity: 0.7,
   },
-  columnMine: {
-    maxWidth: '80%',
-    alignItems: 'flex-end',
-  },
-  columnTheirs: {
-    maxWidth: '80%',
-    alignItems: 'flex-start',
-  },
   time: {
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 9,
+    lineHeight: 11,
     opacity: 0.5,
-    marginTop: 2,
-    marginHorizontal: 4,
+    alignSelf: 'flex-end',
+  },
+  timeMine: {
+    color: '#DBEAFE',
+    opacity: 0.9,
   },
   inputBar: {
     flexDirection: 'row',

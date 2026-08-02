@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/avatar';
+import { GroupAvatar } from '@/components/group-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -281,26 +283,32 @@ export default function ChatScreen() {
             : 'Sohbet',
           headerBackTitle: 'Geri',
           headerRight: conversation
-            ? () => (
-                <Pressable
-                  onPress={() => {
-                    if (conversation.isGroup) {
-                      router.push({ pathname: '/group/[id]', params: { id } });
-                    } else {
-                      const other = otherParticipant(conversation, meId);
-                      if (other) {
+            ? () => {
+                const other = conversation.isGroup
+                  ? undefined
+                  : otherParticipant(conversation, meId);
+                return (
+                  <Pressable
+                    onPress={() => {
+                      if (conversation.isGroup) {
+                        router.push({ pathname: '/group/[id]', params: { id } });
+                      } else if (other) {
                         router.push({
                           pathname: '/user/[username]',
                           params: { username: other.username },
                         });
                       }
-                    }
-                  }}
-                  hitSlop={12}
-                >
-                  <ThemedText style={styles.infoButton}>ⓘ</ThemedText>
-                </Pressable>
-              )
+                    }}
+                    hitSlop={8}
+                  >
+                    {conversation.isGroup ? (
+                      <GroupAvatar conversation={conversation} size={32} />
+                    ) : (
+                      <Avatar user={other} size={32} />
+                    )}
+                  </Pressable>
+                );
+              }
             : undefined,
         }}
       />
@@ -430,10 +438,6 @@ const styles = StyleSheet.create({
   },
   olderSpinner: {
     marginVertical: 12,
-  },
-  infoButton: {
-    fontSize: 22,
-    color: '#2563EB',
   },
   bubbleRow: {
     flexDirection: 'row',

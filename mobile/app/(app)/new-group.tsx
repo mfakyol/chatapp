@@ -18,7 +18,7 @@ import * as userService from '@/services/user.service';
 import { useChatStore } from '@/stores/chat.store';
 import type { PublicUser } from '@/types';
 
-const MIN_MEMBERS = 2;
+const MIN_MEMBERS = 1;
 
 export default function NewGroupScreen() {
   const router = useRouter();

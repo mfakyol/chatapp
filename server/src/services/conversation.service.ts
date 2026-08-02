@@ -186,7 +186,7 @@ export async function createGroupConversation(
   const wanted = [...new Set(usernames.map((u) => u.toLowerCase()))].filter(
     (u) => u !== user.username
   );
-  if (wanted.length < 2) throw badRequest('At least 2 other members are required');
+  if (wanted.length < 1) throw badRequest('At least 1 other member is required');
 
   const members = await User.find({ username: { $in: wanted } });
   if (members.length !== wanted.length) {

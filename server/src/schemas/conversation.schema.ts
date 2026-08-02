@@ -10,7 +10,7 @@ export const createGroupSchema = z.object({
     name: z.string().trim().min(1, 'Group name is required'),
     usernames: z
       .array(z.string().trim().toLowerCase())
-      .min(2, 'At least 2 other members are required'),
+      .min(1, 'At least 1 other member is required'),
   }),
 });
 

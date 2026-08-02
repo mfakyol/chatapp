@@ -10,7 +10,7 @@ export function createNewGroupSchema(catalog: Messages) {
       name: z.string(),
       members: z.array(z.string()),
     })
-    .refine((data) => data.name.trim().length > 0 && data.members.length >= 2, {
+    .refine((data) => data.name.trim().length > 0 && data.members.length >= 1, {
       message,
       path: ['name'],
     })

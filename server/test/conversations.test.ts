@@ -154,12 +154,21 @@ describe('messages', () => {
 });
 
 describe('POST /api/conversations/group', () => {
-  it('rejects a group with fewer than 2 other members (400)', async () => {
+  it('rejects a group with no other members (400)', async () => {
     const { a } = await makeFriends(app);
     const res = await a.agent
       .post('/api/conversations/group')
-      .send({ name: 'Squad', usernames: ['bob'] });
+      .send({ name: 'Squad', usernames: [] });
     expect(res.status).toBe(400);
+  });
+
+  it('creates a group with a single other member', async () => {
+    const { a, b } = await makeFriends(app);
+    const res = await a.agent
+      .post('/api/conversations/group')
+      .send({ name: 'Duo', usernames: [b.user.username] });
+    expect(res.status).toBe(201);
+    expect(res.body.conversation.participants).toHaveLength(2);
   });
 
   it('creates a group of friends with the creator as admin', async () => {

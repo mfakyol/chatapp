@@ -45,7 +45,10 @@ export default function ConversationsScreen() {
           router.push({ pathname: '/chat/[id]', params: { id: item._id } })
         }
       >
-        <Avatar user={avatarUser} size={52} />
+        <View>
+          <Avatar user={avatarUser} size={52} />
+          {!item.isGroup && avatarUser?.isOnline && <View style={styles.onlineDot} />}
+        </View>
         <View style={styles.rowBody}>
           <View style={styles.rowTop}>
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.title}>
@@ -73,9 +76,14 @@ export default function ConversationsScreen() {
       <SafeAreaView style={styles.flex} edges={['top']}>
         <View style={styles.header}>
           <ThemedText type="title">Sohbetler</ThemedText>
-          <Pressable onPress={logout} hitSlop={12}>
-            <ThemedText style={styles.logout}>Çıkış</ThemedText>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable onPress={() => router.push('/new-chat')} hitSlop={12}>
+              <ThemedText style={styles.newChat}>＋ Yeni</ThemedText>
+            </Pressable>
+            <Pressable onPress={logout} hitSlop={12}>
+              <ThemedText style={styles.logout}>Çıkış</ThemedText>
+            </Pressable>
+          </View>
         </View>
 
         <FlatList
@@ -109,6 +117,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  newChat: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
   logout: {
     color: '#EF4444',
   },
@@ -121,6 +138,17 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     opacity: 0.6,
+  },
+  onlineDot: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   rowBody: {
     flex: 1,

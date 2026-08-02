@@ -30,6 +30,7 @@ interface ChatState {
     content: string,
   ) => Promise<boolean>;
   deleteMessage: (conversationId: string, messageId: string) => Promise<void>;
+  openDirectConversation: (username: string) => Promise<string | null>;
   sendMessage: (conversationId: string, content: string) => Promise<boolean>;
   markRead: (conversationId: string) => Promise<void>;
   setActiveConversation: (conversationId: string | null) => void;
@@ -44,6 +45,7 @@ interface ChatState {
   ) => void;
   upsertConversation: (conversation: Conversation) => void;
   removeConversation: (conversationId: string) => void;
+  applyPresence: (userId: string, isOnline: boolean, lastSeen?: string) => void;
 }
 
 function appendUnique(list: Message[], message: Message): Message[] {
@@ -192,6 +194,13 @@ export const useChatStore = create<ChatState>((set, get) => {
     }
   },
 
+  openDirectConversation: async (username) => {
+    const res = await conversationService.createDirectConversation(username);
+    if (!res.success) return null;
+    get().upsertConversation(res.data.conversation);
+    return res.data.conversation._id;
+  },
+
   setTyping: (conversationId, userId, typing) => {
     set((state) => {
       const current = state.typingByConversation[conversationId] ?? [];
@@ -307,6 +316,22 @@ export const useChatStore = create<ChatState>((set, get) => {
           : [conversation, ...state.conversations],
       };
     });
+  },
+
+  applyPresence: (targetUserId, isOnline, lastSeen) => {
+    set((state) => ({
+      conversations: state.conversations.map((c) => {
+        if (!c.participants.some((p) => (p.id ?? p._id) === targetUserId)) return c;
+        return {
+          ...c,
+          participants: c.participants.map((p) =>
+            (p.id ?? p._id) === targetUserId
+              ? { ...p, isOnline, lastSeen: lastSeen ?? p.lastSeen }
+              : p,
+          ),
+        };
+      }),
+    }));
   },
 
   removeConversation: (conversationId) => {

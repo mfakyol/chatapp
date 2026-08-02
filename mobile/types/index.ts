@@ -17,6 +17,11 @@ export interface RegisterPayload {
   lastName: string;
 }
 
+export interface FriendRequests {
+  received: PublicUser[];
+  sent: PublicUser[];
+}
+
 export interface Attachment {
   url: string;
   fileName: string;

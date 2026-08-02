@@ -27,6 +27,7 @@ import {
   formatMessageTime,
   fullName,
   isImageAttachment,
+  otherParticipant,
   userId,
 } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
@@ -260,7 +261,13 @@ export default function ChatScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: conversation ? conversationTitle(conversation, meId) : 'Sohbet',
+          title: conversation
+            ? conversationTitle(conversation, meId) +
+              (!conversation.isGroup &&
+              otherParticipant(conversation, meId)?.isOnline
+                ? ' • çevrimiçi'
+                : '')
+            : 'Sohbet',
           headerBackTitle: 'Geri',
         }}
       />

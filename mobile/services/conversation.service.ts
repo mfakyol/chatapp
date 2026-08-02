@@ -29,6 +29,12 @@ export const markRead = (conversationId: string) =>
     method: "POST",
   });
 
+export const createDirectConversation = (username: string) =>
+  request<{ conversation: Conversation }>("/conversations/direct", {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+
 export const reactToMessage = (
   conversationId: string,
   messageId: string,

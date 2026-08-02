@@ -100,6 +100,18 @@ export function subscribeChatSocket(currentUsername: string): () => void {
     store().removeConversation(conversationId);
   };
 
+  const onPresenceUpdate = ({
+    userId,
+    isOnline,
+    lastSeen,
+  }: {
+    userId: string;
+    isOnline: boolean;
+    lastSeen?: string;
+  }) => {
+    store().applyPresence(String(userId), isOnline, lastSeen);
+  };
+
   socket.on("connect", onConnect);
   socket.on("typing:start", onTypingStart);
   socket.on("typing:stop", onTypingStop);
@@ -110,6 +122,7 @@ export function subscribeChatSocket(currentUsername: string): () => void {
   socket.on("conversation:new", onConversationNew);
   socket.on("conversation:updated", onConversationUpdated);
   socket.on("conversation:deleted", onConversationDeleted);
+  socket.on("presence:update", onPresenceUpdate);
 
   return () => {
     for (const key of typingTimers.keys()) clearTypingTimer(key);
@@ -123,6 +136,7 @@ export function subscribeChatSocket(currentUsername: string): () => void {
     socket.off("conversation:new", onConversationNew);
     socket.off("conversation:updated", onConversationUpdated);
     socket.off("conversation:deleted", onConversationDeleted);
+    socket.off("presence:update", onPresenceUpdate);
     disconnectSocket();
   };
 }

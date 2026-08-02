@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,6 +22,7 @@ import { useChatStore } from '@/stores/chat.store';
 
 export default function GroupInfoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -171,7 +172,15 @@ export default function GroupInfoScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.memberRow}>
+          <Pressable
+            style={({ pressed }) => [styles.memberRow, pressed && styles.memberPressed]}
+            onPress={() =>
+              router.push({
+                pathname: '/user/[username]',
+                params: { username: item.user.username },
+              })
+            }
+          >
             <Avatar user={item.user} size={44} />
             <View style={styles.memberBody}>
               <ThemedText type="defaultSemiBold">
@@ -191,7 +200,7 @@ export default function GroupInfoScreen() {
                 <ThemedText style={styles.adminBadgeText}>admin</ThemedText>
               </View>
             )}
-          </View>
+          </Pressable>
         )}
       />
     </ThemedView>
@@ -272,6 +281,9 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 24,
     paddingVertical: 8,
+  },
+  memberPressed: {
+    opacity: 0.6,
   },
   memberBody: {
     flex: 1,

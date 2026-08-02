@@ -211,7 +211,17 @@ export default function ChatScreen() {
           ]}
         >
           {!mine && conversation?.isGroup && (
-            <ThemedText style={styles.sender}>{fullName(item.sender)}</ThemedText>
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/user/[username]',
+                  params: { username: item.sender.username },
+                })
+              }
+              hitSlop={4}
+            >
+              <ThemedText style={styles.sender}>{fullName(item.sender)}</ThemedText>
+            </Pressable>
           )}
           {item.deletedAt ? (
             <ThemedText style={[styles.deleted, mine && styles.textMine]}>
@@ -270,12 +280,22 @@ export default function ChatScreen() {
                 : '')
             : 'Sohbet',
           headerBackTitle: 'Geri',
-          headerRight: conversation?.isGroup
+          headerRight: conversation
             ? () => (
                 <Pressable
-                  onPress={() =>
-                    router.push({ pathname: '/group/[id]', params: { id } })
-                  }
+                  onPress={() => {
+                    if (conversation.isGroup) {
+                      router.push({ pathname: '/group/[id]', params: { id } });
+                    } else {
+                      const other = otherParticipant(conversation, meId);
+                      if (other) {
+                        router.push({
+                          pathname: '/user/[username]',
+                          params: { username: other.username },
+                        });
+                      }
+                    }
+                  }}
                   hitSlop={12}
                 >
                   <ThemedText style={styles.infoButton}>ⓘ</ThemedText>
